@@ -9,7 +9,8 @@ Nel browser dell'app popup, `window.open` e salti verso altri domini vengono blo
 ## Preparazione (una volta sola)
 
 **Fire TV**
-1. Installa Kodi (dall'Appstore Amazon, oppure con l'app Downloader da kodi.tv).
+0. Serve una Fire TV con **Fire OS** (es. Fire TV Stick 4K Max e precedenti): controlla in *Impostazioni → La mia Fire TV → Info*. I modelli con **Vega OS** (Fire TV Stick 4K Select, Fire TV Stick HD 2026) non permettono di installare Kodi.
+1. Kodi non è nell'Appstore Amazon: installa l'app **Downloader** dall'Appstore, abilitala alle "app da origini sconosciute" (in *La mia Fire TV → Opzioni sviluppatore*; se non le vedi, tocca 7 volte il nome del dispositivo in *Info*) e scarica da kodi.tv l'APK Android ARM a 32 bit.
 2. In Kodi: *Impostazioni → Servizi → Controllo*, attiva **Consenti il controllo remoto via HTTP**. Annota porta (di solito 8080), utente e password.
 3. Annota l'IP della Fire TV: *Impostazioni → La mia Fire TV → Info → Rete*.
 
