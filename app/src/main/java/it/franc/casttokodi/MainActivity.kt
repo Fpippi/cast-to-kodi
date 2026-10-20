@@ -285,7 +285,7 @@ class MainActivity : Activity() {
     // Kodi si annuncia via mDNS solo se in Impostazioni → Servizi → Generale è attivo "Annuncia servizi ad altri sistemi".
     // Restituisce sul thread UI gli "IP:porta" trovati in qualche secondo.
     private fun discoverKodi(onResult: (List<String>) -> Unit) {
-        val nsd = getSystemService(NsdManager::class.java)
+        val nsd = getSystemService(NsdManager::class.java) ?: return onResult(emptyList())
         // Lo stato si tocca solo dal thread UI: i callback di NsdManager arrivano su un thread suo
         val found = LinkedHashSet<String>()
         val queue = ArrayDeque<NsdServiceInfo>()

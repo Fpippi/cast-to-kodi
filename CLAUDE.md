@@ -9,6 +9,7 @@
 - Fatto finora (Build 9): rilevamento VixCloud, controllo aggiornamenti senza token, firma fissa, barra di caricamento, pulsante verde quando c'è un video.
 - 2026-10-20: la storia git è stata riscritta (autore unico `Fpippi` con email noreply). Un clone fatto prima va riallineato con `git fetch origin && git reset --hard origin/main`.
 - Si compila solo su GitHub Actions (`.github/workflows/apk.yml`): l'ambiente di Claude Code non scarica l'SDK Android. Gli errori di build si leggono dai log della run. Chi ha Android Studio può comunque aprire il progetto e compilarlo in locale.
+- Controllo veloce senza SDK (es. nella sessione online, prima di pushare un branch che non va su main): compilare `MainActivity.kt` con `kotlinc` 2.0.21 (zip dalle release GitHub di JetBrains/kotlin) e `-cp` sul jar `org.robolectric:android-all:15-robolectric-*` di Maven Central. Verifica tipi e API, non manifest né risorse.
 
 ## Decisioni prese e perché
 - **Kodi come ricevitore** invece di un'app nostra sulla Fire TV: è gratuito, senza pubblicità, ha già un'API JSON-RPC (`Player.Open`) e riproduce HLS. Così c'è da scrivere solo l'app sul telefono.
