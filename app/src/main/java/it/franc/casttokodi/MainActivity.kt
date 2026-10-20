@@ -84,7 +84,7 @@ class MainActivity : Activity() {
         checkUpdate()
     }
 
-    // La release "latest" ha come titolo "Build N", con N = versionCode dell'APK (vedi .github/workflows/apk.yml).
+    // L'ultima release ha come titolo "Build N", con N = versionCode dell'APK (vedi .github/workflows/apk.yml).
     // Il repo è privato: senza token GitHub l'API risponde 404 e il controllo si salta.
     private fun checkUpdate() {
         val token = prefs.getString("token", "").orEmpty()
@@ -92,7 +92,7 @@ class MainActivity : Activity() {
         val installed = packageManager.getPackageInfo(packageName, 0).longVersionCode
         thread {
             val latest = try {
-                val conn = URL("https://api.github.com/repos/$REPO/releases/tags/latest").openConnection() as HttpURLConnection
+                val conn = URL("https://api.github.com/repos/$REPO/releases/latest").openConnection() as HttpURLConnection
                 conn.connectTimeout = 5000
                 conn.readTimeout = 10000
                 conn.setRequestProperty("Accept", "application/vnd.github+json")
@@ -107,9 +107,9 @@ class MainActivity : Activity() {
             runOnUiThread {
                 AlertDialog.Builder(this)
                     .setTitle("Nuova versione disponibile")
-                    .setMessage("Installata: build $installed\nUltima: build $latest\n\nPer aggiornare disinstalla questa app e installa quella nuova.")
+                    .setMessage("Installata: build $installed\nUltima: build $latest")
                     .setPositiveButton("Scarica") { _, _ ->
-                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/$REPO/releases/tag/latest")))
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/$REPO/releases/latest")))
                     }
                     .setNegativeButton("Dopo", null)
                     .show()

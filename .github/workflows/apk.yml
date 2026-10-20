@@ -1,4 +1,4 @@
-# Compila l'APK a ogni push e lo pubblica nella release "latest",
+# Compila l'APK a ogni push e lo pubblica come release "Build N" (tag build-N),
 # così si scarica e si installa direttamente dal telefono senza Android Studio.
 name: APK
 
@@ -29,8 +29,22 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # Chiave di firma fissa dai secrets KEYSTORE_BASE64 e KEYSTORE_PASSWORD; se mancano si firma con la chiave debug
+      - name: Chiave di firma
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/casttokodi.keystore"
+            echo "KEYSTORE_FILE=$RUNNER_TEMP/casttokodi.keystore" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Secret KEYSTORE_BASE64 mancante: APK firmato con la chiave debug, per installarlo va disinstallata la versione precedente"
+          fi
+
       # Il runner ha già l'SDK Android in $ANDROID_HOME
       - run: ./gradlew assembleDebug --stacktrace
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
 
       - run: cp app/build/outputs/apk/debug/app-debug.apk CastToKodi.apk
 
@@ -39,12 +53,14 @@ jobs:
           name: CastToKodi
           path: CastToKodi.apk
 
-      - name: Pubblica nella release "latest"
+      # Un tag per build (build-N) perché Obtainium riconosca le versioni nuove dal tag
+      - name: Pubblica la release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete latest --cleanup-tag --yes || true
-          gh release create latest CastToKodi.apk \
+          gh release delete latest --cleanup-tag --yes || true  # vecchio schema a tag fisso
+          gh release create "build-${GITHUB_RUN_NUMBER}" CastToKodi.apk \
             --target "$GITHUB_SHA" \
             --title "Build ${GITHUB_RUN_NUMBER}" \
-            --notes "Compilata da ${GITHUB_REF_NAME} @ ${GITHUB_SHA::7}. Apri CastToKodi.apk dal telefono per installarla."
+            --notes "Compilata da ${GITHUB_REF_NAME} @ ${GITHUB_SHA::7}. Apri CastToKodi.apk dal telefono per installarla." \
+            --latest
