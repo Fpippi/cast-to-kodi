@@ -3,7 +3,7 @@
 ## Stato e contesto per riprendere il lavoro
 
 - Progetto nato il 2026-10-20. Codice scritto **senza poterlo compilare**: sul PC di lavoro mancavano Android Studio e SDK. Il primo passo a casa è aprirlo in Android Studio, far girare il sync Gradle e sistemare gli eventuali errori di build. Android Studio potrebbe proporre di aggiornare AGP (8.7.3), Kotlin (2.0.21) o Gradle (8.10.2): si può accettare.
-- Mai provato su un sito reale. Non è ancora verificato che Kodi riproduca i flussi con gli header `Referer` e `User-Agent` passati come `url|Header=valore`.
+- 2026-10-20: provato dall'utente su AnimeUnity (VixCloud), funziona: Kodi riproduce i flussi con gli header `Referer` e `User-Agent` passati come `url|Header=valore`. Altri siti non ancora provati.
 
 - Si compila solo su GitHub Actions (`.github/workflows/apk.yml`): l'ambiente di Claude Code non scarica l'SDK Android. Gli errori di build si leggono dai log della run.
 
