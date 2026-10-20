@@ -4,6 +4,8 @@ name: APK
 
 on:
   push:
+    # Solo main: senza filtro anche il push di un tag (es. build-4) ricompilerebbe codice vecchio
+    branches: [main]
     # Le modifiche solo alla documentazione non generano una build nuova (e l'avviso di aggiornamento)
     paths-ignore:
       - "**.md"
