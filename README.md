@@ -15,9 +15,9 @@ Nel browser dell'app popup, `window.open` e salti verso altri domini vengono blo
 3. Annota l'IP della Fire TV: *Impostazioni → La mia Fire TV → Info → Rete*.
 
 **App sul telefono, senza PC**
-1. A ogni push GitHub Actions compila l'APK e lo pubblica come release "Build N" (tag `build-N`). Apri `github.com/Fpippi/cast-to-kodi/releases/latest` dal Pixel con l'account GitHub collegato e scarica `CastToKodi.apk`.
-2. Le build sono firmate con una chiave fissa (secrets `KEYSTORE_BASE64` e `KEYSTORE_PASSWORD` del repo; l'originale è fuori dal repo, in `D:\Progetti\casttokodi-firma`), quindi ogni APK si installa sopra il precedente. Se la chiave si perde, ne serve una nuova e va disinstallata l'app una volta.
-3. Per sapere quando c'è una build nuova, nel pulsante **Kodi** inserisci un token GitHub: *github.com → Settings → Developer settings → Fine-grained tokens*, solo il repo `cast-to-kodi`, permesso *Contents: Read-only*. Con lo stesso token si può usare **Obtainium** per aggiornare con un tocco.
+1. A ogni push GitHub Actions compila l'APK e lo pubblica come release "Build N" (tag `build-N`). Dal Pixel apri `github.com/Fpippi/cast-to-kodi/releases/latest` e scarica `CastToKodi.apk`.
+2. Le build sono firmate con una chiave fissa (secrets `KEYSTORE_BASE64` e `KEYSTORE_PASSWORD` del repo; l'originale non è nel repo), quindi ogni APK si installa sopra il precedente. Se la chiave si perde, ne serve una nuova e va disinstallata l'app una volta.
+3. All'avvio l'app avvisa se c'è una build nuova. Per aggiornare con un tocco si può usare **Obtainium** con l'indirizzo del repo.
 
 **PC (in alternativa)**
 1. Installa Android Studio (developer.android.com/studio). Al primo avvio scarica da solo SDK e JDK.

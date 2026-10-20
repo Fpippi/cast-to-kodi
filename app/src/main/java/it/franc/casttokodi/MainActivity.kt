@@ -85,10 +85,8 @@ class MainActivity : Activity() {
     }
 
     // L'ultima release ha come titolo "Build N", con N = versionCode dell'APK (vedi .github/workflows/apk.yml).
-    // Il repo è privato: senza token GitHub l'API risponde 404 e il controllo si salta.
+    // Il repo è pubblico: l'API non vuole token (limite 60 richieste l'ora per IP, ne basta una per avvio).
     private fun checkUpdate() {
-        val token = prefs.getString("token", "").orEmpty()
-        if (token.isBlank()) return
         val installed = packageManager.getPackageInfo(packageName, 0).longVersionCode
         thread {
             val latest = try {
@@ -96,7 +94,6 @@ class MainActivity : Activity() {
                 conn.connectTimeout = 5000
                 conn.readTimeout = 10000
                 conn.setRequestProperty("Accept", "application/vnd.github+json")
-                conn.setRequestProperty("Authorization", "Bearer $token")
                 if (conn.responseCode != 200) return@thread
                 val name = JSONObject(conn.inputStream.bufferedReader().readText()).optString("name")
                 name.filter { it.isDigit() }.toLongOrNull() ?: return@thread
@@ -253,16 +250,11 @@ class MainActivity : Activity() {
             hint = "utente:password (se impostati in Kodi)"
             setText(prefs.getString("auth", ""))
         }
-        val token = EditText(this).apply {
-            hint = "token GitHub (per sapere se c'è una versione nuova)"
-            setText(prefs.getString("token", ""))
-        }
         val form = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(48, 16, 48, 0)
             addView(host)
             addView(auth)
-            addView(token)
         }
         AlertDialog.Builder(this)
             .setTitle("Indirizzo di Kodi")
@@ -271,9 +263,7 @@ class MainActivity : Activity() {
                 prefs.edit()
                     .putString("host", host.text.toString().trim())
                     .putString("auth", auth.text.toString().trim())
-                    .putString("token", token.text.toString().trim())
                     .apply()
-                checkUpdate()
             }
             .setNegativeButton("Annulla", null)
             .show()
