@@ -12,7 +12,7 @@ Nel browser dell'app popup, `window.open` e salti verso altri domini vengono blo
 0. Serve una Fire TV con **Fire OS** (es. Fire TV Stick 4K Max e precedenti): controlla in *Impostazioni → La mia Fire TV → Info*. I modelli con **Vega OS** (Fire TV Stick 4K Select, Fire TV Stick HD 2026) non permettono di installare Kodi.
 1. Kodi non è nell'Appstore Amazon: installa l'app **Downloader** dall'Appstore, abilitala alle "app da origini sconosciute" (in *La mia Fire TV → Opzioni sviluppatore*; se non le vedi, tocca 7 volte il nome del dispositivo in *Info*) e scarica da kodi.tv l'APK Android ARM a 32 bit.
 2. In Kodi: *Impostazioni → Servizi → Controllo*, attiva **Consenti il controllo remoto via HTTP**. Annota porta (di solito 8080), utente e password.
-3. Annota l'IP della Fire TV: *Impostazioni → La mia Fire TV → Info → Rete*.
+3. In Kodi: *Impostazioni → Servizi → Generale*, attiva **Annuncia servizi ad altri sistemi**: così l'app trova Kodi da sola. Se non funziona, annota l'IP della Fire TV (*Impostazioni → La mia Fire TV → Info → Rete*) e scrivilo a mano.
 
 **App sul telefono, senza PC**
 1. A ogni push GitHub Actions compila l'APK e lo pubblica come release "Build N" (tag `build-N`). Dal Pixel apri `github.com/Fpippi/cast-to-kodi/releases/latest` e scarica `CastToKodi.apk`.
@@ -29,7 +29,7 @@ Nel browser dell'app popup, `window.open` e salti verso altri domini vengono blo
 3. Collega il telefono via USB, sceglilo in Android Studio e premi ▶️ Run.
 
 ## Uso
-1. Al primo avvio inserisci `IP:porta` di Kodi (es. `192.168.1.50:8080`) ed eventualmente `utente:password`. Si cambia dopo con il pulsante **Kodi**.
+1. Al primo avvio l'app cerca Kodi in rete e compila `IP:porta` (oppure lo scrivi a mano, es. `192.168.1.50:8080`); aggiungi `utente:password`. Si cambia dopo con il pulsante **Kodi**. Se la Fire TV cambia IP, all'invio l'app la ritrova da sola.
 2. Scrivi l'indirizzo del sito, vai all'episodio e **avvia il player** (il flusso si rileva solo quando parte).
 3. Premi **Manda a Kodi**. Se ci sono più flussi scegli il primo: di solito è la playlist master.
 
