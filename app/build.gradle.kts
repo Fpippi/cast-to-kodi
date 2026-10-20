@@ -11,7 +11,8 @@ android {
         applicationId = "it.franc.casttokodi"
         minSdk = 33 // uso personale su Pixel 9 Pro XL
         targetSdk = 35
-        versionCode = 1
+        // Su GitHub Actions cresce a ogni build, così ogni APK si installa sopra il precedente
+        versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toInt() ?: 1
         versionName = "0.1"
     }
 

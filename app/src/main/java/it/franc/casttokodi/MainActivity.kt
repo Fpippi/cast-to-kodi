@@ -118,9 +118,10 @@ class MainActivity : Activity() {
 
             // Chiamato su un thread di background per ogni risorsa, anche dentro gli iframe e per le XHR dei player
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
-                // ponytail: riconosce solo per estensione; playlist servite senza .m3u8 sfuggono, in quel caso guardare il Content-Type
+                // ponytail: riconosce per estensione più il caso VixCloud (AnimeUnity, StreamingCommunity), che serve
+                // la playlist come /playlist/<id>?token=... senza .m3u8; per altri siti così guardare il Content-Type
                 val path = request.url.path?.lowercase() ?: return null
-                if (path.endsWith(".m3u8") || path.endsWith(".mp4")) {
+                if (path.endsWith(".m3u8") || path.endsWith(".mp4") || path.startsWith("/playlist/")) {
                     val referer = request.requestHeaders["Referer"] ?: pageUrl
                     val video = request.url.toString()
                     runOnUiThread {
