@@ -29,8 +29,10 @@ Nel browser dell'app popup, `window.open` e salti verso altri domini vengono blo
 3. Collega il telefono via USB, sceglilo in Android Studio e premi ▶️ Run.
 
 ## Uso
-1. Al primo avvio l'app cerca Kodi in rete e compila `IP:porta` (oppure lo scrivi a mano, es. `192.168.1.50:8080`); aggiungi `utente:password`. Si cambia dopo con il pulsante **Kodi**. Se la Fire TV cambia IP, all'invio l'app la ritrova da sola.
-2. Scrivi l'indirizzo del sito, vai all'episodio e **avvia il player** (il flusso si rileva solo quando parte).
-3. Premi **Manda a Kodi**. Se ci sono più flussi scegli il primo: di solito è la playlist master.
+1. Al primo avvio si apre **Dov'è Kodi?**: in *Automatico* l'app cerca Kodi in rete e lo selezioni; in *Manuale* scrivi `IP:porta` (es. `192.168.1.50:8080`). Sotto, `utente:password` se impostati in Kodi. Si cambia dopo con il pulsante **Kodi**. Se la Fire TV cambia IP, all'invio l'app la ritrova da sola.
+2. Nella barra in alto scrivi un indirizzo o una ricerca (es. `jojo animeunity`, va su Google). Con **★** salvi la pagina nei preferiti e li riapri; pressione lunga per toglierne uno.
+3. Vai all'episodio e **avvia il player** (il flusso si rileva solo quando parte).
+4. Premi **Manda a Kodi**. Pubblicità e pezzi della playlist VixCloud sono già scartati; se restano più video, la playlist principale è la prima.
+5. Per guardare più episodi di fila: sul primo **Manda a Kodi**, poi apri il successivo e premi **+ Coda**. I link VixCloud scadono dopo qualche ora: la coda va bene per una serata.
 
 Telefono e Fire TV devono essere sulla stessa rete Wi-Fi.

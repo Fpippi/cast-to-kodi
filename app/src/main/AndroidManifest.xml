@@ -6,7 +6,7 @@
     <!-- usesCleartextTraffic: Kodi espone l'API JSON-RPC solo in HTTP sulla rete locale -->
     <application
         android:label="Cast to Kodi"
-        android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
+        android:theme="@style/App"
         android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
