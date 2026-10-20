@@ -5,6 +5,9 @@
 - Progetto nato il 2026-10-20. Kodi è installato e configurato sulla Fire TV dell'utente; l'app si installa dal telefono scaricando l'APK dalla release `latest`.
 - 2026-10-20: provato dall'utente su AnimeUnity (VixCloud), funziona: Kodi riproduce i flussi con gli header `Referer` e `User-Agent` passati come `url|Header=valore`. Altri siti non ancora provati.
 - Si lavora su `main`: solo i push su `main` producono una release (i tag e gli altri branch no). Le funzioni da fare sono nelle issue GitHub.
+- Ordine concordato delle issue, una alla volta: #2 ricerca Google → #3 preferiti → #5 filtro dei video → #4 coda → #1 ricerca automatica di Kodi.
+- Fatto finora (Build 9): rilevamento VixCloud, controllo aggiornamenti senza token, firma fissa, barra di caricamento, pulsante verde quando c'è un video.
+- 2026-10-20: la storia git è stata riscritta (autore unico `Fpippi` con email noreply). Un clone fatto prima va riallineato con `git fetch origin && git reset --hard origin/main`.
 - Si compila solo su GitHub Actions (`.github/workflows/apk.yml`): l'ambiente di Claude Code non scarica l'SDK Android. Gli errori di build si leggono dai log della run. Chi ha Android Studio può comunque aprire il progetto e compilarlo in locale.
 
 ## Decisioni prese e perché
