@@ -4,6 +4,9 @@ name: APK
 
 on:
   push:
+    # Le modifiche solo alla documentazione non generano una build nuova (e l'avviso di aggiornamento)
+    paths-ignore:
+      - "**.md"
   workflow_dispatch:
 
 permissions:
