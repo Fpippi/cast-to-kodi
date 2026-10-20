@@ -22,4 +22,5 @@
 ## Trappole note
 - Il rilevamento del video guarda l'estensione del path, più `/playlist/<id>` di VixCloud (AnimeUnity), che non ha `.m3u8`. Se un sito serve la playlist senza `.m3u8`, va riconosciuta dal Content-Type.
 - Il blocco dei redirect lascia passare solo il dominio corrente ("ultime due etichette" dell'host). I redirect HTTP sono ammessi apposta, perché i siti cambiano spesso dominio.
+- Ricerca di Kodi con `NsdManager` sul servizio `_xbmc-jsonrpc-h._tcp`, 3 secondi, solo IPv4. `resolveService` è deprecato ma su API 33 non c'è alternativa e accetta una risoluzione alla volta (da qui la coda). Non ancora verificato che Kodi su Fire TV annunci davvero il servizio (issue #1).
 - `targetSdk 35` forza l'edge-to-edge: il padding degli insets nella root serve.

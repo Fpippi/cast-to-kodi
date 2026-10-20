@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.net.Uri
+import android.net.nsd.NsdManager
+import android.net.nsd.NsdServiceInfo
 import android.os.Bundle
 import android.os.Message
 import android.util.Base64
@@ -23,7 +25,9 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.Toast
 import org.json.JSONObject
+import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.Inet4Address
 import java.net.URL
 import java.net.URLEncoder
 import kotlin.concurrent.thread
@@ -250,11 +254,92 @@ class MainActivity : Activity() {
                     401 -> "Kodi rifiuta le credenziali: controlla utente e password"
                     else -> "Kodi ha risposto HTTP ${conn.responseCode}"
                 }
+            } catch (e: IOException) {
+                runOnUiThread { relocateKodi(host, e) { sendToKodi(video, referer) } }
+                return@thread
             } catch (e: Exception) {
-                "Kodi non raggiungibile: ${e.message}"
+                "Errore: ${e.message}"
             }
             runOnUiThread { toast(result) }
         }
+    }
+
+    // Il router può aver dato un altro IP alla Fire TV: si cerca Kodi in rete, ci si sposta lì e si riprova.
+    // Se lo trova allo stesso indirizzo il retry non scatta, quindi niente giri a vuoto.
+    private fun relocateKodi(oldHost: String, error: IOException, retry: () -> Unit) {
+        toast("Kodi non risponde, lo cerco in rete…")
+        discoverKodi { found ->
+            val moveTo = { host: String ->
+                prefs.edit().putString("host", host).apply()
+                toast("Kodi trovato a $host")
+                retry()
+            }
+            when {
+                found.size == 1 && found[0] != oldHost -> moveTo(found[0])
+                found.size > 1 -> chooseKodi(found, moveTo)
+                else -> toast("Kodi non raggiungibile: ${error.message}")
+            }
+        }
+    }
+
+    // Kodi si annuncia via mDNS solo se in Impostazioni → Servizi → Generale è attivo "Annuncia servizi ad altri sistemi".
+    // Restituisce sul thread UI gli "IP:porta" trovati in qualche secondo.
+    private fun discoverKodi(onResult: (List<String>) -> Unit) {
+        val nsd = getSystemService(NsdManager::class.java)
+        // Lo stato si tocca solo dal thread UI: i callback di NsdManager arrivano su un thread suo
+        val found = LinkedHashSet<String>()
+        val queue = ArrayDeque<NsdServiceInfo>()
+        var resolving = false
+
+        // resolveService accetta una risoluzione alla volta: le altre aspettano in coda
+        fun resolveNext() {
+            if (resolving) return
+            val service = queue.removeFirstOrNull() ?: return
+            resolving = true
+            @Suppress("DEPRECATION") // il sostituto registerServiceInfoCallback esiste solo da API 34
+            nsd.resolveService(service, object : NsdManager.ResolveListener {
+                override fun onServiceResolved(info: NsdServiceInfo) = runOnUiThread {
+                    // Solo IPv4: un indirizzo IPv6 con i ":" non si può scrivere come "host:porta"
+                    @Suppress("DEPRECATION") val address = info.host
+                    if (address is Inet4Address) found.add("${address.hostAddress}:${info.port}")
+                    resolving = false
+                    resolveNext()
+                }
+
+                override fun onResolveFailed(info: NsdServiceInfo, errorCode: Int) = runOnUiThread {
+                    resolving = false
+                    resolveNext()
+                }
+            })
+        }
+
+        val listener = object : NsdManager.DiscoveryListener {
+            override fun onServiceFound(service: NsdServiceInfo) = runOnUiThread {
+                queue.addLast(service)
+                resolveNext()
+            }
+            override fun onServiceLost(service: NsdServiceInfo) {}
+            override fun onDiscoveryStarted(serviceType: String) {}
+            override fun onDiscoveryStopped(serviceType: String) {}
+            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {}
+            override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
+        }
+        nsd.discoverServices("_xbmc-jsonrpc-h._tcp", NsdManager.PROTOCOL_DNS_SD, listener)
+        web.postDelayed({
+            try {
+                nsd.stopServiceDiscovery(listener)
+            } catch (e: IllegalArgumentException) {
+                // la ricerca non era partita
+            }
+            onResult(found.toList())
+        }, 3000)
+    }
+
+    private fun chooseKodi(found: List<String>, onPick: (String) -> Unit) {
+        AlertDialog.Builder(this)
+            .setTitle("Quale Kodi?")
+            .setItems(found.toTypedArray()) { _, i -> onPick(found[i]) }
+            .show()
     }
 
     private fun askKodiAddress() {
@@ -266,12 +351,31 @@ class MainActivity : Activity() {
             hint = "utente:password (se impostati in Kodi)"
             setText(prefs.getString("auth", ""))
         }
+        val search = Button(this).apply {
+            text = "Cerca Kodi in rete"
+            setOnClickListener {
+                isEnabled = false
+                text = "Cerco…"
+                discoverKodi { found ->
+                    isEnabled = true
+                    text = "Cerca Kodi in rete"
+                    when (found.size) {
+                        0 -> toast("Nessun Kodi trovato: attiva in Kodi \"Annuncia servizi ad altri sistemi\" o scrivi IP:porta")
+                        1 -> host.setText(found[0])
+                        else -> chooseKodi(found) { host.setText(it) }
+                    }
+                }
+            }
+        }
         val form = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(48, 16, 48, 0)
             addView(host)
+            addView(search)
             addView(auth)
         }
+        // Al primo avvio la ricerca parte da sola
+        if (host.text.isBlank()) search.performClick()
         AlertDialog.Builder(this)
             .setTitle("Indirizzo di Kodi")
             .setView(form)
