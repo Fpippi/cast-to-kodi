@@ -14,7 +14,12 @@ Nel browser dell'app popup, `window.open` e salti verso altri domini vengono blo
 2. In Kodi: *Impostazioni → Servizi → Controllo*, attiva **Consenti il controllo remoto via HTTP**. Annota porta (di solito 8080), utente e password.
 3. Annota l'IP della Fire TV: *Impostazioni → La mia Fire TV → Info → Rete*.
 
-**PC**
+**App sul telefono, senza PC**
+1. A ogni push GitHub Actions compila l'APK e lo pubblica in *Releases → latest* (titolo "Build N"). Aprila dal Pixel con l'account GitHub collegato e scarica `CastToKodi.apk`.
+2. Ogni build ha una firma diversa: per aggiornare disinstalla prima la versione vecchia (si perdono IP, password e token).
+3. Per sapere quando c'è una build nuova, nel pulsante **Kodi** inserisci un token GitHub: *github.com → Settings → Developer settings → Fine-grained tokens*, solo il repo `cast-to-kodi`, permesso *Contents: Read-only*.
+
+**PC (in alternativa)**
 1. Installa Android Studio (developer.android.com/studio). Al primo avvio scarica da solo SDK e JDK.
 2. *File → Open* sulla cartella del progetto e aspetta la sincronizzazione Gradle.
 

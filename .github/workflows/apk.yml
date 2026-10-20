@@ -43,5 +43,5 @@ jobs:
           gh release delete latest --cleanup-tag --yes || true
           gh release create latest CastToKodi.apk \
             --target "$GITHUB_SHA" \
-            --title "Ultima versione" \
+            --title "Build ${GITHUB_RUN_NUMBER}" \
             --notes "Compilata da ${GITHUB_REF_NAME} @ ${GITHUB_SHA::7}. Apri CastToKodi.apk dal telefono per installarla."
