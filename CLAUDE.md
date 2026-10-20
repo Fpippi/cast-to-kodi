@@ -24,4 +24,8 @@
 - Il rilevamento del video guarda l'estensione del path, più `/playlist/<id>` di VixCloud (AnimeUnity), che non ha `.m3u8`. Se un sito serve la playlist senza `.m3u8`, va riconosciuta dal Content-Type.
 - Il blocco dei redirect lascia passare solo il dominio corrente ("ultime due etichette" dell'host). I redirect HTTP sono ammessi apposta, perché i siti cambiano spesso dominio.
 - Ricerca di Kodi con `NsdManager` sul servizio `_xbmc-jsonrpc-h._tcp`, 3 secondi, solo IPv4. `resolveService` è deprecato ma su API 33 non c'è alternativa e accetta una risoluzione alla volta (da qui la coda). Non ancora verificato che Kodi su Fire TV annunci davvero il servizio (issue #1).
+- Anche "Manda a Kodi" passa dalla playlist video di Kodi (id 1: `Playlist.Clear` + `Playlist.Add` + `Player.Open`), così "+ Coda" (`Playlist.Add`) accoda all'episodio in corso. Un video avviato da Kodi stesso non è nella playlist: lì la coda non prosegue.
+- Il filtro pubblicità (`AD_HOSTS`, `isAd`) è un elenco corto e approssimativo: allungarlo quando un sito mostra ads tra i video trovati.
+- Colori solo da `android.R.color.system_*` (Material You) e tema `Theme.DeviceDefault.DayNight` in `res/values/themes.xml`: niente colori scritti a mano.
+- La ricerca da Google apre altri domini: il blocco dei salti li lascia passare solo se la pagina corrente è `google.*` e il tocco è dell'utente (`hasGesture`).
 - `targetSdk 35` forza l'edge-to-edge: il padding degli insets nella root serve.
