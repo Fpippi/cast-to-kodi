@@ -3,11 +3,13 @@ package it.franc.casttokodi
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.os.Message
 import android.util.Base64
+import android.view.View
 import android.view.WindowInsets
 import android.view.inputmethod.EditorInfo
 import android.webkit.WebChromeClient
@@ -18,6 +20,7 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.Toast
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -32,6 +35,8 @@ class MainActivity : Activity() {
     private lateinit var web: WebView
     private lateinit var address: EditText
     private lateinit var cast: Button
+    private lateinit var castText: ColorStateList
+    private lateinit var progress: ProgressBar
     private val prefs by lazy { getSharedPreferences("kodi", MODE_PRIVATE) }
 
     // url del video -> Referer con cui la pagina l'ha richiesto (molti host rifiutano richieste senza)
@@ -57,6 +62,8 @@ class MainActivity : Activity() {
         cast = Button(this).apply {
             setOnClickListener { pickVideo() }
         }
+        castText = cast.textColors
+        progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { max = 100 }
         web = WebView(this)
         setupWebView()
 
@@ -67,7 +74,8 @@ class MainActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(topBar)
-            addView(web, LinearLayout.LayoutParams(-1, 0, 1f))
+            addView(progress, LinearLayout.LayoutParams(-1, -2))
+            addView(web,LinearLayout.LayoutParams(-1, 0, 1f))
             addView(cast, LinearLayout.LayoutParams(-1, -2))
             // targetSdk 35 forza l'edge-to-edge: senza padding la barra finisce sotto la status bar
             setOnApplyWindowInsetsListener { v, insets ->
@@ -128,6 +136,11 @@ class MainActivity : Activity() {
                 toast("Popup bloccato")
                 return false
             }
+
+            override fun onProgressChanged(view: WebView, newProgress: Int) {
+                progress.progress = newProgress
+                progress.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
+            }
         }
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -186,6 +199,9 @@ class MainActivity : Activity() {
 
     private fun refreshCastButton() {
         cast.isEnabled = videos.isNotEmpty()
+        // Verde quando c'è qualcosa da mandare, così si nota anche senza leggere il testo
+        cast.backgroundTintList = if (videos.isEmpty()) null else ColorStateList.valueOf(0xFF2E7D32.toInt())
+        cast.setTextColor(if (videos.isEmpty()) castText else ColorStateList.valueOf(0xFFFFFFFF.toInt()))
         cast.text = if (videos.isEmpty()) "Nessun video trovato: avvia il player" else "Manda a Kodi (${videos.size})"
     }
 
