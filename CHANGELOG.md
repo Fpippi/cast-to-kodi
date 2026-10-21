@@ -7,6 +7,13 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 1.1.1
+
+- Manda a Kodi: per i video HLS (es. AnimeUnity/VixCloud) l'app manda a Kodi una sola qualità, la migliore, invece della
+  playlist con tutte: Kodi sulla Fire TV le apriva tutte per scegliere e andava oltre il suo limite di 30 secondi
+  ("Playback failed").
+- Manda a Kodi: niente più seconda apertura dello stesso video mentre Kodi lo sta ancora caricando (interrompeva la prima).
+
 ## 1.1.0
 
 - Log di Kodi: nel dialogo **Kodi** il pulsante *Log di Kodi* legge le ultime righe del log dalla Fire TV via ADB e le
