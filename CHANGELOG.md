@@ -7,6 +7,11 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 1.0.2
+
+- Manda a Kodi: se Kodi non riesce a far partire il video dalla sua playlist ("Playback failed", es. AnimeUnity con il
+  player VixCloud), l'app lo riapre direttamente come nelle prime build. In quel caso il video parte senza coda dietro.
+
 ## 1.0.1
 
 - Pulsante di accensione: trova la Fire TV da solo anche senza l'IP di Kodi salvato (prova l'ultimo IP e poi cerca in

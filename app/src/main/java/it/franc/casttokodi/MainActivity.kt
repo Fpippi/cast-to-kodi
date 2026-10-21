@@ -97,6 +97,9 @@ private const val DEFAULT_EPISODE = 24 * 60L
 // Un episodio va accodato solo se il suo link vale ancora almeno 10 minuti dopo l'inizio previsto
 private const val EXPIRY_MARGIN = 10 * 60L
 
+// Quanto aspettare che Kodi faccia partire il video dalla playlist prima di darlo per partito
+private const val START_TIMEOUT_MS = 15_000L
+
 // Alias nell'Android Keystore della chiave che cifra le password di Kodi
 private const val LOGIN_KEY = "kodi-login"
 
@@ -487,13 +490,32 @@ class MainActivity : Activity() {
                 val position = state.queueLength
                 kodi.call("Playlist.Add", playlist().put("item", item))
                 kodi.call("Player.Open", JSONObject().put("item", playlist().put("position", position)))
+                // Player.Open risponde OK subito anche se poi il video non parte ("Playback failed" sulla TV)
+                if (!startedFromQueue(kodi)) return openWithoutQueue(kodi, item)
                 Sent("Inviato a Kodi", position)
             }
         } catch (e: KodiError) {
-            // Con alcuni link Playlist.Add è più severo di Player.Open: il video parte da solo, senza coda dietro
-            kodi.call("Player.Open", JSONObject().put("item", item))
-            Sent("Inviato a Kodi, ma senza coda: Kodi non accetta questo video in playlist", null)
+            openWithoutQueue(kodi, item)
         }
+    }
+
+    // Con alcuni link la playlist di Kodi è più severa di Player.Open {file}: il video parte da solo, senza coda dietro
+    private fun openWithoutQueue(kodi: Kodi, item: JSONObject): Sent {
+        kodi.call("Player.Open", JSONObject().put("item", item))
+        return Sent("Inviato a Kodi, ma senza coda: Kodi non riproduce questo video dalla playlist", null)
+    }
+
+    // true quando il video parte dalla playlist, false se Kodi l'ha scartato: dopo il fallimento svuota la playlist.
+    // Se dopo START_TIMEOUT_MS non è ancora deciso lo si dà per partito, per non aprirlo due volte.
+    private fun startedFromQueue(kodi: Kodi): Boolean {
+        val deadline = System.currentTimeMillis() + START_TIMEOUT_MS
+        while (System.currentTimeMillis() < deadline) {
+            Thread.sleep(500)
+            val state = kodiState(kodi)
+            if (state.fromQueue) return true
+            if (state.queueLength == 0) return false
+        }
+        return true
     }
 
     // Accoda solo se l'episodio partirà davvero: altrimenti Refused con il motivo, da mostrare
