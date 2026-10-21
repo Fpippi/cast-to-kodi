@@ -118,6 +118,11 @@ private const val NO_ADB_HELP = """Controlla che:
 
 Se la Fire TV è in sonno profondo il suo Wi-Fi è spento: accendila con Alexa o con il telecomando."""
 
+// Le ultime righe utili del log di Kodi sulla Fire TV, lette via ADB: senza add-on da installare.
+// Con il debug di Kodi attivo il log è pieno di rumore: si tengono errori e righe su apertura e riproduzione.
+private const val KODI_LOG = "tail -n 3000 /sdcard/Android/data/org.xbmc.kodi/files/.kodi/temp/kodi.log 2>&1 | " +
+    "grep -iE 'error|warning|fail|curl|playlist|playfile|videoplayer|inputstream|ffmpeg|http' | tail -n 120"
+
 private class KodiError(message: String) : Exception(message)
 
 // Kodi ha risposto 401: mancano utente e password o sono sbagliati, si chiedono
@@ -972,7 +977,39 @@ class MainActivity : Activity() {
                 }
             }
             .setNegativeButton("Annulla", null)
+            .setNeutralButton("Log di Kodi") { _, _ -> showKodiLog() }
             .show()
+    }
+
+    // Quando Kodi rifiuta un video il motivo è solo nel suo log: lo si legge via ADB, come per il pulsante di
+    // accensione, e lo si può condividere. La Fire TV è all'ultimo IP ADB che ha funzionato o a quello di Kodi.
+    private fun showKodiLog() {
+        val ip = prefs.getString("adbHost", null) ?: adbHost(prefs.getString("host", "").orEmpty())
+        if (ip.isBlank()) return notice("Log di Kodi", "Prima scegli Kodi o accendi la TV con il pulsante di accensione.")
+        toast("Leggo il log di Kodi…")
+        thread {
+            val log = try {
+                adbShell(ip, adbKeys(), ADB_KEY_NAME, KODI_LOG, onConfirm = {
+                    runOnUiThread {
+                        notice("Conferma sulla TV", "La Fire TV chiede se consentire il debug da questo telefono: spunta \"Consenti sempre da questo computer\" e premi OK.")
+                    }
+                })
+            } catch (e: Exception) {
+                runOnUiThread { notice("Log di Kodi non leggibile", "Non risponde a $ip (${e.message}).\n\n$NO_ADB_HELP") }
+                return@thread
+            }
+            runOnUiThread {
+                AlertDialog.Builder(this)
+                    .setTitle("Log di Kodi")
+                    .setMessage(log.ifBlank { "Il log è vuoto." })
+                    .setPositiveButton("Condividi") { _, _ ->
+                        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, log)
+                        startActivity(Intent.createChooser(send, "Condividi il log di Kodi"))
+                    }
+                    .setNegativeButton("Chiudi", null)
+                    .show()
+            }
+        }
     }
 
     // Utente, password nascosta e "Mostra password", già compilati con login se c'è
