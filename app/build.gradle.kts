@@ -13,7 +13,9 @@ android {
         targetSdk = 35
         // Su GitHub Actions cresce a ogni build, così ogni APK si installa sopra il precedente
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toInt() ?: 1
-        versionName = "0.1"
+        // Il nome è la prima sezione "## X.Y.Z" di CHANGELOG.md, la stessa che dà il nome alla release
+        versionName = rootProject.file("CHANGELOG.md").readLines()
+            .firstNotNullOf { Regex("^## (\\d+\\.\\d+\\.\\d+)").find(it)?.groupValues?.get(1) }
     }
 
     // Su GitHub Actions la chiave arriva dai secrets (vedi apk.yml): stessa firma a ogni build,

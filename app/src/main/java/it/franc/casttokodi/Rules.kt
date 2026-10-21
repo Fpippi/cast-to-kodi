@@ -154,3 +154,14 @@ fun moveLogin(saved: List<SavedLogin>, oldHost: String, newHost: String, name: S
 
 // Il vecchio campo unico "utente:password"; la password può contenere ':' ma l'utente di Kodi no
 fun splitAuth(auth: String): Pair<String, String> = auth.substringBefore(':') to auth.substringAfter(':', "")
+
+// "v1.2.0" o "1.2.0" → [1, 2, 0]; null per i tag che non sono versioni (i vecchi build-N)
+fun versionParts(text: String): List<Int>? =
+    Regex("v?(\\d+)\\.(\\d+)\\.(\\d+)").matchEntire(text.trim())?.groupValues?.drop(1)?.map { it.toInt() }
+
+// Se il tag dell'ultima release (vX.Y.Z) è una versione più nuova di quella installata
+fun isNewerVersion(latestTag: String, installed: String): Boolean {
+    val latest = versionParts(latestTag) ?: return false
+    val current = versionParts(installed) ?: return true // installata senza numero valido: meglio aggiornare
+    return latest.zip(current).firstOrNull { (a, b) -> a != b }?.let { (a, b) -> a > b } ?: false
+}

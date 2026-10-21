@@ -72,7 +72,7 @@ L'app parla con **Kodi**, non con la TV: funziona su qualunque dispositivo dove 
 
 ### 📱 App sul telefono, senza PC
 
-1. A ogni push su `main` GitHub Actions compila l'APK e lo pubblica come release "Build N" (tag `build-N`). Dal Pixel apri [releases/latest](https://github.com/Fpippi/cast-to-kodi/releases/latest) e scarica `CastToKodi.apk`.
+1. A ogni push su `main` GitHub Actions compila l'APK e lo pubblica come release "Versione X.Y.Z" (tag `vX.Y.Z`), con l'elenco delle novità preso da [CHANGELOG.md](CHANGELOG.md). Dal Pixel apri [releases/latest](https://github.com/Fpippi/cast-to-kodi/releases/latest) e scarica `CastToKodi.apk`.
 2. Le build sono firmate con una chiave fissa (secrets `KEYSTORE_BASE64` e `KEYSTORE_PASSWORD` del repo; l'originale non è nel repo), quindi ogni APK si installa sopra il precedente. Se la chiave si perde, ne serve una nuova e va disinstallata l'app una volta.
 3. 🔔 All'avvio l'app avvisa se c'è una build nuova. Per aggiornare con un tocco si può usare **Obtainium** con l'indirizzo del repo.
 
@@ -127,7 +127,8 @@ Le regole dell'app che non dipendono da Android (barra degli indirizzi, blocco d
 ## 🌿 Branch
 
 - **`develop`** è dove si lavora: ogni modifica parte da qui e ci torna con una PR.
-- **`main`** è solo per i rilasci: una PR da `develop` a `main` pubblica una nuova "Build N" (il workflow APK parte solo con i push su `main`).
+- **`main`** è solo per i rilasci: una PR da `develop` a `main` pubblica una nuova versione (il workflow APK parte solo con i push su `main`).
+- Prima di quella PR si aggiunge in cima a [CHANGELOG.md](CHANGELOG.md) la sezione `## X.Y.Z` con le novità: il primo numero per i cambi grossi, il secondo per le funzioni nuove, il terzo per le correzioni. Se manca, il controllo **test** della PR lo dice.
 
 <details>
 <summary>⚙️ Impostazioni su GitHub (una volta sola)</summary>
