@@ -35,5 +35,9 @@ class SitesTest {
         assertTrue(isGoogle("google.com"))
         assertTrue(isGoogle("google.it"))
         assertFalse(isGoogle("animeunity.so"))
+        assertTrue(isGoogleConsent("consent.google.com"))
+        assertTrue(isGoogleConsent("consent.google.it"))
+        assertFalse(isGoogleConsent("www.google.com"))
+        assertFalse(isGoogleConsent(null))
     }
 }

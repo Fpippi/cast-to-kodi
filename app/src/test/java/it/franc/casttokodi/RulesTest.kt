@@ -65,6 +65,11 @@ class RulesTest {
         assertFalse(isAd("vixcloud.co", "/playlist/1"))
         // "ad" solo come etichetta intera, non dentro un nome
         assertFalse(isAd("cdn.adriatico.it", "/x.mp4"))
+        // circuiti dei siti di streaming e video pre-roll
+        assertTrue(isAd("s.adsterra.com", "/x.mp4"))
+        assertTrue(isAd("cdn.vidoomy.com", "/x.m3u8"))
+        assertTrue(isAd("cdn.example.com", "/preroll/x.mp4"))
+        assertFalse(isAd("vixcloud.co", "/playlist/1"))
     }
 
     @Test

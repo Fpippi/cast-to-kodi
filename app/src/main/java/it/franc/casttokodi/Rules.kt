@@ -10,8 +10,13 @@ import java.net.URLEncoder
 // Regole dell'app scritte senza API Android (niente Uri, WebView, Context): così le provano i test
 // in app/src/test, che girano sulla JVM a ogni PR. Quello che vale per un solo sito o player sta in sites/.
 
-// ponytail: elenco corto dei circuiti pubblicitari visti nei player; allungarlo quando se ne incontrano altri
-private val AD_HOSTS = listOf("doubleclick", "googlesyndication", "imasdk", "adnxs", "adsrvr", "popads", "exoclick", "juicyads")
+// ponytail: circuiti pubblicitari dei player e dei siti di streaming (video pre-roll e popunder); allungarlo quando
+// tra i video trovati ne compare un altro. Si confronta come pezzo dell'host, quindi nomi abbastanza lunghi da non sbagliare
+private val AD_HOSTS = listOf(
+    "doubleclick", "googlesyndication", "imasdk", "adnxs", "adsrvr", "popads", "exoclick", "juicyads",
+    "adsterra", "propellerads", "popcash", "hilltopads", "clickadu", "adcash", "trafficjunky", "adskeeper",
+    "onclickads", "galaksion", "spotxchange", "springserve", "aniview", "vidoomy", "videoadex",
+)
 
 // host:porta (localhost:8080, 192.168.1.50:8080): roba di casa, che di solito non ha HTTPS
 private val HOST_PORT = Regex("[\\w.-]+:\\d{1,5}(/.*)?")
@@ -53,7 +58,7 @@ fun isAd(host: String?, path: String?): Boolean {
     val h = host.orEmpty().lowercase()
     val p = path.orEmpty().lowercase()
     return AD_HOSTS.any { it in h } || h.split('.').any { it == "ads" || it == "ad" } ||
-        "/vast" in p || "/ads/" in p
+        "/vast" in p || "/vpaid" in p || "/preroll" in p || "/ads/" in p
 }
 
 // Il video da proporre per un flusso intercettato, o null se è pubblicità o un pezzo della playlist VixCloud.

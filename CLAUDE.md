@@ -31,7 +31,7 @@
 - Il filtro pubblicità (`AD_HOSTS`, `isAd`) è un elenco corto e approssimativo: allungarlo quando un sito mostra ads tra i video trovati.
 - Colori solo da `android.R.color.system_*` (Material You) e tema `Theme.DeviceDefault.DayNight` in `res/values/themes.xml`: niente colori scritti a mano.
 - Unica eccezione ai colori: l'icona adattiva (`mipmap-anydpi/ic_launcher.xml`, telefono davanti a una TV) ha colori fissi in `values/colors.xml` e nei vettoriali; il livello `monochrome` serve alle icone a tema del Pixel.
-- La ricerca da Google apre altri domini: il blocco dei salti li lascia passare tutti quando la pagina corrente è `google.*`, anche senza `hasGesture` (Google apre alcuni risultati da JS).
+- La ricerca da Google apre altri domini: il blocco dei salti li lascia passare tutti quando la pagina corrente è `google.*`, anche senza `hasGesture` (Google apre alcuni risultati da JS). La pagina dei cookie (`consent.google.*`) non si salva come ultima pagina e i cookie si scrivono su disco in `onPause`, così la scelta resta.
 - Nella barra in alto `host:porta` (es. `localhost:8080`, `192.168.1.50:8080`) si apre in HTTP; il resto senza punto o con spazi va su Google.
 - Credenziali di Kodi (#26) in `prefs["logins"]`, per `IP:porta` + nome mDNS + impronta della rete (`networkKey`: sottorete IPv4 e gateway da `LinkProperties`, niente SSID per non chiedere la posizione). Password cifrate con una chiave AES dell'Android Keystore (`kodi-login`): se non si decifrano più si richiedono. Due case con la stessa sottorete e lo stesso gateway sembrano la stessa rete.
 - `targetSdk 35` forza l'edge-to-edge: il padding degli insets nella root serve.
