@@ -37,11 +37,9 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.Inet4Address
 import java.net.URL
-import java.net.URLEncoder
 import kotlin.concurrent.thread
 
 private const val REPO = "Fpippi/cast-to-kodi"
-private const val GOOGLE = "https://www.google.com"
 
 private const val NOT_FOUND_HELP = """Nessun Kodi trovato. Controlla che:
 
@@ -51,15 +49,10 @@ private const val NOT_FOUND_HELP = """Nessun Kodi trovato. Controlla che:
 
 Oppure passa a "Manuale" e scrivi IP:porta."""
 
-// ponytail: elenco corto dei circuiti pubblicitari visti nei player; allungarlo quando se ne incontrano altri
-private val AD_HOSTS = listOf("doubleclick", "googlesyndication", "imasdk", "adnxs", "adsrvr", "popads", "exoclick", "juicyads")
-
 // Kodi riproduce la coda dalla sua playlist video
 private const val VIDEO_PLAYLIST = 1
 
 private class KodiError(message: String) : Exception(message)
-
-private class Video(val url: String, val referer: String, val label: String, val main: Boolean)
 
 class MainActivity : Activity() {
 
@@ -199,12 +192,10 @@ class MainActivity : Activity() {
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url
-                if (url.scheme != "http" && url.scheme != "https") return block(url)
-                // I redirect HTTP (es. il sito che cambia dominio) sono ammessi, i salti fatti da JS no
-                if (!request.isForMainFrame || request.isRedirect) return false
-                // Dai risultati di Google si va su altri siti per forza: lì il tocco dell'utente basta
-                if (allowedDomain.startsWith("google.") && request.hasGesture()) return false
-                return if (domainOf(url) == allowedDomain) false else block(url)
+                val blocked = blocksNavigation(
+                    url.scheme, url.host, allowedDomain, request.isForMainFrame, request.isRedirect, request.hasGesture()
+                )
+                return if (blocked) block(url) else false
             }
 
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
@@ -221,10 +212,7 @@ class MainActivity : Activity() {
 
             // Chiamato su un thread di background per ogni risorsa, anche dentro gli iframe e per le XHR dei player
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
-                // ponytail: riconosce per estensione più il caso VixCloud (AnimeUnity, StreamingCommunity), che serve
-                // la playlist come /playlist/<id>?token=... senza .m3u8; per altri siti così guardare il Content-Type
-                val path = request.url.path?.lowercase() ?: return null
-                if (path.endsWith(".m3u8") || path.endsWith(".mp4") || path.startsWith("/playlist/")) {
+                if (isVideoPath(request.url.path)) {
                     val referer = request.requestHeaders["Referer"] ?: pageUrl
                     val video = request.url.toString()
                     runOnUiThread {
@@ -237,14 +225,7 @@ class MainActivity : Activity() {
     }
 
     private fun open(input: String) {
-        val text = input.trim()
-        val url = when {
-            text.isEmpty() -> GOOGLE
-            text.startsWith("http://") || text.startsWith("https://") -> text
-            // "jojo animeunity" o "jojo" non sono indirizzi: si cercano su Google
-            ' ' in text || '.' !in text -> "$GOOGLE/search?q=${Uri.encode(text)}"
-            else -> "https://$text"
-        }
+        val url = addressFor(input)
         allowedDomain = domainOf(Uri.parse(url))
         web.loadUrl(url)
         web.requestFocus()
@@ -255,39 +236,13 @@ class MainActivity : Activity() {
         return true
     }
 
-    // ponytail: "ultime due etichette" sbaglia con suffissi tipo .co.uk, basta per i siti che usiamo
-    private fun domainOf(url: Uri) = url.host.orEmpty().split('.').takeLast(2).joinToString(".")
+    private fun domainOf(url: Uri) = domainOf(url.host)
 
     // Video trovati senza pubblicità e senza i pezzi delle playlist VixCloud, con la playlist principale per prima
     private fun playable(): List<Video> = videos.mapNotNull { (url, referer) ->
         val uri = Uri.parse(url)
-        val host = uri.host.orEmpty()
-        val path = uri.path.orEmpty().lowercase()
-        val vixcloud = path.startsWith("/playlist/")
-        when {
-            isAd(uri) -> null
-            // VixCloud: type=video/audio e rendition=720p sono le parti della playlist principale
-            vixcloud && (uri.getQueryParameter("type") != null || uri.getQueryParameter("rendition") != null) -> null
-            else -> {
-                val main = vixcloud || "master" in path
-                val quality = Regex("\\b(\\d{3,4})p\\b").find(url)?.groupValues?.get(1)
-                val kind = when {
-                    main -> "Playlist principale"
-                    quality != null -> "Qualità ${quality}p"
-                    path.endsWith(".mp4") -> "Video MP4"
-                    else -> "Playlist"
-                }
-                Video(url, referer, "$kind\n$host", main)
-            }
-        }
+        videoFor(url, referer, uri.host, uri.path, uri.encodedQuery)
     }.sortedByDescending { it.main }
-
-    private fun isAd(uri: Uri): Boolean {
-        val host = uri.host.orEmpty().lowercase()
-        val path = uri.path.orEmpty().lowercase()
-        return AD_HOSTS.any { it in host } || host.split('.').any { it == "ads" || it == "ad" } ||
-            "/vast" in path || "/ads/" in path
-    }
 
     private fun refreshCastButton() {
         val count = playable().size
@@ -647,9 +602,6 @@ class MainActivity : Activity() {
             .setPositiveButton("OK", null)
             .show()
     }
-
-    // URLEncoder usa '+' per lo spazio, Kodi vuole %20
-    private fun enc(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
 
