@@ -37,6 +37,29 @@ App Android personale (Pixel 9 Pro XL) per guardare i video dei siti di streamin
 - 🚫 Popup, `window.open` e salti verso altri domini vengono bloccati: sono quasi tutta la pubblicità di quei siti.
 - 📋 Coda degli episodi nella playlist di Kodi, e su AnimeUnity gli episodi successivi si accodano da soli.
 
+## 📺 Dispositivi compatibili
+
+L'app parla con **Kodi**, non con la TV: funziona su qualunque dispositivo dove gira Kodi con il controllo remoto via HTTP. Il pulsante **⏻** invece usa ADB in rete (porta 5555) e l'HDMI-CEC, quindi va solo su Fire OS e Android TV.
+
+| Dispositivo | Kodi | Manda a Kodi | ⏻ Accendi |
+|---|---|---|---|
+| Fire TV Stick / Cube con **Fire OS**, TV con Fire TV integrata | APK con Downloader | ✅ | ✅ Debug ADB in rete già previsto |
+| Fire TV con **Vega OS** (Stick 4K Select, Stick HD 2026) | ❌ non si installa | ❌ | ❌ |
+| **Android TV** (Sony Bravia, Philips, TCL, Hisense Android, Sharp…) | Play Store | ✅ | ⚠️ dipende dal modello: serve il debug ADB sulla porta 5555 |
+| **Nvidia Shield TV** | Play Store | ✅ | ✅ *Opzioni sviluppatore → Debug di rete* |
+| Box Android generici (Xiaomi Mi Box, Homatics, Onn…) | Play Store o APK | ✅ | ⚠️ come Android TV |
+| **Google TV** (Chromecast con Google TV, Google TV Streamer, TV Google TV) | Play Store | ✅ | ⚠️ di solito no: il *Debug wireless* usa l'abbinamento con codice e una porta che cambia, non la 5555 |
+| PC Windows / Mac / Linux collegato alla TV | kodi.tv | ✅ | ❌ |
+| Raspberry Pi, LibreELEC, CoreELEC, OSMC | kodi.tv / immagine dedicata | ✅ | ❌ |
+| Xbox One / Series | Microsoft Store | ✅ | ❌ |
+| **LG webOS** | ⚠️ solo port della comunità (Homebrew, modalità sviluppatore), webOS 4+ | ⚠️ in teoria sì, non provato | ❌ |
+| **Apple TV** (HD e 4K) | ⚠️ solo sideload con Xcode da un Mac, da rifirmare | ⚠️ in teoria sì, non provato | ❌ |
+| **Samsung Tizen**, **Roku**, Chromecast senza Google TV | ❌ Kodi non esiste | ❌ | ❌ |
+
+- ✅ = funziona, ⚠️ = funziona con limiti o non verificato, ❌ = no. Provato davvero solo sulla Fire TV con Fire OS.
+- Su TV Samsung, LG, Roku si può comunque attaccare all'HDMI un dispositivo della lista (es. una Fire TV Stick con Fire OS o un Chromecast con Google TV).
+- **⏻ su Android TV / Google TV**: l'app si collega in ADB "classico" alla porta 5555. Se il dispositivo ha solo il *Debug wireless* di Android 11+, la 5555 si può aprire una volta da un PC (`adb tcpip 5555`), ma si richiude a ogni riavvio. In sonno profondo molti dispositivi spengono la rete: lì il pulsante non ha nessuno da svegliare.
+
 ## 🛠️ Preparazione (una volta sola)
 
 ### 📺 Fire TV
@@ -45,11 +68,11 @@ App Android personale (Pixel 9 Pro XL) per guardare i video dei siti di streamin
 1. Kodi non è nell'Appstore Amazon: installa l'app **Downloader** dall'Appstore, abilitala alle "app da origini sconosciute" (in *La mia Fire TV → Opzioni sviluppatore*; se non le vedi, tocca 7 volte il nome del dispositivo in *Info*) e scarica da kodi.tv l'APK Android ARM a 32 bit.
 2. In Kodi: *Impostazioni → Servizi → Controllo*, attiva **Consenti il controllo remoto via HTTP**. Annota porta (di solito 8080), utente e password.
 3. In Kodi: *Impostazioni → Servizi → Generale*, attiva **Annuncia servizi ad altri sistemi**: così l'app trova Kodi da sola. Se non funziona, annota l'IP della Fire TV (*Impostazioni → La mia Fire TV → Info → Rete*) e scrivilo a mano.
-4. Per accendere la TV dal telefono (pulsante **⏻**): attiva *La mia Fire TV → Opzioni sviluppatore → **Debug ADB***, *Impostazioni → Display e audio → **Controllo dispositivi HDMI CEC*** e l'HDMI-CEC sulla TV (Anynet+, SimpLink, Bravia Sync… a seconda della marca). Se con Alexa la TV si accende già sull'ingresso giusto, il CEC è a posto.
+4. Per accendere la TV dal telefono (pulsante di accensione, accanto a ★): attiva *La mia Fire TV → Opzioni sviluppatore → **Debug ADB***, *Impostazioni → Display e audio → **Controllo dispositivi HDMI CEC*** e l'HDMI-CEC sulla TV (Anynet+, SimpLink, Bravia Sync… a seconda della marca). Se con Alexa la TV si accende già sull'ingresso giusto, il CEC è a posto.
 
 ### 📱 App sul telefono, senza PC
 
-1. A ogni push su `main` GitHub Actions compila l'APK e lo pubblica come release "Build N" (tag `build-N`). Dal Pixel apri [releases/latest](https://github.com/Fpippi/cast-to-kodi/releases/latest) e scarica `CastToKodi.apk`.
+1. A ogni push su `main` GitHub Actions compila l'APK e lo pubblica come release "Versione X.Y.Z" (tag `vX.Y.Z`), con l'elenco delle novità preso da [CHANGELOG.md](CHANGELOG.md). Dal Pixel apri [releases/latest](https://github.com/Fpippi/cast-to-kodi/releases/latest) e scarica `CastToKodi.apk`.
 2. Le build sono firmate con una chiave fissa (secrets `KEYSTORE_BASE64` e `KEYSTORE_PASSWORD` del repo; l'originale non è nel repo), quindi ogni APK si installa sopra il precedente. Se la chiave si perde, ne serve una nuova e va disinstallata l'app una volta.
 3. 🔔 All'avvio l'app avvisa se c'è una build nuova. Per aggiornare con un tocco si può usare **Obtainium** con l'indirizzo del repo.
 
@@ -70,7 +93,7 @@ App Android personale (Pixel 9 Pro XL) per guardare i video dei siti di streamin
 ## ▶️ Uso
 
 1. 📡 Al primo avvio si apre **Dov'è Kodi?**: in *Automatico* l'app cerca Kodi in rete e lo selezioni; in *Manuale* scrivi `IP:porta` (es. `192.168.1.50:8080`). Sotto, utente e password se impostati in Kodi (se mancano, l'app li chiede al primo invio). Si cambia dopo con il pulsante **Kodi**. Se la Fire TV cambia IP, all'invio l'app la ritrova da sola. Le credenziali restano sul telefono, con la password cifrata, legate a quel Kodi e alla rete di casa: su un'altra rete si richiedono.
-2. ⏻ Con la TV spenta premi **⏻**: la Fire TV si sveglia, la TV si accende sul suo ingresso e si apre Kodi; quando risponde l'app scrive "Kodi è pronto". La prima volta la TV chiede di consentire il debug da questo telefono: spunta *Consenti sempre* e premi OK. Se la Fire TV è in sonno profondo non risponde in rete: lì servono Alexa o il telecomando.
+2. 🔌 Con la TV spenta premi il **pulsante di accensione** (accanto a ★): la Fire TV si sveglia, la TV si accende sul suo ingresso e si apre Kodi; quando risponde l'app scrive "Kodi è pronto". La prima volta la TV chiede di consentire il debug da questo telefono: spunta *Consenti sempre* e premi OK. Se la Fire TV è in sonno profondo non risponde in rete: lì servono Alexa o il telecomando.
 3. 🔍 Nella barra in alto scrivi un indirizzo o una ricerca (es. `jojo animeunity`, va su Google). Con **★** salvi la pagina nei preferiti (con un nome a scelta) e li riapri; con **⋮** accanto a un preferito lo rinomini o lo togli.
 4. 🎬 Vai all'episodio e **avvia il player** (il flusso si rileva solo quando parte).
 5. 📤 Premi **Manda a Kodi**. La pubblicità è già scartata; se restano più video, la playlist principale è la prima.
@@ -104,7 +127,8 @@ Le regole dell'app che non dipendono da Android (barra degli indirizzi, blocco d
 ## 🌿 Branch
 
 - **`develop`** è dove si lavora: ogni modifica parte da qui e ci torna con una PR.
-- **`main`** è solo per i rilasci: una PR da `develop` a `main` pubblica una nuova "Build N" (il workflow APK parte solo con i push su `main`).
+- **`main`** è solo per i rilasci: una PR da `develop` a `main` pubblica una nuova versione (il workflow APK parte solo con i push su `main`).
+- Prima di quella PR si aggiunge in cima a [CHANGELOG.md](CHANGELOG.md) la sezione `## X.Y.Z` con le novità: il primo numero per i cambi grossi, il secondo per le funzioni nuove, il terzo per le correzioni. Se manca, il controllo **test** della PR lo dice.
 
 <details>
 <summary>⚙️ Impostazioni su GitHub (una volta sola)</summary>

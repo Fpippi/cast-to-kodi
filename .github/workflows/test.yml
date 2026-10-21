@@ -30,6 +30,10 @@ jobs:
 
       # Verso main (rilascio) anche l'APK completo, che verifica manifest e risorse. Firma con la chiave debug.
       # Qui vanno i controlli più pesanti, quando ce ne saranno. Stesso job "test", così basta un solo check nei ruleset.
+      # Verso main anche la versione: una sezione nuova in cima a CHANGELOG.md, con le novità
+      - if: github.base_ref == 'main'
+        run: .github/versione.sh "$RUNNER_TEMP/novita.md"
+
       - if: github.base_ref == 'main'
         run: ./gradlew assembleDebug --stacktrace
 

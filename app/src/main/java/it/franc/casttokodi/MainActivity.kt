@@ -19,6 +19,9 @@ import android.os.Message
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.text.InputType
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ImageSpan
 import android.text.TextUtils
 import android.text.format.DateFormat
 import android.util.Base64
@@ -207,13 +210,21 @@ class MainActivity : Activity() {
             setOnClickListener { askKodiAddress() }
         }
         val power = Button(this).apply {
-            text = "⏻"
             contentDescription = "Accendi la TV e apri Kodi"
             tooltipText = contentDescription
             setOnClickListener { wakeKodi() }
         }
         paint(favorites, active = true, primary = false)
         paint(power, active = true, primary = false)
+        // Il carattere ⏻ manca nel font del Pixel (si vedeva un quadratino): icona vettoriale nel testo, del colore del testo
+        power.text = SpannableString(" ").apply {
+            val icon = getDrawable(it.franc.casttokodi.R.drawable.ic_power)!!.mutate().apply {
+                val size = dp(22)
+                setBounds(0, 0, size, size)
+                setTint(power.currentTextColor)
+            }
+            setSpan(ImageSpan(icon, ImageSpan.ALIGN_CENTER), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
         paint(settings, active = true, primary = false)
         cast = Button(this).apply {
             setOnClickListener { pickVideo(queued = false) }
@@ -263,10 +274,10 @@ class MainActivity : Activity() {
         checkUpdate()
     }
 
-    // L'ultima release ha come titolo "Build N", con N = versionCode dell'APK (vedi .github/workflows/apk.yml).
+    // L'ultima release ha come tag vX.Y.Z, con X.Y.Z = versionName dell'APK (da CHANGELOG.md, vedi .github/workflows/apk.yml).
     // Il repo è pubblico: l'API non vuole token (limite 60 richieste l'ora per IP, ne basta una per avvio).
     private fun checkUpdate() {
-        val installed = packageManager.getPackageInfo(packageName, 0).longVersionCode
+        val installed = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
         thread {
             val latest = try {
                 val conn = URL("https://api.github.com/repos/$REPO/releases/latest").openConnection() as HttpURLConnection
@@ -274,16 +285,15 @@ class MainActivity : Activity() {
                 conn.readTimeout = 10000
                 conn.setRequestProperty("Accept", "application/vnd.github+json")
                 if (conn.responseCode != 200) return@thread
-                val name = JSONObject(conn.inputStream.bufferedReader().readText()).optString("name")
-                name.filter { it.isDigit() }.toLongOrNull() ?: return@thread
+                JSONObject(conn.inputStream.bufferedReader().readText()).optString("tag_name")
             } catch (e: Exception) {
                 return@thread
             }
-            if (latest <= installed) return@thread
+            if (!isNewerVersion(latest, installed)) return@thread
             runOnUiThread {
                 AlertDialog.Builder(this)
                     .setTitle("Nuova versione disponibile")
-                    .setMessage("Installata: build $installed\nUltima: build $latest")
+                    .setMessage("Installata: $installed\nUltima: ${latest.removePrefix("v")}")
                     .setPositiveButton("Scarica") { _, _ ->
                         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/$REPO/releases/latest")))
                     }
@@ -648,9 +658,9 @@ class MainActivity : Activity() {
                 })
                 null
             } catch (e: SocketTimeoutException) {
-                if (confirming) "La TV non ha confermato in tempo. Premi ⏻ e accetta la richiesta sullo schermo." else "Non risponde a $ip.\n\n$NO_ADB_HELP"
+                if (confirming) "La TV non ha confermato in tempo. Premi di nuovo il pulsante di accensione e accetta la richiesta sullo schermo." else "Non risponde a $ip.\n\n$NO_ADB_HELP"
             } catch (e: IOException) {
-                if (confirming) "La TV ha rifiutato il telefono. Premi ⏻ e accetta la richiesta sullo schermo." else "Non risponde a $ip.\n\n$NO_ADB_HELP"
+                if (confirming) "La TV ha rifiutato il telefono. Premi di nuovo il pulsante di accensione e accetta la richiesta sullo schermo." else "Non risponde a $ip.\n\n$NO_ADB_HELP"
             } catch (e: Exception) {
                 e.message.orEmpty()
             }

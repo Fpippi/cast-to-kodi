@@ -1,4 +1,4 @@
-# Compila l'APK a ogni push e lo pubblica come release "Build N" (tag build-N),
+# Compila l'APK a ogni push e lo pubblica come release "Versione X.Y.Z" (tag vX.Y.Z, versione e novità da CHANGELOG.md),
 # così si scarica e si installa direttamente dal telefono senza Android Studio.
 name: APK
 
@@ -31,6 +31,12 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # Prima di compilare: se la versione è già uscita è inutile andare avanti
+      - name: Versione
+        run: |
+          version=$(.github/versione.sh "$RUNNER_TEMP/novita.md")
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
       # Chiave di firma fissa dai secrets KEYSTORE_BASE64 e KEYSTORE_PASSWORD; se mancano si firma con la chiave debug
       - name: Chiave di firma
         env:
@@ -55,14 +61,16 @@ jobs:
           name: CastToKodi
           path: CastToKodi.apk
 
-      # Un tag per build (build-N) perché Obtainium riconosca le versioni nuove dal tag
+      # Un tag per versione (vX.Y.Z) perché Obtainium riconosca le versioni nuove dal tag. Il nome dell'asset resta
+      # CastToKodi.apk, così il link releases/latest/download/CastToKodi.apk non cambia.
       - name: Pubblica la release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --cleanup-tag --yes || true  # vecchio schema a tag fisso
-          gh release create "build-${GITHUB_RUN_NUMBER}" CastToKodi.apk \
+          echo -e "\n---\nBuild ${GITHUB_RUN_NUMBER}, da ${GITHUB_REF_NAME} @ ${GITHUB_SHA::7}. Apri CastToKodi.apk dal telefono per installarla." >> "$RUNNER_TEMP/novita.md"
+          gh release create "v${VERSION}" CastToKodi.apk \
             --target "$GITHUB_SHA" \
-            --title "Build ${GITHUB_RUN_NUMBER}" \
-            --notes "Compilata da ${GITHUB_REF_NAME} @ ${GITHUB_SHA::7}. Apri CastToKodi.apk dal telefono per installarla." \
+            --title "Versione ${VERSION}" \
+            --notes-file "$RUNNER_TEMP/novita.md" \
             --latest
