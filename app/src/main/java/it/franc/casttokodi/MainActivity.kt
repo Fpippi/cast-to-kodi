@@ -263,10 +263,10 @@ class MainActivity : Activity() {
         checkUpdate()
     }
 
-    // L'ultima release ha come titolo "Build N", con N = versionCode dell'APK (vedi .github/workflows/apk.yml).
+    // L'ultima release ha come tag vX.Y.Z, con X.Y.Z = versionName dell'APK (da CHANGELOG.md, vedi .github/workflows/apk.yml).
     // Il repo è pubblico: l'API non vuole token (limite 60 richieste l'ora per IP, ne basta una per avvio).
     private fun checkUpdate() {
-        val installed = packageManager.getPackageInfo(packageName, 0).longVersionCode
+        val installed = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
         thread {
             val latest = try {
                 val conn = URL("https://api.github.com/repos/$REPO/releases/latest").openConnection() as HttpURLConnection
@@ -274,16 +274,15 @@ class MainActivity : Activity() {
                 conn.readTimeout = 10000
                 conn.setRequestProperty("Accept", "application/vnd.github+json")
                 if (conn.responseCode != 200) return@thread
-                val name = JSONObject(conn.inputStream.bufferedReader().readText()).optString("name")
-                name.filter { it.isDigit() }.toLongOrNull() ?: return@thread
+                JSONObject(conn.inputStream.bufferedReader().readText()).optString("tag_name")
             } catch (e: Exception) {
                 return@thread
             }
-            if (latest <= installed) return@thread
+            if (!isNewerVersion(latest, installed)) return@thread
             runOnUiThread {
                 AlertDialog.Builder(this)
                     .setTitle("Nuova versione disponibile")
-                    .setMessage("Installata: build $installed\nUltima: build $latest")
+                    .setMessage("Installata: $installed\nUltima: ${latest.removePrefix("v")}")
                     .setPositiveButton("Scarica") { _, _ ->
                         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/$REPO/releases/latest")))
                     }

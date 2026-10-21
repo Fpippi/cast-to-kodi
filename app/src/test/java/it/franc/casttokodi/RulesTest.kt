@@ -173,4 +173,20 @@ class RulesTest {
         assertEquals("A", initialOf("★", "www.animeunity.so"))
         assertEquals("?", initialOf("", null))
     }
+
+    @Test
+    fun versioni() {
+        assertEquals(listOf(1, 10, 0), versionParts("v1.10.0"))
+        assertEquals(listOf(2, 0, 3), versionParts(" 2.0.3 "))
+        assertNull(versionParts("build-18"))
+        assertNull(versionParts("1.0"))
+
+        assertTrue(isNewerVersion("v1.0.1", "1.0.0"))
+        assertTrue(isNewerVersion("v1.10.0", "1.9.9")) // si confrontano i numeri, non il testo
+        assertTrue(isNewerVersion("v2.0.0", "1.12.4"))
+        assertFalse(isNewerVersion("v1.0.0", "1.0.0"))
+        assertFalse(isNewerVersion("v1.0.0", "1.1.0"))
+        assertFalse(isNewerVersion("build-18", "1.0.0"))
+        assertTrue(isNewerVersion("v1.0.0", "0.1"))
+    }
 }
