@@ -7,6 +7,11 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 1.0.1
+
+- Pulsante di accensione: trova la Fire TV da solo anche senza l'IP di Kodi salvato (prova l'ultimo IP e poi cerca in
+  rete sulla porta 5555), e dopo il risveglio chiede alla TV di passare all'ingresso della Fire TV.
+
 ## 1.0.0
 
 Prima versione con un numero al posto di "Build N" (l'ultima era la Build 18).

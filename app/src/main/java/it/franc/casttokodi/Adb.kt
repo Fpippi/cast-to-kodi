@@ -4,6 +4,8 @@ import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.IOException
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.math.BigInteger
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -21,8 +23,13 @@ import javax.crypto.Cipher
 
 const val ADB_PORT = 5555
 
-// Sveglia la Fire TV (con HDMI-CEC accende anche la TV e la porta sul suo ingresso) e mette Kodi in primo piano
-const val WAKE_AND_OPEN_KODI = "input keyevent KEYCODE_WAKEUP; monkey -p org.xbmc.kodi -c android.intent.category.LAUNCHER 1"
+// Sveglia la Fire TV (con HDMI-CEC accende anche la TV) e mette Kodi in primo piano. Il risveglio manda subito
+// "Active Source", ma la TV in quel momento si sta ancora accendendo e lo ignora: resta sull'ultimo ingresso.
+// Dopo qualche secondo si richiede l'ingresso in due modi, perché non si sa quale ascolti Fire OS:
+// "cmd hdmi_control onetouchplay" (One Touch Play di Android 11+, Fire OS 8) e il tasto Home, come dal telecomando.
+// ponytail: tutti e due da verificare sulla Fire TV vera; se nessuno basta, allungare l'attesa
+const val WAKE_AND_OPEN_KODI = "input keyevent KEYCODE_WAKEUP; sleep 4; cmd hdmi_control onetouchplay; " +
+    "input keyevent KEYCODE_HOME; monkey -p org.xbmc.kodi -c android.intent.category.LAUNCHER 1"
 
 private const val A_CNXN = 0x4e584e43
 private const val A_AUTH = 0x48545541
@@ -108,6 +115,41 @@ fun adbSign(key: PrivateKey, token: ByteArray): ByteArray =
 // L'IP della Fire TV dall'indirizzo di Kodi "IP:porta": ADB ascolta sullo stesso IP, porta 5555
 fun adbHost(kodiHost: String): String = kodiHost.trim().substringBefore(':')
 
+// Gli IP da provare per trovare la Fire TV: tutta la sottorete del telefono (al massimo la /24 intorno al suo
+// indirizzo, per non provarne migliaia), senza l'indirizzo di rete, il broadcast e il telefono stesso
+fun subnetHosts(address: String, prefixLength: Int): List<String> {
+    val parts = address.split('.').mapNotNull { it.toIntOrNull()?.takeIf { n -> n in 0..255 } }
+    if (parts.size != 4 || prefixLength !in 1..32) return emptyList()
+    val ip = parts.fold(0L) { acc, p -> (acc shl 8) or p.toLong() }
+    val bits = 32 - prefixLength.coerceAtLeast(24)
+    if (bits < 2) return emptyList()
+    val net = ip and ((-1L shl bits) and 0xFFFFFFFFL)
+    return (1 until (1L shl bits) - 1).map { net + it }.filter { it != ip }.map { n ->
+        (3 downTo 0).joinToString(".") { ((n shr (it * 8)) and 0xFF).toString() }
+    }
+}
+
+// Gli host in cui qualcosa risponde sulla porta ADB, nell'ordine di hosts. Prova 64 indirizzi alla volta,
+// così una /24 si fa in un paio di secondi
+fun findAdb(hosts: List<String>, port: Int = ADB_PORT, timeout: Int = 400): List<String> {
+    val pool = Executors.newFixedThreadPool(64)
+    try {
+        val open = hosts.map { host ->
+            pool.submit<Boolean> {
+                try {
+                    Socket().use { it.connect(InetSocketAddress(host, port), timeout) }
+                    true
+                } catch (e: IOException) {
+                    false
+                }
+            }
+        }
+        return hosts.filterIndexed { i, _ -> open[i].get(timeout + 5000L, TimeUnit.MILLISECONDS) }
+    } finally {
+        pool.shutdownNow()
+    }
+}
+
 // Esegue command sulla Fire TV e ne restituisce l'output, da un thread di background. La prima volta la Fire TV
 // non conosce la chiave e chiede sullo schermo se accettarla: allora parte onConfirm (sul thread di rete) e si
 // aspetta fino a confirmTimeout millisecondi. I problemi di rete restano IOException.
@@ -151,7 +193,8 @@ fun adbShell(
             else -> throw AdbError("Risposta ADB inattesa")
         }
     }
-    socket.soTimeout = 10_000
+    // Il comando aspetta che la TV si accenda prima di chiedere l'ingresso: più tempo per la risposta
+    socket.soTimeout = 20_000
 
     send(A_OPEN, LOCAL_ID, 0, "shell:$command\u0000".toByteArray())
     val out = ByteArrayOutputStream()

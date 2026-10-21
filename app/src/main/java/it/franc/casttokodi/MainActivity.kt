@@ -107,7 +107,7 @@ private const val NO_ADB_HELP = """Controlla che:
 
 1. sulla Fire TV sia attivo Impostazioni → La mia Fire TV → Opzioni sviluppatore → Debug ADB;
 2. telefono e Fire TV siano sullo stesso Wi-Fi;
-3. l'IP nel pulsante Kodi sia quello della Fire TV.
+3. Kodi non serve: l'app cerca da sola la Fire TV in rete sulla porta 5555.
 
 Se la Fire TV è in sonno profondo il suo Wi-Fi è spento: accendila con Alexa o con il telecomando."""
 
@@ -638,12 +638,37 @@ class MainActivity : Activity() {
 
     // Accende la TV e apre Kodi via ADB in rete (#31): la Fire TV si sveglia, con HDMI-CEC accende la TV e la
     // porta sul suo ingresso, poi Kodi va in primo piano. Si avvisa quando Kodi risponde, così si può mandare il video.
+    // La Fire TV si prova prima all'ultimo IP che ha funzionato (o a quello di Kodi), poi si cerca in tutta la rete.
     private fun wakeKodi() {
-        val host = prefs.getString("host", "").orEmpty()
-        if (host.isBlank()) return askKodiAddress()
-        val ip = adbHost(host)
-        val login = savedLogin(host, currentNetwork())
-        toast("Accendo la Fire TV…")
+        val kodiHost = prefs.getString("host", "").orEmpty()
+        val known = listOfNotNull(prefs.getString("adbHost", null), adbHost(kodiHost).ifBlank { null }).distinct()
+        val local = localAddress()
+        toast("Accendo la TV…")
+        thread {
+            val reachable = findAdb(known, timeout = 1500)
+            val found = reachable.ifEmpty {
+                runOnUiThread { toast("Cerco la Fire TV in rete…") }
+                local?.let { (address, prefix) -> findAdb(subnetHosts(address, prefix)) }.orEmpty()
+            }
+            runOnUiThread {
+                when {
+                    found.isEmpty() -> notice("Fire TV non trovata", "Nessun dispositivo risponde sulla porta 5555.\n\n$NO_ADB_HELP")
+                    found.size == 1 -> wakeAt(found[0])
+                    else -> AlertDialog.Builder(this)
+                        .setTitle("Quale Fire TV?")
+                        .setItems(found.toTypedArray()) { _, i -> wakeAt(found[i]) }
+                        .show()
+                }
+            }
+        }
+    }
+
+    private fun wakeAt(ip: String) {
+        val savedHost = prefs.getString("host", "").orEmpty()
+        // Kodi è sulla Fire TV appena trovata, sulla porta salvata (8080 se non c'è ancora un Kodi salvato)
+        val host = "$ip:" + savedHost.substringAfter(':', "8080")
+        val network = currentNetwork()
+        val login = savedLogin(savedHost.ifBlank { host }, network)
         thread {
             var confirming = false
             val problem = try {
@@ -668,8 +693,18 @@ class MainActivity : Activity() {
                 runOnUiThread { notice("Fire TV non raggiungibile", problem) }
                 return@thread
             }
+            prefs.edit().putString("adbHost", ip).apply()
             val ready = waitForKodi(Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty()))
-            runOnUiThread { toast(if (ready) "Kodi è pronto" else "Kodi è aperto, ma non risponde ancora") }
+            runOnUiThread {
+                if (ready && host != savedHost) {
+                    // La Fire TV ha cambiato IP (o Kodi non era ancora salvato): Kodi e le sue credenziali la seguono
+                    if (savedHost.isNotBlank()) saveLogins(moveLogin(loadLogins(), savedHost, host, prefs.getString("name", "").orEmpty(), network))
+                    prefs.edit().putString("host", host).putBoolean("manual", false).apply()
+                    toast("Kodi è pronto a $host")
+                } else {
+                    toast(if (ready) "Kodi è pronto" else "Kodi è aperto, ma non risponde ancora")
+                }
+            }
         }
     }
 
@@ -937,6 +972,14 @@ class MainActivity : Activity() {
             .setPositiveButton("OK") { _, _ -> retry(user.text.toString().trim() to password.text.toString()) }
             .setNegativeButton("Annulla", null)
             .show()
+    }
+
+    // IPv4 del telefono e lunghezza del prefisso della sua rete, per cercarci la Fire TV
+    private fun localAddress(): Pair<String, Int>? {
+        val cm = getSystemService(ConnectivityManager::class.java) ?: return null
+        val link = cm.getLinkProperties(cm.activeNetwork) ?: return null
+        val address = link.linkAddresses.firstOrNull { it.address is Inet4Address } ?: return null
+        return (address.address.hostAddress ?: return null) to address.prefixLength
     }
 
     // Impronta della rete attuale (vedi networkKey), null senza rete o senza un gateway IPv4
