@@ -17,6 +17,9 @@ class RulesTest {
         assertEquals("https://animeunity.so", addressFor("animeunity.so"))
         assertEquals("$GOOGLE/search?q=jojo%20animeunity", addressFor("jojo animeunity"))
         assertEquals("$GOOGLE/search?q=jojo", addressFor("jojo"))
+        // host:porta in HTTP, non su Google né in HTTPS
+        assertEquals("http://localhost:8080", addressFor("localhost:8080"))
+        assertEquals("http://192.168.1.50:8080/jsonrpc", addressFor("192.168.1.50:8080/jsonrpc"))
     }
 
     @Test
@@ -28,8 +31,8 @@ class RulesTest {
 
     @Test
     fun bloccoDeiSalti() {
-        fun blocks(scheme: String?, host: String?, allowed: String, mainFrame: Boolean = true, redirect: Boolean = false, gesture: Boolean = false) =
-            blocksNavigation(scheme, host, allowed, mainFrame, redirect, gesture)
+        fun blocks(scheme: String?, host: String?, allowed: String, mainFrame: Boolean = true, redirect: Boolean = false) =
+            blocksNavigation(scheme, host, allowed, mainFrame, redirect)
 
         // schemi strani (intent://, market://) sempre bloccati
         assertTrue(blocks("intent", "x", "animeunity.so"))
@@ -40,9 +43,8 @@ class RulesTest {
         // redirect HTTP e iframe passano
         assertFalse(blocks("https", "animeunity.to", "animeunity.so", redirect = true))
         assertFalse(blocks("https", "vixcloud.co", "animeunity.so", mainFrame = false))
-        // da Google si esce solo con un tocco
-        assertFalse(blocks("https", "animeunity.so", "google.com", gesture = true))
-        assertTrue(blocks("https", "animeunity.so", "google.com"))
+        // da Google si esce sempre, anche da JS: alcuni risultati si aprono così
+        assertFalse(blocks("https", "animeunity.so", "google.com"))
     }
 
     @Test

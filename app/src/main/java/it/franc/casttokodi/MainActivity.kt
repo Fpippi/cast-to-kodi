@@ -296,7 +296,7 @@ class MainActivity : Activity() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url
                 val blocked = blocksNavigation(
-                    url.scheme, url.host, allowedDomain, request.isForMainFrame, request.isRedirect, request.hasGesture()
+                    url.scheme, url.host, allowedDomain, request.isForMainFrame, request.isRedirect
                 )
                 return if (blocked) block(url) else false
             }
