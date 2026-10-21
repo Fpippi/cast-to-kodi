@@ -1,11 +1,14 @@
 package it.franc.casttokodi
 
+import it.franc.casttokodi.sites.GOOGLE
+import it.franc.casttokodi.sites.googleSearch
+import it.franc.casttokodi.sites.isGoogle
+import it.franc.casttokodi.sites.isVixCloudPart
+import it.franc.casttokodi.sites.isVixCloudPlaylist
 import java.net.URLEncoder
 
 // Regole dell'app scritte senza API Android (niente Uri, WebView, Context): così le provano i test
-// in app/src/test, che girano sulla JVM a ogni PR verso main.
-
-const val GOOGLE = "https://www.google.com"
+// in app/src/test, che girano sulla JVM a ogni PR. Quello che vale per un solo sito o player sta in sites/.
 
 // ponytail: elenco corto dei circuiti pubblicitari visti nei player; allungarlo quando se ne incontrano altri
 private val AD_HOSTS = listOf("doubleclick", "googlesyndication", "imasdk", "adnxs", "adsrvr", "popads", "exoclick", "juicyads")
@@ -23,7 +26,7 @@ fun addressFor(input: String): String {
         text.startsWith("http://") || text.startsWith("https://") -> text
         HOST_PORT.matches(text) -> "http://$text"
         // "jojo animeunity" o "jojo" non sono indirizzi: si cercano su Google
-        ' ' in text || '.' !in text -> "$GOOGLE/search?q=${enc(text)}"
+        ' ' in text || '.' !in text -> googleSearch(text)
         else -> "https://$text"
     }
 }
@@ -36,17 +39,14 @@ fun blocksNavigation(scheme: String?, host: String?, allowedDomain: String, main
     if (scheme != "http" && scheme != "https") return true
     // I redirect HTTP (es. il sito che cambia dominio) sono ammessi, i salti fatti da JS no
     if (!mainFrame || redirect) return false
-    // Dai risultati di Google si va su altri siti per forza. Non serve il tocco (hasGesture): Google apre
-    // alcuni risultati da JS e il WebView non lo segna come gesto; su Google non ci sono salti pubblicitari
-    if (allowedDomain.startsWith("google.")) return false
+    if (isGoogle(allowedDomain)) return false
     return domainOf(host) != allowedDomain
 }
 
-// ponytail: riconosce per estensione più il caso VixCloud (AnimeUnity, StreamingCommunity), che serve
-// la playlist come /playlist/<id>?token=... senza .m3u8; per altri siti così guardare il Content-Type
+// ponytail: riconosce per estensione più il caso VixCloud senza .m3u8; per altri siti così guardare il Content-Type
 fun isVideoPath(path: String?): Boolean {
     val p = path?.lowercase() ?: return false
-    return p.endsWith(".m3u8") || p.endsWith(".mp4") || p.startsWith("/playlist/")
+    return p.endsWith(".m3u8") || p.endsWith(".mp4") || isVixCloudPlaylist(p)
 }
 
 fun isAd(host: String?, path: String?): Boolean {
@@ -60,12 +60,11 @@ fun isAd(host: String?, path: String?): Boolean {
 // host, path e query sono le parti già separate di url (query senza "?").
 fun videoFor(url: String, referer: String, host: String?, path: String?, query: String?): Video? {
     val p = path.orEmpty().lowercase()
-    val vixcloud = p.startsWith("/playlist/")
+    val vixcloud = isVixCloudPlaylist(p)
     val params = query.orEmpty().split('&').map { it.substringBefore('=') }
     return when {
         isAd(host, path) -> null
-        // VixCloud: type=video/audio e rendition=720p sono le parti della playlist principale
-        vixcloud && ("type" in params || "rendition" in params) -> null
+        vixcloud && isVixCloudPart(params) -> null
         else -> {
             val main = vixcloud || "master" in p
             val quality = Regex("\\b(\\d{3,4})p\\b").find(url)?.groupValues?.get(1)
