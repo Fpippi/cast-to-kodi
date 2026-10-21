@@ -19,6 +19,7 @@
 - Chiave di firma fissa nei secrets di GitHub, mai nel repo (l'utente la tiene in `D:\Progetti\casttokodi-firma`): così gli aggiornamenti si installano senza disinstallare. L'app avvisa delle build nuove leggendo `releases/latest` senza token.
 - **Il repo è pubblico**: niente segreti, IP di casa, credenziali o dati personali nei file committati.
 - I commit portano solo l'utente come autore: niente `Co-Authored-By` né altre righe di attribuzione.
+- Nomi dei branch: `feature/<nome>` per cose nuove, `hotfix/<nome>` per bug esistenti, con nomi che dicono cosa fanno. Mai `claude/` o nomi generati.
 - App per uso personale, minSdk 33, nessuna dipendenza oltre alla libreria standard di Kotlin, UI costruita in codice in un'unica Activity.
 
 ## Trappole note
