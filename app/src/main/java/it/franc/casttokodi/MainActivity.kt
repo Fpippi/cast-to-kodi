@@ -6,26 +6,40 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.content.res.Configuration
+import android.net.ConnectivityManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.os.Bundle
 import android.os.Message
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import android.text.InputType
+import android.text.TextUtils
 import android.text.format.DateFormat
 import android.util.Base64
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
+import android.webkit.CookieManager
 import android.webkit.WebChromeClient
+import android.widget.CheckBox
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.RadioButton
 import android.widget.RadioGroup
@@ -35,11 +49,30 @@ import android.widget.Toast
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
+import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.net.SocketTimeoutException
 import java.net.HttpURLConnection
 import java.net.Inet4Address
 import java.net.URL
+import java.security.KeyFactory
+import java.security.KeyPair
+import java.security.KeyPairGenerator
+import java.security.KeyStore
+import java.security.spec.PKCS8EncodedKeySpec
+import java.security.spec.X509EncodedKeySpec
 import java.util.Date
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
+import it.franc.casttokodi.sites.GOOGLE
+import it.franc.casttokodi.sites.MASTER_PLAYLIST_JS
+import it.franc.casttokodi.sites.MAX_AUTO_NEXT
+import it.franc.casttokodi.sites.NEXT_EPISODES_JS
+import it.franc.casttokodi.sites.isAnimeUnityEpisode
+import it.franc.casttokodi.sites.isGoogleConsent
+import it.franc.casttokodi.sites.linkExpiry
 import kotlin.concurrent.thread
 
 private const val REPO = "Fpippi/cast-to-kodi"
@@ -61,51 +94,24 @@ private const val DEFAULT_EPISODE = 24 * 60L
 // Un episodio va accodato solo se il suo link vale ancora almeno 10 minuti dopo l'inizio previsto
 private const val EXPIRY_MARGIN = 10 * 60L
 
-// Più di qualche episodio non serve: i link scadono dopo qualche ora
-private const val MAX_AUTO_NEXT = 3
+// Alias nell'Android Keystore della chiave che cifra le password di Kodi
+private const val LOGIN_KEY = "kodi-login"
 
-private val EPISODE_PATH = Regex("/anime/[^/]+/\\d+/?")
+// Nome della chiave ADB del telefono, salvato dalla Fire TV con la chiave
+private const val ADB_KEY_NAME = "Couch Cast"
 
-// Eseguito nella pagina dell'episodio AnimeUnity: rilegge la pagina (stessi cookie, niente Cloudflare), prende
-// l'elenco degli episodi dall'elemento <video-player> e, per ognuno dei COUNT successivi, l'embed_url del suo player.
-private const val NEXT_EPISODES_JS = """(function (n) {
-  function player(url) {
-    var x = new XMLHttpRequest();
-    x.open('GET', url, false);
-    x.send();
-    if (x.status != 200) return null;
-    return new DOMParser().parseFromString(x.responseText, 'text/html').querySelector('video-player');
-  }
-  try {
-    var p = player(location.href);
-    if (!p) return JSON.stringify({ error: 'player' });
-    var episodes = JSON.parse(p.getAttribute('episodes') || '[]');
-    var id = location.pathname.replace(/\/$/, '').split('/').pop();
-    var i = episodes.findIndex(function (e) { return String(e.id) == id; });
-    if (i < 0) return JSON.stringify({ error: 'episode' });
-    var base = location.pathname.replace(/\/$/, '').replace(/\/[^\/]*$/, '');
-    var next = episodes.slice(i + 1, i + 1 + n).map(function (e) {
-      var q = player(location.origin + base + '/' + e.id);
-      return { number: String(e.number), embed: q ? q.getAttribute('embed_url') : null };
-    });
-    return JSON.stringify({ next: next });
-  } catch (e) {
-    return JSON.stringify({ error: String(e) });
-  }
-})(COUNT)"""
+private const val NO_ADB_HELP = """Controlla che:
 
-// Eseguito nella pagina del player VixCloud: la playlist principale con i parametri del token, come la chiede il player
-private const val MASTER_PLAYLIST_JS = """(function () {
-  var m = window.masterPlaylist;
-  if (!m || !m.url) return null;
-  var u = new URL(m.url);
-  var p = m.params || {};
-  for (var k in p) if (p[k] !== undefined && p[k] !== null && p[k] !== '') u.searchParams.set(k, p[k]);
-  if (window.canPlayFHD) u.searchParams.set('h', '1');
-  return u.toString();
-})()"""
+1. sulla Fire TV sia attivo Impostazioni → La mia Fire TV → Opzioni sviluppatore → Debug ADB;
+2. telefono e Fire TV siano sullo stesso Wi-Fi;
+3. l'IP nel pulsante Kodi sia quello della Fire TV.
+
+Se la Fire TV è in sonno profondo il suo Wi-Fi è spento: accendila con Alexa o con il telecomando."""
 
 private class KodiError(message: String) : Exception(message)
+
+// Kodi ha risposto 401: mancano utente e password o sono sbagliati, si chiedono
+private class Unauthorized : Exception()
 
 // La coda non può proseguire con questo video: si avvisa con il motivo e non si accoda
 private class Refused(message: String) : Exception(message)
@@ -148,7 +154,7 @@ private class Kodi(val host: String, val auth: String) {
         conn.outputStream.use { it.write(body.toByteArray()) }
         when (conn.responseCode) {
             200 -> {}
-            401 -> throw KodiError("Kodi rifiuta utente e password: correggili con il pulsante Kodi.")
+            401 -> throw Unauthorized()
             else -> throw KodiError("Kodi ha risposto HTTP ${conn.responseCode}.")
         }
         val reply = JSONObject(conn.inputStream.bufferedReader().readText())
@@ -173,6 +179,12 @@ class MainActivity : Activity() {
     private var allowedDomain = ""
     @Volatile private var pageUrl = ""
 
+    // "IP:porta" -> nome annunciato via mDNS, per riconoscere lo stesso Kodi quando cambia IP
+    private val kodiNames = HashMap<String, String>()
+
+    // Favicon della pagina aperta, salvata con il preferito
+    private var pageIcon: Bitmap? = null
+
     // Mentre si cerca Kodi in rete lo dice il pulsante in basso: un toast sparisce prima di averlo letto
     private var searchingKodi = false
 
@@ -194,7 +206,14 @@ class MainActivity : Activity() {
             text = "Kodi"
             setOnClickListener { askKodiAddress() }
         }
+        val power = Button(this).apply {
+            text = "⏻"
+            contentDescription = "Accendi la TV e apri Kodi"
+            tooltipText = contentDescription
+            setOnClickListener { wakeKodi() }
+        }
         paint(favorites, active = true, primary = false)
+        paint(power, active = true, primary = false)
         paint(settings, active = true, primary = false)
         cast = Button(this).apply {
             setOnClickListener { pickVideo(queued = false) }
@@ -214,6 +233,7 @@ class MainActivity : Activity() {
             setPadding(dp(8), dp(4), dp(8), 0)
             addView(address, LinearLayout.LayoutParams(0, -2, 1f))
             addView(favorites, LinearLayout.LayoutParams(dp(56), -2).apply { marginStart = dp(4) })
+            addView(power, LinearLayout.LayoutParams(dp(56), -2).apply { marginStart = dp(4) })
             addView(settings, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(4) })
         }
         val bottomBar = LinearLayout(this).apply {
@@ -237,6 +257,7 @@ class MainActivity : Activity() {
         setContentView(root)
         refreshCastButton()
 
+        migrateAuth()
         open(prefs.getString("last", null) ?: GOOGLE)
         if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress()
         checkUpdate()
@@ -291,6 +312,11 @@ class MainActivity : Activity() {
                 progress.progress = newProgress
                 progress.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
             }
+
+            override fun onReceivedIcon(view: WebView, icon: Bitmap) {
+                pageIcon = icon
+                fillMissingIcon(view.url, icon)
+            }
         }
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -303,6 +329,7 @@ class MainActivity : Activity() {
 
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 pageUrl = url
+                pageIcon = favicon
                 allowedDomain = domainOf(Uri.parse(url))
                 address.setText(url)
                 videos.clear()
@@ -310,7 +337,7 @@ class MainActivity : Activity() {
             }
 
             override fun onPageFinished(view: WebView, url: String) {
-                prefs.edit().putString("last", url).apply()
+                if (!isGoogleConsent(Uri.parse(url).host)) prefs.edit().putString("last", url).apply()
             }
 
             // Chiamato su un thread di background per ogni risorsa, anche dentro gli iframe e per le XHR dei player
@@ -366,8 +393,9 @@ class MainActivity : Activity() {
     // tonale per le secondarie, neutro quando non si può premere. Chiaro e scuro seguono il tema del telefono.
     private fun paint(button: Button, active: Boolean, primary: Boolean) {
         val (background, text) = when {
+            // Il testo da spento è un'istruzione ("Nessun video: avvia il player"): grigio ma leggibile in tutti e due i temi
             !active -> sys(R.color.system_neutral2_100, R.color.system_neutral2_800) to
-                sys(R.color.system_neutral2_500, R.color.system_neutral2_400)
+                sys(R.color.system_neutral2_700, R.color.system_neutral2_200)
             primary -> sys(R.color.system_accent1_600, R.color.system_accent1_200) to
                 sys(R.color.system_accent1_0, R.color.system_accent1_800)
             else -> sys(R.color.system_accent2_100, R.color.system_accent2_700) to
@@ -397,10 +425,13 @@ class MainActivity : Activity() {
 
     // Tutto passa dalla playlist video di Kodi, così "+ Coda" e gli episodi successivi seguono quello in corso.
     // La coda non si cancella mai: un video nuovo si inserisce dopo quello in corso o in fondo.
-    private fun sendToKodi(video: Video, queued: Boolean) {
+    // typed: utente e password appena scritti nel dialogo dopo un 401, al posto di quelli salvati
+    private fun sendToKodi(video: Video, queued: Boolean, typed: Pair<String, String>? = null) {
         val host = prefs.getString("host", "").orEmpty()
         if (host.isBlank()) return askKodiAddress()
-        val kodi = Kodi(host, prefs.getString("auth", "").orEmpty())
+        val network = currentNetwork()
+        val login = typed ?: savedLogin(host, network)
+        val kodi = Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty())
         val userAgent = web.settings.userAgentString
         val page = pageUrl
 
@@ -408,7 +439,10 @@ class MainActivity : Activity() {
             val sent = try {
                 if (queued) enqueue(kodi, video, userAgent) else playNow(kodi, video, userAgent)
             } catch (e: IOException) {
-                runOnUiThread { relocateKodi(host) { sendToKodi(video, queued) } }
+                runOnUiThread { relocateKodi(host) { sendToKodi(video, queued, typed) } }
+                return@thread
+            } catch (e: Unauthorized) {
+                runOnUiThread { askLogin(host, login, wrong = login != null) { sendToKodi(video, queued, it) } }
                 return@thread
             } catch (e: Refused) {
                 runOnUiThread { notice("Non messo in coda", e.message.orEmpty()) }
@@ -421,6 +455,8 @@ class MainActivity : Activity() {
                 return@thread
             }
             runOnUiThread {
+                // Hanno funzionato: valgono per questo Kodi su questa rete (anche le vecchie senza rete, o dopo un cambio di IP)
+                if (login != null && network != null) storeLogin(host, network, login)
                 toast(sent.message)
                 sent.position?.let { queueNextEpisodes(kodi, page, it, userAgent) }
             }
@@ -496,7 +532,7 @@ class MainActivity : Activity() {
 
     // VixCloud scrive nel link la scadenza del token (expires=<secondi unix>): un episodio che parte dopo non si vede
     private fun expiryProblem(url: String, startsIn: Long): String? {
-        val expires = Uri.parse(url).getQueryParameter("expires")?.toLongOrNull() ?: return null
+        val expires = linkExpiry(Uri.parse(url).encodedQuery) ?: return null
         val startsAt = System.currentTimeMillis() / 1000 + startsIn
         if (startsAt + EXPIRY_MARGIN < expires) return null
         val time = DateFormat.getTimeFormat(this).format(Date(expires * 1000))
@@ -514,7 +550,7 @@ class MainActivity : Activity() {
     private fun queueNextEpisodes(kodi: Kodi, page: String, after: Int, userAgent: String) {
         val count = prefs.getInt("autoNext", 1)
         val uri = Uri.parse(page)
-        if (count <= 0 || !domainOf(uri).startsWith("animeunity.") || !EPISODE_PATH.matches(uri.path.orEmpty())) return
+        if (count <= 0 || !isAnimeUnityEpisode(uri.host, uri.path)) return
         if (web.url != page) return
         web.evaluateJavascript(NEXT_EPISODES_JS.replace("COUNT", count.toString())) { result ->
             val reply = (JSONTokener(result).nextValue() as? String)?.let { JSONObject(it) }
@@ -590,6 +626,77 @@ class MainActivity : Activity() {
         web.postDelayed({ finish(null) }, 15000)
     }
 
+    // Accende la TV e apre Kodi via ADB in rete (#31): la Fire TV si sveglia, con HDMI-CEC accende la TV e la
+    // porta sul suo ingresso, poi Kodi va in primo piano. Si avvisa quando Kodi risponde, così si può mandare il video.
+    private fun wakeKodi() {
+        val host = prefs.getString("host", "").orEmpty()
+        if (host.isBlank()) return askKodiAddress()
+        val ip = adbHost(host)
+        val login = savedLogin(host, currentNetwork())
+        toast("Accendo la Fire TV…")
+        thread {
+            var confirming = false
+            val problem = try {
+                adbShell(ip, adbKeys(), ADB_KEY_NAME, WAKE_AND_OPEN_KODI, onConfirm = {
+                    confirming = true
+                    runOnUiThread {
+                        notice(
+                            "Conferma sulla TV",
+                            "La Fire TV chiede se consentire il debug da questo telefono: spunta \"Consenti sempre da questo computer\" e premi OK. Serve solo la prima volta."
+                        )
+                    }
+                })
+                null
+            } catch (e: SocketTimeoutException) {
+                if (confirming) "La TV non ha confermato in tempo. Premi ⏻ e accetta la richiesta sullo schermo." else "Non risponde a $ip.\n\n$NO_ADB_HELP"
+            } catch (e: IOException) {
+                if (confirming) "La TV ha rifiutato il telefono. Premi ⏻ e accetta la richiesta sullo schermo." else "Non risponde a $ip.\n\n$NO_ADB_HELP"
+            } catch (e: Exception) {
+                e.message.orEmpty()
+            }
+            if (problem != null) {
+                runOnUiThread { notice("Fire TV non raggiungibile", problem) }
+                return@thread
+            }
+            val ready = waitForKodi(Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty()))
+            runOnUiThread { toast(if (ready) "Kodi è pronto" else "Kodi è aperto, ma non risponde ancora") }
+        }
+    }
+
+    // Kodi appena aperto ci mette qualche secondo ad accendere il server JSON-RPC; un 401 vuol dire che risponde
+    private fun waitForKodi(kodi: Kodi): Boolean {
+        repeat(20) {
+            try {
+                kodi.call("JSONRPC.Ping")
+                return true
+            } catch (e: Unauthorized) {
+                return true
+            } catch (e: Exception) {
+                Thread.sleep(1500)
+            }
+        }
+        return false
+    }
+
+    // Coppia di chiavi RSA del telefono per ADB, creata al primo uso; la privata è cifrata come le password di Kodi
+    private fun adbKeys(): KeyPair {
+        val public = prefs.getString("adbPublic", null)
+        val private = prefs.getString("adbPrivate", null)?.let { unseal(it) }
+        if (public != null && private != null) {
+            val factory = KeyFactory.getInstance("RSA")
+            return KeyPair(
+                factory.generatePublic(X509EncodedKeySpec(Base64.decode(public, Base64.NO_WRAP))),
+                factory.generatePrivate(PKCS8EncodedKeySpec(Base64.decode(private, Base64.NO_WRAP))),
+            )
+        }
+        val keys = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
+        prefs.edit()
+            .putString("adbPublic", Base64.encodeToString(keys.public.encoded, Base64.NO_WRAP))
+            .putString("adbPrivate", seal(Base64.encodeToString(keys.private.encoded, Base64.NO_WRAP)))
+            .apply()
+        return keys
+    }
+
     // Il router può aver dato un altro IP alla Fire TV: si cerca Kodi in rete, ci si sposta lì e si riprova.
     // Se lo trova allo stesso indirizzo il retry non scatta, quindi niente giri a vuoto.
     private fun relocateKodi(oldHost: String, retry: () -> Unit) {
@@ -599,7 +706,9 @@ class MainActivity : Activity() {
             searchingKodi = false
             refreshCastButton()
             val moveTo = { host: String ->
-                prefs.edit().putString("host", host).putBoolean("manual", false).apply()
+                val name = kodiNames[host].orEmpty()
+                saveLogins(moveLogin(loadLogins(), oldHost, host, name, currentNetwork()))
+                prefs.edit().putString("host", host).putString("name", name).putBoolean("manual", false).apply()
                 toast("Kodi trovato a $host")
                 retry()
             }
@@ -630,7 +739,11 @@ class MainActivity : Activity() {
                 override fun onServiceResolved(info: NsdServiceInfo) = runOnUiThread {
                     // Solo IPv4: un indirizzo IPv6 con i ":" non si può scrivere come "host:porta"
                     @Suppress("DEPRECATION") val address = info.host
-                    if (address is Inet4Address) found.add("${address.hostAddress}:${info.port}")
+                    if (address is Inet4Address) {
+                        val hostPort = "${address.hostAddress}:${info.port}"
+                        found.add(hostPort)
+                        kodiNames[hostPort] = info.serviceName.orEmpty()
+                    }
                     resolving = false
                     resolveNext()
                 }
@@ -705,11 +818,10 @@ class MainActivity : Activity() {
         val manualHelp = label("L'IP è in Fire TV → Impostazioni → La mia Fire TV → Info → Rete. La porta è quella di Kodi, di solito 8080.")
         val manualPanel = section(host, manualHelp)
 
-        val auth = EditText(this).apply {
-            hint = "utente:password"
-            setText(prefs.getString("auth", ""))
-        }
-        val authPanel = section(label("Accesso, se impostato in Kodi"), auth).apply { setPadding(0, dp(16), 0, 0) }
+        val network = currentNetwork()
+        val login = savedLogin(saved, network)
+        val (user, password, showPassword) = loginFields(login)
+        val authPanel = section(label("Accesso, se impostato in Kodi"), user, password, showPassword).apply { setPadding(0, dp(16), 0, 0) }
         val autoNext = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
             setText(prefs.getInt("autoNext", 1).toString())
@@ -764,13 +876,137 @@ class MainActivity : Activity() {
                 val newHost = if (manual) host.text.toString().trim() else chosen.ifBlank { saved }
                 prefs.edit()
                     .putString("host", newHost)
+                    .putString("name", if (manual) "" else kodiNames[newHost] ?: prefs.getString("name", ""))
                     .putBoolean("manual", manual)
-                    .putString("auth", auth.text.toString().trim())
                     .putInt("autoNext", autoNext.text.toString().toIntOrNull()?.coerceIn(0, MAX_AUTO_NEXT) ?: 1)
                     .apply()
+                val typed = user.text.toString().trim() to password.text.toString()
+                when {
+                    // Fuori casa (o senza Wi-Fi) non si sa a che rete legarle: si richiedono al primo 401
+                    network == null -> {}
+                    typed.first.isEmpty() -> saveLogins(replaceLogin(loadLogins(), newHost, prefs.getString("name", "").orEmpty(), network, null))
+                    typed != login || newHost != saved -> storeLogin(newHost, network, typed)
+                }
             }
             .setNegativeButton("Annulla", null)
             .show()
+    }
+
+    // Utente, password nascosta e "Mostra password", già compilati con login se c'è
+    private fun loginFields(login: Pair<String, String>?): Triple<EditText, EditText, CheckBox> {
+        val user = EditText(this).apply {
+            hint = "Utente"
+            isSingleLine = true
+            setText(login?.first.orEmpty())
+        }
+        val hidden = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        val password = EditText(this).apply {
+            hint = "Password"
+            isSingleLine = true
+            inputType = hidden
+            setText(login?.second.orEmpty())
+        }
+        val show = CheckBox(this).apply {
+            text = "Mostra password"
+            setOnCheckedChangeListener { _, checked ->
+                password.inputType = if (checked) InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD else hidden
+                password.setSelection(password.text.length)
+            }
+        }
+        return Triple(user, password, show)
+    }
+
+    // Kodi ha risposto 401: si chiedono utente e password e con OK l'invio riparte da solo
+    private fun askLogin(host: String, tried: Pair<String, String>?, wrong: Boolean, retry: (Pair<String, String>) -> Unit) {
+        val (user, password, show) = loginFields(tried?.copy(second = ""))
+        val message = if (wrong) "Kodi a $host non accetta utente e password." else "Kodi a $host chiede utente e password."
+        val form = section(label(message), user, password, show).apply { setPadding(dp(24), dp(8), dp(24), 0) }
+        AlertDialog.Builder(this)
+            .setTitle("Accesso a Kodi")
+            .setView(form)
+            .setPositiveButton("OK") { _, _ -> retry(user.text.toString().trim() to password.text.toString()) }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+
+    // Impronta della rete attuale (vedi networkKey), null senza rete o senza un gateway IPv4
+    private fun currentNetwork(): String? {
+        val cm = getSystemService(ConnectivityManager::class.java) ?: return null
+        val link = cm.getLinkProperties(cm.activeNetwork) ?: return null
+        val address = link.linkAddresses.firstOrNull { it.address is Inet4Address } ?: return null
+        val gateway = link.routes.firstOrNull { it.isDefaultRoute && it.gateway is Inet4Address }?.gateway
+        return networkKey(address.address.hostAddress, address.prefixLength, gateway?.hostAddress)
+    }
+
+    // Utente e password salvati per il Kodi a host sulla rete network, già decifrati
+    private fun savedLogin(host: String, network: String?): Pair<String, String>? {
+        val name = if (host == prefs.getString("host", "")) prefs.getString("name", "").orEmpty() else kodiNames[host].orEmpty()
+        val login = loginFor(loadLogins(), host, name, network) ?: return null
+        return login.user to (unseal(login.secret) ?: return null)
+    }
+
+    private fun storeLogin(host: String, network: String, login: Pair<String, String>) {
+        val name = if (host == prefs.getString("host", "")) prefs.getString("name", "").orEmpty() else kodiNames[host].orEmpty()
+        val entry = SavedLogin(host, name, network, login.first, seal(login.second))
+        saveLogins(replaceLogin(loadLogins(), host, name, network, entry))
+    }
+
+    // Credenziali in SharedPreferences come JSON, con la password cifrata da seal
+    private fun loadLogins(): List<SavedLogin> {
+        val array = JSONArray(prefs.getString("logins", "[]"))
+        return List(array.length()) { i ->
+            array.getJSONObject(i).let {
+                SavedLogin(it.getString("host"), it.getString("name"), it.getString("network"), it.getString("user"), it.getString("secret"))
+            }
+        }
+    }
+
+    private fun saveLogins(list: List<SavedLogin>) {
+        val array = JSONArray()
+        list.forEach {
+            array.put(JSONObject().put("host", it.host).put("name", it.name).put("network", it.network).put("user", it.user).put("secret", it.secret))
+        }
+        prefs.edit().putString("logins", array.toString()).apply()
+    }
+
+    // Il vecchio "utente:password" unico vale per il Kodi salvato, su qualunque rete finché non funziona di nuovo
+    private fun migrateAuth() {
+        val auth = prefs.getString("auth", "").orEmpty()
+        val host = prefs.getString("host", "").orEmpty()
+        if (auth.isNotBlank() && host.isNotBlank()) {
+            val (user, password) = splitAuth(auth)
+            saveLogins(loadLogins() + SavedLogin(host, "", "", user, seal(password)))
+        }
+        prefs.edit().remove("auth").apply()
+    }
+
+    // Password cifrate con una chiave AES dell'Android Keystore, che non esce dal telefono: "iv:testo" in Base64
+    private fun loginKey(): SecretKey {
+        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        (store.getKey(LOGIN_KEY, null) as? SecretKey)?.let { return it }
+        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        generator.init(
+            KeyGenParameterSpec.Builder(LOGIN_KEY, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .build()
+        )
+        return generator.generateKey()
+    }
+
+    private fun seal(text: String): String {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, loginKey()) }
+        val data = cipher.doFinal(text.toByteArray())
+        return Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(data, Base64.NO_WRAP)
+    }
+
+    // null se non si decifra (chiave persa, es. backup ripristinato su un altro telefono): si richiedono
+    private fun unseal(secret: String): String? = try {
+        val (iv, data) = secret.split(':').map { Base64.decode(it, Base64.NO_WRAP) }
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.DECRYPT_MODE, loginKey(), GCMParameterSpec(128, iv)) }
+        String(cipher.doFinal(data))
+    } catch (e: Exception) {
+        null
     }
 
     private fun section(vararg views: View) = LinearLayout(this).apply {
@@ -784,55 +1020,191 @@ class MainActivity : Activity() {
         setPadding(0, dp(4), 0, dp(4))
     }
 
-    // Preferiti in SharedPreferences come JSON: [{"title": ..., "url": ...}]
-    private fun loadFavorites(): MutableList<Pair<String, String>> {
+    // Preferiti in SharedPreferences come JSON: [{"title": ..., "url": ..., "icon": PNG in Base64, se c'è}]
+    private fun loadFavorites(): MutableList<Favorite> {
         val array = JSONArray(prefs.getString("favorites", "[]"))
-        return MutableList(array.length()) { i -> array.getJSONObject(i).let { it.getString("title") to it.getString("url") } }
+        return MutableList(array.length()) { i ->
+            array.getJSONObject(i).let { Favorite(it.getString("title"), it.getString("url"), it.optString("icon").ifEmpty { null }) }
+        }
     }
 
-    private fun saveFavorites(list: List<Pair<String, String>>) {
-        val array = JSONArray(list.map { (title, url) -> JSONObject().put("title", title).put("url", url) })
+    private fun saveFavorites(list: List<Favorite>) {
+        val array = JSONArray(list.map { JSONObject().put("title", it.title).put("url", it.url).putOpt("icon", it.icon) })
         prefs.edit().putString("favorites", array.toString()).apply()
     }
 
-    // Tocco apre, pressione lunga elimina; la prima voce aggiunge la pagina aperta se non c'è già
+    private fun encodeIcon(icon: Bitmap): String {
+        val small = if (icon.width > 64 || icon.height > 64) Bitmap.createScaledBitmap(icon, 64, 64, true) else icon
+        val out = ByteArrayOutputStream()
+        small.compress(Bitmap.CompressFormat.PNG, 100, out)
+        return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+    }
+
+    // I preferiti salvati senza icona (prima di #25, o pagina non ancora caricata) la prendono alla prossima visita
+    private fun fillMissingIcon(url: String?, icon: Bitmap) {
+        val list = loadFavorites()
+        val i = list.indexOfFirst { it.url == url && it.icon == null }
+        if (i < 0) return
+        list[i] = list[i].copy(icon = encodeIcon(icon))
+        saveFavorites(list)
+    }
+
+    // Lista dei preferiti: in cima il pulsante per aggiungere la pagina aperta, poi una riga per sito.
+    // Tocco apre, ⋮ (o pressione lunga) per rinominare o togliere
     private fun showFavorites() {
         val list = loadFavorites()
         val current = web.url?.takeIf { it.startsWith("http") }
-        val canAdd = current != null && list.none { it.second == current }
-        val labels = (if (canAdd) listOf("＋ Aggiungi questa pagina") else emptyList()) +
-            list.map { (title, url) -> "$title\n${Uri.parse(url).host}" }
-        if (labels.isEmpty()) return toast("Apri un sito per aggiungerlo ai preferiti")
-        val offset = if (canAdd) 1 else 0
+        val canAdd = current != null && list.none { it.url == current }
+        if (list.isEmpty() && !canAdd) return toast("Apri un sito per aggiungerlo ai preferiti")
 
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Preferiti")
-            .setItems(labels.toTypedArray()) { _, i ->
-                if (i < offset) {
-                    val title = web.title?.takeIf { it.isNotBlank() } ?: Uri.parse(current!!).host.orEmpty()
-                    saveFavorites(list + (title to current!!))
-                    toast("Aggiunto ai preferiti")
-                } else {
-                    open(list[i - offset].second)
-                }
+        lateinit var dialog: AlertDialog
+        val content = section().apply { setPadding(dp(16), dp(8), dp(8), 0) }
+        if (canAdd) {
+            val add = Button(this).apply {
+                text = "＋ Aggiungi questa pagina"
+                setOnClickListener { dialog.dismiss(); addFavorite(current!!) }
             }
-            .setNegativeButton("Chiudi", null)
-            .show()
-        dialog.listView.setOnItemLongClickListener { _, _, i, _ ->
-            if (i < offset) return@setOnItemLongClickListener false
-            val (title, _) = list[i - offset]
-            AlertDialog.Builder(this)
-                .setMessage("Togliere \"$title\" dai preferiti?")
-                .setPositiveButton("Togli") { _, _ ->
-                    list.removeAt(i - offset)
+            paint(add, active = true, primary = true)
+            content.addView(add, LinearLayout.LayoutParams(-1, dp(48)).apply { marginEnd = dp(8); bottomMargin = dp(8) })
+        }
+        if (list.isEmpty()) content.addView(label("Nessun preferito: aggiungi la pagina che hai aperto."))
+        list.forEachIndexed { i, favorite ->
+            content.addView(favoriteRow(favorite, onOpen = { dialog.dismiss(); open(favorite.url) }) { anchor ->
+                favoriteMenu(anchor, favorite) { changed ->
+                    if (changed == null) list.removeAt(i) else list[i] = changed
                     saveFavorites(list)
                     dialog.dismiss()
+                    showFavorites()
                 }
-                .setNegativeButton("Annulla", null)
-                .show()
-            true
+            })
+        }
+        dialog = AlertDialog.Builder(this)
+            .setTitle("Preferiti")
+            .setView(ScrollView(this).apply { addView(content) })
+            .setNegativeButton("Chiudi", null)
+            .show()
+    }
+
+    private fun addFavorite(url: String) {
+        val icon = pageIcon?.let { encodeIcon(it) }
+        askFavoriteName("Aggiungi ai preferiti", suggestedName(web.title, Uri.parse(url).host)) { name ->
+            saveFavorites(loadFavorites() + Favorite(name, url, icon))
+            toast("Aggiunto ai preferiti")
         }
     }
+
+    // Riga di un preferito: icona del sito (o iniziale su un cerchio), nome, dominio più tenue e ⋮
+    private fun favoriteRow(favorite: Favorite, onOpen: () -> Unit, onMenu: (View) -> Unit): View {
+        val host = Uri.parse(favorite.url).host
+        val bitmap = favorite.icon
+            ?.let { runCatching { Base64.decode(it, Base64.DEFAULT) }.getOrNull() }
+            ?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+        val icon: View = if (bitmap != null) {
+            ImageView(this).apply {
+                setImageBitmap(bitmap)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setPadding(dp(8), dp(8), dp(8), dp(8))
+                background = circle(sys(R.color.system_neutral2_100, R.color.system_neutral2_800))
+                clipToOutline = true
+            }
+        } else {
+            TextView(this).apply {
+                text = initialOf(favorite.title, host)
+                gravity = Gravity.CENTER
+                textSize = 18f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(sys(R.color.system_accent1_900, R.color.system_accent1_100))
+                background = circle(sys(R.color.system_accent1_100, R.color.system_accent1_700))
+            }
+        }
+        val name = TextView(this).apply {
+            text = favorite.title
+            textSize = 16f
+            maxLines = 2
+            ellipsize = TextUtils.TruncateAt.END
+            setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50))
+        }
+        val domain = TextView(this).apply {
+            text = shortHost(host)
+            textSize = 13f
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+            setTextColor(sys(R.color.system_neutral2_600, R.color.system_neutral2_400))
+        }
+        val more = Button(this, null, R.attr.borderlessButtonStyle).apply {
+            text = "⋮"
+            textSize = 20f
+            contentDescription = "Rinomina o togli"
+            minWidth = dp(48)
+            minimumWidth = dp(48)
+            setTextColor(sys(R.color.system_neutral2_700, R.color.system_neutral2_200))
+        }
+        more.setOnClickListener { onMenu(more) }
+        return LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(64)
+            setPadding(dp(4), dp(4), 0, dp(4))
+            setBackgroundResource(attr(R.attr.selectableItemBackground))
+            setOnClickListener { onOpen() }
+            setOnLongClickListener { onMenu(more); true }
+            addView(icon, LinearLayout.LayoutParams(dp(40), dp(40)))
+            addView(section(name, domain), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(16) })
+            addView(more, LinearLayout.LayoutParams(dp(48), dp(48)))
+        }
+    }
+
+    // done riceve il preferito rinominato, o null se va tolto
+    private fun favoriteMenu(anchor: View, favorite: Favorite, done: (Favorite?) -> Unit) {
+        PopupMenu(this, anchor).apply {
+            menu.add(0, 1, 0, "Rinomina")
+            menu.add(0, 2, 1, "Togli")
+            setOnMenuItemClickListener { item ->
+                if (item.itemId == 1) {
+                    askFavoriteName("Rinomina", favorite.title) { done(favorite.copy(title = it)) }
+                } else {
+                    AlertDialog.Builder(this@MainActivity)
+                        .setMessage("Togliere \"${favorite.title}\" dai preferiti?")
+                        .setPositiveButton("Togli") { _, _ -> done(null) }
+                        .setNegativeButton("Annulla", null)
+                        .show()
+                }
+                true
+            }
+            show()
+        }
+    }
+
+    // Campo già compilato con initial; lasciato vuoto si tiene initial
+    private fun askFavoriteName(title: String, initial: String, done: (String) -> Unit) {
+        val field = EditText(this).apply {
+            setText(initial)
+            isSingleLine = true
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            setSelectAllOnFocus(true)
+            imeOptions = EditorInfo.IME_ACTION_DONE
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(title)
+            .setView(section(field).apply { setPadding(dp(24), dp(8), dp(24), 0) })
+            .setPositiveButton("Salva") { _, _ -> done(renamed(field.text.toString(), initial)) }
+            .setNegativeButton("Annulla", null)
+            .create()
+        field.setOnEditorActionListener { _, _, _ ->
+            done(renamed(field.text.toString(), initial))
+            dialog.dismiss()
+            true
+        }
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        dialog.show()
+        field.requestFocus()
+    }
+
+    private fun circle(color: Int) = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        setColor(color)
+    }
+
+    private fun attr(id: Int): Int = TypedValue().also { theme.resolveAttribute(id, it, true) }.resourceId
 
     // Per i messaggi lunghi o importanti: un toast sparisce prima di averlo letto
     private fun notice(title: String, message: String) {
@@ -844,6 +1216,13 @@ class MainActivity : Activity() {
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+
+    // Il WebView salva i cookie su disco ogni tanto: se l'app viene chiusa prima si perde la scelta sulla pagina
+    // dei cookie di Google (e i login dei siti), che si ripresenterebbe a ogni avvio
+    override fun onPause() {
+        super.onPause()
+        CookieManager.getInstance().flush()
+    }
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
