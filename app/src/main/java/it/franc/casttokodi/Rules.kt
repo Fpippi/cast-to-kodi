@@ -128,6 +128,32 @@ fun bestVariant(master: String, masterUrl: String): String? {
     return best?.let { URI(masterUrl).resolve(it).toString() }
 }
 
+// Playlist di una qualità da passare a Kodi dal telefono (vedi Relay): i pezzi diventano indirizzi assoluti del
+// sito, le chiavi AES (#EXT-X-KEY) passano da keyUrl, che le scarica e dà l'indirizzo locale. null se non è una
+// playlist dei pezzi (una master, o una pagina d'errore): lì si manda il link com'è.
+fun relayPlaylist(media: String, mediaUrl: String, keyUrl: (String) -> String): String? {
+    if (!media.trimStart().startsWith("#EXTM3U") || "#EXTINF" !in media) return null
+    val base = URI(mediaUrl)
+    val uri = Regex("URI=\"([^\"]+)\"")
+    return media.lines().joinToString("\n") { raw ->
+        val line = raw.trim()
+        when {
+            line.startsWith("#EXT-X-KEY:") -> uri.replace(line) { "URI=\"${keyUrl(base.resolve(it.groupValues[1]).toString())}\"" }
+            line.startsWith("#EXT-X-MAP:") -> uri.replace(line) { "URI=\"${base.resolve(it.groupValues[1])}\"" }
+            line.isEmpty() || line.startsWith("#") -> line
+            else -> base.resolve(line).toString()
+        }
+    }
+}
+
+// "https://host[:porta]" di un indirizzo, come l'header Origin del browser; null se non è http(s)
+fun originOf(url: String): String? {
+    val uri = try { URI(url) } catch (e: Exception) { return null }
+    val scheme = uri.scheme?.lowercase()?.takeIf { it == "http" || it == "https" } ?: return null
+    val host = uri.host ?: return null
+    return if (uri.port == -1) "$scheme://$host" else "$scheme://$host:${uri.port}"
+}
+
 // URLEncoder usa '+' per lo spazio, Kodi (e Google) vogliono %20
 fun enc(s: String): String = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
 
