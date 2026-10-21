@@ -50,10 +50,16 @@ import org.json.JSONObject
 import org.json.JSONTokener
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.net.SocketTimeoutException
 import java.net.HttpURLConnection
 import java.net.Inet4Address
 import java.net.URL
+import java.security.KeyFactory
+import java.security.KeyPair
+import java.security.KeyPairGenerator
 import java.security.KeyStore
+import java.security.spec.PKCS8EncodedKeySpec
+import java.security.spec.X509EncodedKeySpec
 import java.util.Date
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -88,6 +94,17 @@ private const val EXPIRY_MARGIN = 10 * 60L
 
 // Alias nell'Android Keystore della chiave che cifra le password di Kodi
 private const val LOGIN_KEY = "kodi-login"
+
+// Nome della chiave ADB del telefono, salvato dalla Fire TV con la chiave
+private const val ADB_KEY_NAME = "Couch Cast"
+
+private const val NO_ADB_HELP = """Controlla che:
+
+1. sulla Fire TV sia attivo Impostazioni → La mia Fire TV → Opzioni sviluppatore → Debug ADB;
+2. telefono e Fire TV siano sullo stesso Wi-Fi;
+3. l'IP nel pulsante Kodi sia quello della Fire TV.
+
+Se la Fire TV è in sonno profondo il suo Wi-Fi è spento: accendila con Alexa o con il telecomando."""
 
 private class KodiError(message: String) : Exception(message)
 
@@ -187,7 +204,14 @@ class MainActivity : Activity() {
             text = "Kodi"
             setOnClickListener { askKodiAddress() }
         }
+        val power = Button(this).apply {
+            text = "⏻"
+            contentDescription = "Accendi la TV e apri Kodi"
+            tooltipText = contentDescription
+            setOnClickListener { wakeKodi() }
+        }
         paint(favorites, active = true, primary = false)
+        paint(power, active = true, primary = false)
         paint(settings, active = true, primary = false)
         cast = Button(this).apply {
             setOnClickListener { pickVideo(queued = false) }
@@ -207,6 +231,7 @@ class MainActivity : Activity() {
             setPadding(dp(8), dp(4), dp(8), 0)
             addView(address, LinearLayout.LayoutParams(0, -2, 1f))
             addView(favorites, LinearLayout.LayoutParams(dp(56), -2).apply { marginStart = dp(4) })
+            addView(power, LinearLayout.LayoutParams(dp(56), -2).apply { marginStart = dp(4) })
             addView(settings, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(4) })
         }
         val bottomBar = LinearLayout(this).apply {
@@ -596,6 +621,77 @@ class MainActivity : Activity() {
         }
         hidden.loadUrl(embed, mapOf("Referer" to pageUrl))
         web.postDelayed({ finish(null) }, 15000)
+    }
+
+    // Accende la TV e apre Kodi via ADB in rete (#31): la Fire TV si sveglia, con HDMI-CEC accende la TV e la
+    // porta sul suo ingresso, poi Kodi va in primo piano. Si avvisa quando Kodi risponde, così si può mandare il video.
+    private fun wakeKodi() {
+        val host = prefs.getString("host", "").orEmpty()
+        if (host.isBlank()) return askKodiAddress()
+        val ip = adbHost(host)
+        val login = savedLogin(host, currentNetwork())
+        toast("Accendo la Fire TV…")
+        thread {
+            var confirming = false
+            val problem = try {
+                adbShell(ip, adbKeys(), ADB_KEY_NAME, WAKE_AND_OPEN_KODI, onConfirm = {
+                    confirming = true
+                    runOnUiThread {
+                        notice(
+                            "Conferma sulla TV",
+                            "La Fire TV chiede se consentire il debug da questo telefono: spunta \"Consenti sempre da questo computer\" e premi OK. Serve solo la prima volta."
+                        )
+                    }
+                })
+                null
+            } catch (e: SocketTimeoutException) {
+                if (confirming) "La TV non ha confermato in tempo. Premi ⏻ e accetta la richiesta sullo schermo." else "Non risponde a $ip.\n\n$NO_ADB_HELP"
+            } catch (e: IOException) {
+                if (confirming) "La TV ha rifiutato il telefono. Premi ⏻ e accetta la richiesta sullo schermo." else "Non risponde a $ip.\n\n$NO_ADB_HELP"
+            } catch (e: Exception) {
+                e.message.orEmpty()
+            }
+            if (problem != null) {
+                runOnUiThread { notice("Fire TV non raggiungibile", problem) }
+                return@thread
+            }
+            val ready = waitForKodi(Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty()))
+            runOnUiThread { toast(if (ready) "Kodi è pronto" else "Kodi è aperto, ma non risponde ancora") }
+        }
+    }
+
+    // Kodi appena aperto ci mette qualche secondo ad accendere il server JSON-RPC; un 401 vuol dire che risponde
+    private fun waitForKodi(kodi: Kodi): Boolean {
+        repeat(20) {
+            try {
+                kodi.call("JSONRPC.Ping")
+                return true
+            } catch (e: Unauthorized) {
+                return true
+            } catch (e: Exception) {
+                Thread.sleep(1500)
+            }
+        }
+        return false
+    }
+
+    // Coppia di chiavi RSA del telefono per ADB, creata al primo uso; la privata è cifrata come le password di Kodi
+    private fun adbKeys(): KeyPair {
+        val public = prefs.getString("adbPublic", null)
+        val private = prefs.getString("adbPrivate", null)?.let { unseal(it) }
+        if (public != null && private != null) {
+            val factory = KeyFactory.getInstance("RSA")
+            return KeyPair(
+                factory.generatePublic(X509EncodedKeySpec(Base64.decode(public, Base64.NO_WRAP))),
+                factory.generatePrivate(PKCS8EncodedKeySpec(Base64.decode(private, Base64.NO_WRAP))),
+            )
+        }
+        val keys = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
+        prefs.edit()
+            .putString("adbPublic", Base64.encodeToString(keys.public.encoded, Base64.NO_WRAP))
+            .putString("adbPrivate", seal(Base64.encodeToString(keys.private.encoded, Base64.NO_WRAP)))
+            .apply()
+        return keys
     }
 
     // Il router può aver dato un altro IP alla Fire TV: si cerca Kodi in rete, ci si sposta lì e si riprova.
