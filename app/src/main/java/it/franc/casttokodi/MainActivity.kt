@@ -186,6 +186,8 @@ class MainActivity : Activity() {
 
     // url del video -> Referer con cui la pagina l'ha richiesto (molti host rifiutano richieste senza)
     private val videos = LinkedHashMap<String, String>()
+    // Playlist e chiavi passate a Kodi dal telefono (kodiItem con viaPhone)
+    private val relay = Relay()
 
     // Dominio da cui la pagina principale può navigare: tutto il resto è considerato redirect pubblicitario
     private var allowedDomain = ""
@@ -509,7 +511,7 @@ class MainActivity : Activity() {
     }
 
     private fun playNow(kodi: Kodi, video: Video, userAgent: String): Sent {
-        val item = kodiItem(video.url, video.referer, userAgent)
+        val item = kodiItem(video.url, video.referer, userAgent, viaPhone = true)
         val state = kodiState(kodi)
         return try {
             if (state.fromQueue) {
@@ -592,23 +594,69 @@ class MainActivity : Activity() {
 
     // Kodi accetta gli header HTTP accodati all'URL: url|Header=valore&Header2=valore.
     // Da un thread di background: per le playlist HLS si legge la master e si manda una sola qualità (bestVariant).
-    private fun kodiItem(url: String, referer: String, userAgent: String): JSONObject {
-        val stream = if (url.substringBefore('?').lowercase().endsWith(".mp4")) url else singleQuality(url, referer, userAgent)
-        return JSONObject().put("file", "$stream|Referer=${enc(referer)}&User-Agent=${enc(userAgent)}")
+    // viaPhone: playlist e chiave le passa il telefono (Relay), per i video che Kodi apre subito
+    private fun kodiItem(url: String, referer: String, userAgent: String, viaPhone: Boolean = false): JSONObject {
+        val headers = streamHeaders(url, referer, userAgent)
+        val suffix = headers.joinToString("&") { (name, value) -> "$name=${enc(value)}" }
+        if (url.substringBefore('?').lowercase().endsWith(".mp4")) return JSONObject().put("file", "$url|$suffix")
+        val quality = singleQuality(url, headers)
+        val stream = if (viaPhone) relayed(quality, headers) ?: quality else quality
+        return JSONObject().put("file", "$stream|$suffix")
     }
 
-    // La qualità migliore della playlist HLS, letta con gli stessi header che userà Kodi; se qualcosa va storto
-    // si manda il link com'era
-    private fun singleQuality(url: String, referer: String, userAgent: String): String = try {
+    // Gli header che manderebbe il browser: oltre a Referer e User-Agent, l'Origin della pagina del player quando il
+    // video sta su un altro dominio e i cookie del sito del video. Senza, alcuni CDN rispondono 403
+    // (StreamingCommunity con il player vidxgo, 2026-10-21).
+    private fun streamHeaders(url: String, referer: String, userAgent: String): List<Pair<String, String>> {
+        val headers = mutableListOf("Referer" to referer, "User-Agent" to userAgent)
+        val origin = originOf(referer)
+        if (origin != null && origin != originOf(url)) headers += "Origin" to origin
+        CookieManager.getInstance().getCookie(url)?.takeIf { it.isNotBlank() }?.let { headers += "Cookie" to it }
+        return headers
+    }
+
+    // Corpo e indirizzo finale (dopo i redirect), letti con gli stessi header che userà Kodi
+    private fun download(url: String, headers: List<Pair<String, String>>): Pair<ByteArray, String> {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 5000
         conn.readTimeout = 5000
-        conn.setRequestProperty("Referer", referer)
-        conn.setRequestProperty("User-Agent", userAgent)
-        val body = conn.inputStream.bufferedReader().use { it.readText() }
-        bestVariant(body, conn.url.toString()) ?: url
+        headers.forEach { (name, value) -> conn.setRequestProperty(name, value) }
+        val body = conn.inputStream.use { it.readBytes() }
+        return body to conn.url.toString()
+    }
+
+    // La qualità migliore della playlist HLS; se qualcosa va storto si manda il link com'era
+    private fun singleQuality(url: String, headers: List<Pair<String, String>>): String = try {
+        val (body, finalUrl) = download(url, headers)
+        bestVariant(String(body), finalUrl) ?: url
     } catch (e: Exception) {
         url
+    }
+
+    // La playlist della qualità scelta e le sue chiavi, scaricate dal telefono e servite a Kodi in rete locale:
+    // la Fire TV ci mette 10-20 s per ognuna e Kodi rinuncia dopo 30. I pezzi Kodi li prende dal sito.
+    // null (si manda il link diretto) se non si riesce: niente IP sul Wi-Fi, playlist non HLS, errori di rete.
+    private fun relayed(url: String, headers: List<Pair<String, String>>): String? = try {
+        val ip = localAddress()?.first
+        if (ip == null) null else {
+            val base = "http://$ip:${relay.port()}"
+            // Diverso a ogni avvio dell'app: un vecchio elemento nella coda di Kodi non riceve il video di un altro
+            val id = System.currentTimeMillis()
+            val keys = HashMap<String, String>()
+            val (body, finalUrl) = download(url, headers)
+            relayPlaylist(String(body), finalUrl) { key ->
+                keys.getOrPut(key) {
+                    val path = "k$id-${keys.size}"
+                    relay.put(path, download(key, headers).first, "application/octet-stream")
+                    "$base/$path"
+                }
+            }?.let { playlist ->
+                relay.put("v$id.m3u8", playlist.toByteArray(), "application/vnd.apple.mpegurl")
+                "$base/v$id.m3u8"
+            }
+        }
+    } catch (e: Exception) {
+        null
     }
 
     // AnimeUnity: dopo l'invio si accodano da soli gli N episodi successivi, subito dopo quello mandato.

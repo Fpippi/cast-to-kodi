@@ -33,7 +33,7 @@ App Android personale (Pixel 9 Pro XL) per guardare i video dei siti di streamin
 
 - 🔎 Il telefono fa da browser: apri il sito nell'app e avvii il player.
 - 🎯 L'app intercetta il flusso video (`.m3u8` / `.mp4`) e lo manda a **Kodi**, che lo riproduce direttamente.
-- 🔋 Il video non passa dal telefono: qualità piena e telefono che si può bloccare.
+- 🔋 Il video non passa dal telefono: qualità piena e telefono che si può bloccare. Solo all'avvio il telefono passa a Kodi la playlist e la chiave, che la Fire TV da sola scarica troppo lentamente.
 - 🚫 Popup, `window.open` e salti verso altri domini vengono bloccati: sono quasi tutta la pubblicità di quei siti.
 - 📋 Coda degli episodi nella playlist di Kodi, e su AnimeUnity gli episodi successivi si accodano da soli.
 
