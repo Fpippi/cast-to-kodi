@@ -79,6 +79,29 @@ class AdbTest {
         assertEquals("192.168.1.50", adbHost(" 192.168.1.50 "))
     }
 
+    @Test
+    fun sottorete() {
+        val hosts = subnetHosts("192.168.1.37", 24)
+        assertEquals(253, hosts.size)
+        assertEquals("192.168.1.1", hosts.first())
+        assertEquals("192.168.1.254", hosts.last())
+        assertTrue("192.168.1.37" !in hosts)
+        // reti più grandi: solo la /24 intorno al telefono
+        assertEquals(253, subnetHosts("10.0.5.9", 16).size)
+        assertTrue(subnetHosts("10.0.5.9", 16).all { it.startsWith("10.0.5.") })
+        assertEquals(listOf("192.168.1.33", "192.168.1.34", "192.168.1.35", "192.168.1.36", "192.168.1.38"), subnetHosts("192.168.1.37", 29))
+        assertEquals(emptyList<String>(), subnetHosts("boh", 24))
+    }
+
+    @Test
+    fun ricercaSullaPorta() {
+        ServerSocket(0).use { server ->
+            val free = ServerSocket(0).run { localPort.also { close() } }
+            assertEquals(listOf("127.0.0.1"), findAdb(listOf("127.0.0.1"), port = server.localPort))
+            assertEquals(emptyList<String>(), findAdb(listOf("127.0.0.1"), port = free))
+        }
+    }
+
     // adbd finto: la prima volta non conosce la chiave e la vuole, poi accetta la firma; esegue il comando shell
     @Test
     fun shellControAdbdFinto() {
