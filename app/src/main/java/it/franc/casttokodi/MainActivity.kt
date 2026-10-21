@@ -52,6 +52,7 @@ import android.widget.Toast
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -99,6 +100,9 @@ private const val EXPIRY_MARGIN = 10 * 60L
 
 // Quanto aspettare che Kodi faccia partire il video dalla playlist prima di darlo per partito
 private const val START_TIMEOUT_MS = 15_000L
+
+// Dopo quanto chiudere la finestra finta data ai popup
+private const val POPUP_SINK_MS = 10_000L
 
 // Alias nell'Android Keystore della chiave che cifra le password di Kodi
 private const val LOGIN_KEY = "kodi-login"
@@ -316,9 +320,21 @@ class MainActivity : Activity() {
             javaScriptCanOpenWindowsAutomatically = false
         }
         web.webChromeClient = object : WebChromeClient() {
+            // Molti player aprono un popup al primo tocco e partono solo se window.open riesce: se lo si rifiuta,
+            // ogni tocco su "avvia" riapre il popup e il video non parte mai. Gli si dà una finestra finta,
+            // mai mostrata, che non scarica niente e si chiude da sola.
             override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
                 toast("Popup bloccato")
-                return false
+                val sink = WebView(this@MainActivity)
+                sink.webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = true
+                    override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
+                        WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+                }
+                (resultMsg.obj as WebView.WebViewTransport).webView = sink
+                resultMsg.sendToTarget()
+                web.postDelayed({ sink.destroy() }, POPUP_SINK_MS)
+                return true
             }
 
             override fun onProgressChanged(view: WebView, newProgress: Int) {

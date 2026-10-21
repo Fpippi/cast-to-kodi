@@ -7,6 +7,12 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 1.0.3
+
+- Popup: invece di rifiutarli, l'app dà ai popup una finestra finta e invisibile che non scarica niente. I player che
+  partono solo dopo aver aperto il popup pubblicitario (dove prima compariva solo "Popup bloccato" e il video restava
+  a caricare) ora partono, e la pubblicità resta fuori lo stesso.
+
 ## 1.0.2
 
 - Manda a Kodi: se Kodi non riesce a far partire il video dalla sua playlist ("Playback failed", es. AnimeUnity con il
