@@ -532,7 +532,13 @@ class MainActivity : Activity() {
         val deadline = System.currentTimeMillis() + START_TIMEOUT_MS
         while (System.currentTimeMillis() < deadline) {
             Thread.sleep(500)
-            val state = kodiState(kodi)
+            // Mentre apre il video Kodi può rispondere con un errore a Player.GetProperties: non vuol dire che sia
+            // fallito, si riprova. Prima qui si riapriva il video, e la seconda apertura interrompeva la prima.
+            val state = try {
+                kodiState(kodi)
+            } catch (e: KodiError) {
+                continue
+            }
             if (state.fromQueue) return true
             if (state.queueLength == 0) return false
         }
@@ -594,9 +600,26 @@ class MainActivity : Activity() {
 
     private fun playlist() = JSONObject().put("playlistid", VIDEO_PLAYLIST)
 
-    // Kodi accetta gli header HTTP accodati all'URL: url|Header=valore&Header2=valore
-    private fun kodiItem(url: String, referer: String, userAgent: String) =
-        JSONObject().put("file", "$url|Referer=${enc(referer)}&User-Agent=${enc(userAgent)}")
+    // Kodi accetta gli header HTTP accodati all'URL: url|Header=valore&Header2=valore.
+    // Da un thread di background: per le playlist HLS si legge la master e si manda una sola qualità (bestVariant).
+    private fun kodiItem(url: String, referer: String, userAgent: String): JSONObject {
+        val stream = if (url.substringBefore('?').lowercase().endsWith(".mp4")) url else singleQuality(url, referer, userAgent)
+        return JSONObject().put("file", "$stream|Referer=${enc(referer)}&User-Agent=${enc(userAgent)}")
+    }
+
+    // La qualità migliore della playlist HLS, letta con gli stessi header che userà Kodi; se qualcosa va storto
+    // si manda il link com'era
+    private fun singleQuality(url: String, referer: String, userAgent: String): String = try {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        conn.connectTimeout = 5000
+        conn.readTimeout = 5000
+        conn.setRequestProperty("Referer", referer)
+        conn.setRequestProperty("User-Agent", userAgent)
+        val body = conn.inputStream.bufferedReader().use { it.readText() }
+        bestVariant(body, conn.url.toString()) ?: url
+    } catch (e: Exception) {
+        url
+    }
 
     // AnimeUnity: dopo l'invio si accodano da soli gli N episodi successivi, subito dopo quello mandato.
     // L'elenco degli episodi e il player di ognuno si leggono dalla pagina del sito, il link video dal player.
