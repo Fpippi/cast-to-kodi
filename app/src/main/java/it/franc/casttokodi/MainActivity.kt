@@ -13,6 +13,7 @@ import android.net.nsd.NsdServiceInfo
 import android.os.Bundle
 import android.os.Message
 import android.text.InputType
+import android.text.format.DateFormat
 import android.util.Base64
 import android.view.View
 import android.view.WindowInsets
@@ -33,11 +34,13 @@ import android.widget.TextView
 import android.widget.Toast
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.Inet4Address
 import java.net.URL
 import java.net.URLEncoder
+import java.util.Date
 import kotlin.concurrent.thread
 
 private const val REPO = "Fpippi/cast-to-kodi"
@@ -57,7 +60,107 @@ private val AD_HOSTS = listOf("doubleclick", "googlesyndication", "imasdk", "adn
 // Kodi riproduce la coda dalla sua playlist video
 private const val VIDEO_PLAYLIST = 1
 
+// Durata ipotizzata di un episodio quando Kodi non la sa ancora, per stimare quando partirà un elemento in coda
+private const val DEFAULT_EPISODE = 24 * 60L
+
+// Un episodio va accodato solo se il suo link vale ancora almeno 10 minuti dopo l'inizio previsto
+private const val EXPIRY_MARGIN = 10 * 60L
+
+// Più di qualche episodio non serve: i link scadono dopo qualche ora
+private const val MAX_AUTO_NEXT = 3
+
+private val EPISODE_PATH = Regex("/anime/[^/]+/\\d+/?")
+
+// Eseguito nella pagina dell'episodio AnimeUnity: rilegge la pagina (stessi cookie, niente Cloudflare), prende
+// l'elenco degli episodi dall'elemento <video-player> e, per ognuno dei COUNT successivi, l'embed_url del suo player.
+private const val NEXT_EPISODES_JS = """(function (n) {
+  function player(url) {
+    var x = new XMLHttpRequest();
+    x.open('GET', url, false);
+    x.send();
+    if (x.status != 200) return null;
+    return new DOMParser().parseFromString(x.responseText, 'text/html').querySelector('video-player');
+  }
+  try {
+    var p = player(location.href);
+    if (!p) return JSON.stringify({ error: 'player' });
+    var episodes = JSON.parse(p.getAttribute('episodes') || '[]');
+    var id = location.pathname.replace(/\/$/, '').split('/').pop();
+    var i = episodes.findIndex(function (e) { return String(e.id) == id; });
+    if (i < 0) return JSON.stringify({ error: 'episode' });
+    var base = location.pathname.replace(/\/$/, '').replace(/\/[^\/]*$/, '');
+    var next = episodes.slice(i + 1, i + 1 + n).map(function (e) {
+      var q = player(location.origin + base + '/' + e.id);
+      return { number: String(e.number), embed: q ? q.getAttribute('embed_url') : null };
+    });
+    return JSON.stringify({ next: next });
+  } catch (e) {
+    return JSON.stringify({ error: String(e) });
+  }
+})(COUNT)"""
+
+// Eseguito nella pagina del player VixCloud: la playlist principale con i parametri del token, come la chiede il player
+private const val MASTER_PLAYLIST_JS = """(function () {
+  var m = window.masterPlaylist;
+  if (!m || !m.url) return null;
+  var u = new URL(m.url);
+  var p = m.params || {};
+  for (var k in p) if (p[k] !== undefined && p[k] !== null && p[k] !== '') u.searchParams.set(k, p[k]);
+  if (window.canPlayFHD) u.searchParams.set('h', '1');
+  return u.toString();
+})()"""
+
 private class KodiError(message: String) : Exception(message)
+
+// La coda non può proseguire con questo video: si avvisa con il motivo e non si accoda
+private class Refused(message: String) : Exception(message)
+
+// position: dove è finito il video nella playlist di Kodi; null se è partito fuori dalla coda
+private class Sent(val message: String, val position: Int?)
+
+private class KodiState(
+    val playerId: Int?,
+    val fromQueue: Boolean,
+    val position: Int,
+    val remaining: Long,
+    val episode: Long,
+    val queueLength: Int,
+) {
+    // Secondi prima che parta l'elemento in posizione index, stimando gli episodi lunghi come quello in corso
+    fun secondsUntil(index: Int): Long =
+        if (playerId == null || !fromQueue) 0 else remaining + (index - position - 1).coerceAtLeast(0) * episode
+}
+
+// Client JSON-RPC di Kodi, da usare su un thread di background. I problemi di rete restano IOException
+// (Kodi forse ha cambiato IP), le risposte di errore diventano KodiError con un messaggio da mostrare.
+private class Kodi(val host: String, val auth: String) {
+    fun call(method: String, params: JSONObject = JSONObject()): Any? {
+        val body = JSONObject()
+            .put("jsonrpc", "2.0")
+            .put("id", 1)
+            .put("method", method)
+            .put("params", params)
+            .toString()
+        val conn = URL("http://$host/jsonrpc").openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.doOutput = true
+        conn.connectTimeout = 5000
+        conn.readTimeout = 10000
+        conn.setRequestProperty("Content-Type", "application/json")
+        if (auth.isNotBlank()) {
+            conn.setRequestProperty("Authorization", "Basic " + Base64.encodeToString(auth.toByteArray(), Base64.NO_WRAP))
+        }
+        conn.outputStream.use { it.write(body.toByteArray()) }
+        when (conn.responseCode) {
+            200 -> {}
+            401 -> throw KodiError("Kodi rifiuta utente e password: correggili con il pulsante Kodi.")
+            else -> throw KodiError("Kodi ha risposto HTTP ${conn.responseCode}.")
+        }
+        val reply = JSONObject(conn.inputStream.bufferedReader().readText())
+        reply.optJSONObject("error")?.let { throw KodiError("$method: ${it.optString("message")}") }
+        return reply.opt("result")
+    }
+}
 
 private class Video(val url: String, val referer: String, val label: String, val main: Boolean)
 
@@ -337,32 +440,23 @@ class MainActivity : Activity() {
             .show()
     }
 
-    // Anche "Manda a Kodi" passa dalla playlist video: così "+ Coda" accoda all'episodio in corso
+    // Tutto passa dalla playlist video di Kodi, così "+ Coda" e gli episodi successivi seguono quello in corso.
+    // La coda non si cancella mai: un video nuovo si inserisce dopo quello in corso o in fondo.
     private fun sendToKodi(video: Video, queued: Boolean) {
         val host = prefs.getString("host", "").orEmpty()
         if (host.isBlank()) return askKodiAddress()
-        val auth = prefs.getString("auth", "").orEmpty()
-
-        // Kodi accetta gli header HTTP accodati all'URL: url|Header=valore&Header2=valore
-        val file = "${video.url}|Referer=${enc(video.referer)}&User-Agent=${enc(web.settings.userAgentString)}"
-        val item = JSONObject().put("file", file)
-        val playlist = JSONObject().put("playlistid", VIDEO_PLAYLIST)
+        val kodi = Kodi(host, prefs.getString("auth", "").orEmpty())
+        val userAgent = web.settings.userAgentString
+        val page = pageUrl
 
         thread {
-            val result = try {
-                val playing = (rpc(host, auth, "Player.GetActivePlayers") as? JSONArray)?.length() ?: 0
-                if (queued && playing > 0) {
-                    rpc(host, auth, "Playlist.Add", JSONObject(playlist.toString()).put("item", item))
-                    "Aggiunto alla coda"
-                } else {
-                    // Si riparte da una coda vuota: niente episodi vecchi prima di questo
-                    rpc(host, auth, "Playlist.Clear", playlist)
-                    rpc(host, auth, "Playlist.Add", JSONObject(playlist.toString()).put("item", item))
-                    rpc(host, auth, "Player.Open", JSONObject().put("item", playlist))
-                    if (queued) "In riproduzione: ora puoi accodare gli altri episodi" else "Inviato a Kodi"
-                }
+            val sent = try {
+                if (queued) enqueue(kodi, video, userAgent) else playNow(kodi, video, userAgent)
             } catch (e: IOException) {
                 runOnUiThread { relocateKodi(host) { sendToKodi(video, queued) } }
+                return@thread
+            } catch (e: Refused) {
+                runOnUiThread { notice("Non messo in coda", e.message.orEmpty()) }
                 return@thread
             } catch (e: KodiError) {
                 runOnUiThread { notice("Kodi non ha accettato il video", e.message.orEmpty()) }
@@ -371,37 +465,174 @@ class MainActivity : Activity() {
                 runOnUiThread { notice("Errore", e.message.orEmpty()) }
                 return@thread
             }
-            runOnUiThread { toast(result) }
+            runOnUiThread {
+                toast(sent.message)
+                sent.position?.let { queueNextEpisodes(kodi, page, it, userAgent) }
+            }
         }
     }
 
-    // Chiamata JSON-RPC a Kodi, da un thread di background. I problemi di rete restano IOException
-    // (Kodi forse ha cambiato IP), le risposte di errore diventano KodiError con un messaggio da mostrare.
-    private fun rpc(host: String, auth: String, method: String, params: JSONObject = JSONObject()): Any? {
-        val body = JSONObject()
-            .put("jsonrpc", "2.0")
-            .put("id", 1)
-            .put("method", method)
-            .put("params", params)
-            .toString()
-        val conn = URL("http://$host/jsonrpc").openConnection() as HttpURLConnection
-        conn.requestMethod = "POST"
-        conn.doOutput = true
-        conn.connectTimeout = 5000
-        conn.readTimeout = 10000
-        conn.setRequestProperty("Content-Type", "application/json")
-        if (auth.isNotBlank()) {
-            conn.setRequestProperty("Authorization", "Basic " + Base64.encodeToString(auth.toByteArray(), Base64.NO_WRAP))
+    private fun playNow(kodi: Kodi, video: Video, userAgent: String): Sent {
+        val item = kodiItem(video.url, video.referer, userAgent)
+        val state = kodiState(kodi)
+        return try {
+            if (state.fromQueue) {
+                val position = state.position + 1
+                kodi.call("Playlist.Insert", playlist().put("position", position).put("item", item))
+                kodi.call("Player.GoTo", JSONObject().put("playerid", state.playerId).put("to", position))
+                Sent("Inviato a Kodi", position)
+            } else {
+                // Kodi fermo o con un video non partito dall'app: in fondo alla coda, e si parte da lì
+                val position = state.queueLength
+                kodi.call("Playlist.Add", playlist().put("item", item))
+                kodi.call("Player.Open", JSONObject().put("item", playlist().put("position", position)))
+                Sent("Inviato a Kodi", position)
+            }
+        } catch (e: KodiError) {
+            // Con alcuni link Playlist.Add è più severo di Player.Open: il video parte da solo, senza coda dietro
+            kodi.call("Player.Open", JSONObject().put("item", item))
+            Sent("Inviato a Kodi, ma senza coda: Kodi non accetta questo video in playlist", null)
         }
-        conn.outputStream.use { it.write(body.toByteArray()) }
-        when (conn.responseCode) {
-            200 -> {}
-            401 -> throw KodiError("Kodi rifiuta utente e password: correggili con il pulsante Kodi.")
-            else -> throw KodiError("Kodi ha risposto HTTP ${conn.responseCode}.")
+    }
+
+    // Accoda solo se l'episodio partirà davvero: altrimenti Refused con il motivo, da mostrare
+    private fun enqueue(kodi: Kodi, video: Video, userAgent: String): Sent {
+        val state = kodiState(kodi)
+        if (state.playerId == null) return playNow(kodi, video, userAgent)
+        if (!state.fromQueue) {
+            throw Refused(
+                "Il video in corso su Kodi non è partito dall'app: quando finisce, Kodi non passa alla coda.\n\n" +
+                    "Premi \"Manda a Kodi\" su questo episodio: parte subito e da lì puoi accodare gli altri."
+            )
         }
-        val reply = JSONObject(conn.inputStream.bufferedReader().readText())
-        reply.optJSONObject("error")?.let { throw KodiError("$method: ${it.optString("message")}") }
-        return reply.opt("result")
+        val position = state.queueLength
+        expiryProblem(video.url, state.secondsUntil(position))?.let { throw Refused(it) }
+        try {
+            kodi.call("Playlist.Add", playlist().put("item", kodiItem(video.url, video.referer, userAgent)))
+        } catch (e: KodiError) {
+            throw Refused("Kodi non accetta questo video in coda (${e.message}).")
+        }
+        return Sent("Aggiunto alla coda", position)
+    }
+
+    private fun kodiState(kodi: Kodi): KodiState {
+        val players = kodi.call("Player.GetActivePlayers") as? JSONArray ?: JSONArray()
+        val items = kodi.call("Playlist.GetItems", playlist()) as? JSONObject
+        val queueLength = items?.optJSONObject("limits")?.optInt("total") ?: 0
+        val player = (0 until players.length()).map { players.getJSONObject(it) }.firstOrNull { it.optString("type") == "video" }
+            ?: return KodiState(null, false, -1, 0, DEFAULT_EPISODE, queueLength)
+        val id = player.getInt("playerid")
+        val properties = JSONArray(listOf("playlistid", "position", "time", "totaltime"))
+        val p = kodi.call("Player.GetProperties", JSONObject().put("playerid", id).put("properties", properties)) as JSONObject
+        val total = seconds(p.optJSONObject("totaltime"))
+        val position = p.optInt("position", -1)
+        return KodiState(
+            playerId = id,
+            fromQueue = p.optInt("playlistid", -1) == VIDEO_PLAYLIST && position >= 0,
+            position = position,
+            remaining = (total - seconds(p.optJSONObject("time"))).coerceAtLeast(0),
+            episode = if (total > 0) total else DEFAULT_EPISODE,
+            queueLength = queueLength,
+        )
+    }
+
+    private fun seconds(time: JSONObject?): Long =
+        if (time == null) 0 else time.optLong("hours") * 3600 + time.optLong("minutes") * 60 + time.optLong("seconds")
+
+    // VixCloud scrive nel link la scadenza del token (expires=<secondi unix>): un episodio che parte dopo non si vede
+    private fun expiryProblem(url: String, startsIn: Long): String? {
+        val expires = Uri.parse(url).getQueryParameter("expires")?.toLongOrNull() ?: return null
+        val startsAt = System.currentTimeMillis() / 1000 + startsIn
+        if (startsAt + EXPIRY_MARGIN < expires) return null
+        val time = DateFormat.getTimeFormat(this).format(Date(expires * 1000))
+        return "Il link di questo episodio scade alle $time, prima che tocchi a lui: mettilo in coda più tardi."
+    }
+
+    private fun playlist() = JSONObject().put("playlistid", VIDEO_PLAYLIST)
+
+    // Kodi accetta gli header HTTP accodati all'URL: url|Header=valore&Header2=valore
+    private fun kodiItem(url: String, referer: String, userAgent: String) =
+        JSONObject().put("file", "$url|Referer=${enc(referer)}&User-Agent=${enc(userAgent)}")
+
+    // AnimeUnity: dopo l'invio si accodano da soli gli N episodi successivi, subito dopo quello mandato.
+    // L'elenco degli episodi e il player di ognuno si leggono dalla pagina del sito, il link video dal player.
+    private fun queueNextEpisodes(kodi: Kodi, page: String, after: Int, userAgent: String) {
+        val count = prefs.getInt("autoNext", 1)
+        val uri = Uri.parse(page)
+        if (count <= 0 || !domainOf(uri).startsWith("animeunity.") || !EPISODE_PATH.matches(uri.path.orEmpty())) return
+        if (web.url != page) return
+        web.evaluateJavascript(NEXT_EPISODES_JS.replace("COUNT", count.toString())) { result ->
+            val reply = (JSONTokener(result).nextValue() as? String)?.let { JSONObject(it) }
+            val next = reply?.optJSONArray("next")
+            if (next == null || next.length() == 0) {
+                toast(if (reply?.has("next") == true) "Era l'ultimo episodio" else "Episodio successivo non trovato: usa + Coda")
+                return@evaluateJavascript
+            }
+            val queuedNumbers = mutableListOf<String>()
+            fun queueAt(i: Int) {
+                if (i >= next.length()) {
+                    if (queuedNumbers.isNotEmpty()) toast("In coda anche: episodio ${queuedNumbers.joinToString(", ")}")
+                    return
+                }
+                val episode = next.getJSONObject(i)
+                val number = episode.optString("number")
+                val embed = episode.optString("embed").takeIf { it.startsWith("http") }
+                    ?: return notice("Episodio $number non messo in coda", "Non ho trovato il suo player sulla pagina. Aprilo e usa + Coda.")
+                resolveVixCloud(embed, userAgent) { stream ->
+                    if (stream == null) {
+                        notice("Episodio $number non messo in coda", "Non ho trovato il link del video. Aprilo e usa + Coda.")
+                        return@resolveVixCloud
+                    }
+                    thread {
+                        val problem = try {
+                            val position = after + 1 + i
+                            expiryProblem(stream, kodiState(kodi).secondsUntil(position))
+                                ?: run {
+                                    kodi.call("Playlist.Insert", playlist().put("position", position).put("item", kodiItem(stream, embed, userAgent)))
+                                    null
+                                }
+                        } catch (e: Exception) {
+                            "Kodi: ${e.message}"
+                        }
+                        runOnUiThread {
+                            if (problem != null) return@runOnUiThread notice("Episodio $number non messo in coda", problem)
+                            queuedNumbers += number
+                            queueAt(i + 1)
+                        }
+                    }
+                }
+            }
+            queueAt(0)
+        }
+    }
+
+    // Il link video (playlist VixCloud con token) esiste solo dentro la pagina del player: la si carica in un
+    // WebView invisibile e si legge window.masterPlaylist, senza far partire il video
+    private fun resolveVixCloud(embed: String, userAgent: String, onResult: (String?) -> Unit) {
+        val hidden = WebView(this)
+        hidden.settings.javaScriptEnabled = true
+        hidden.settings.userAgentString = userAgent
+        var done = false
+        val finish = { stream: String? ->
+            if (!done) {
+                done = true
+                web.post { hidden.destroy() }
+                onResult(stream)
+            }
+        }
+        hidden.webViewClient = object : WebViewClient() {
+            // Solo i redirect HTTP: i salti fatti da JS (pubblicità) non portano via dal player
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = !request.isRedirect
+
+            override fun onPageFinished(view: WebView, url: String) {
+                view.evaluateJavascript(MASTER_PLAYLIST_JS) { result ->
+                    // Un redirect può arrivare qui prima della pagina vera: si aspetta quella o il timeout
+                    (JSONTokener(result).nextValue() as? String)?.let(finish)
+                }
+            }
+        }
+        hidden.loadUrl(embed, mapOf("Referer" to pageUrl))
+        web.postDelayed({ finish(null) }, 15000)
     }
 
     // Il router può aver dato un altro IP alla Fire TV: si cerca Kodi in rete, ci si sposta lì e si riprova.
@@ -524,6 +755,14 @@ class MainActivity : Activity() {
             setText(prefs.getString("auth", ""))
         }
         val authPanel = section(label("Accesso, se impostato in Kodi"), auth).apply { setPadding(0, dp(16), 0, 0) }
+        val autoNext = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(prefs.getInt("autoNext", 1).toString())
+        }
+        val autoNextPanel = section(
+            label("AnimeUnity: episodi successivi da accodare da soli (0 = mai, massimo $MAX_AUTO_NEXT)"),
+            autoNext,
+        ).apply { setPadding(0, dp(16), 0, 0) }
 
         fun runSearch() {
             searched = true
@@ -561,7 +800,7 @@ class MainActivity : Activity() {
         }
         tabs.check(if (startManual) manualTab.id else autoTab.id)
 
-        val form = section(tabs, autoPanel, manualPanel, authPanel).apply { setPadding(dp(24), dp(8), dp(24), 0) }
+        val form = section(tabs, autoPanel, manualPanel, authPanel, autoNextPanel).apply { setPadding(dp(24), dp(8), dp(24), 0) }
         AlertDialog.Builder(this)
             .setTitle("Dov'è Kodi?")
             .setView(ScrollView(this).apply { addView(form) })
@@ -572,6 +811,7 @@ class MainActivity : Activity() {
                     .putString("host", newHost)
                     .putBoolean("manual", manual)
                     .putString("auth", auth.text.toString().trim())
+                    .putInt("autoNext", autoNext.text.toString().toIntOrNull()?.coerceIn(0, MAX_AUTO_NEXT) ?: 1)
                     .apply()
             }
             .setNegativeButton("Annulla", null)

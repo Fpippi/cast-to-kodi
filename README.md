@@ -33,6 +33,7 @@ Nel browser dell'app popup, `window.open` e salti verso altri domini vengono blo
 2. Nella barra in alto scrivi un indirizzo o una ricerca (es. `jojo animeunity`, va su Google). Con **★** salvi la pagina nei preferiti e li riapri; pressione lunga per toglierne uno.
 3. Vai all'episodio e **avvia il player** (il flusso si rileva solo quando parte).
 4. Premi **Manda a Kodi**. Pubblicità e pezzi della playlist VixCloud sono già scartati; se restano più video, la playlist principale è la prima.
-5. Per guardare più episodi di fila: sul primo **Manda a Kodi**, poi apri il successivo e premi **+ Coda**. I link VixCloud scadono dopo qualche ora: la coda va bene per una serata.
+5. **Coda**: tutto passa dalla playlist video di Kodi e non viene mai cancellata. *Manda a Kodi* inserisce il video subito dopo quello in corso e parte; **+ Coda** lo mette in fondo. Se l'episodio non potrebbe partire (video in corso non avviato dall'app, link che scade prima del suo turno) l'app non lo accoda e spiega perché.
+6. **AnimeUnity**: dopo l'invio l'app accoda da sola gli episodi successivi (1 di default, fino a 3, si cambia nel dialogo **Kodi**; 0 = spento).
 
 Telefono e Fire TV devono essere sulla stessa rete Wi-Fi.
