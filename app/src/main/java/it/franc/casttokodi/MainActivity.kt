@@ -118,8 +118,10 @@ private const val NO_ADB_HELP = """Controlla che:
 
 Se la Fire TV è in sonno profondo il suo Wi-Fi è spento: accendila con Alexa o con il telecomando."""
 
-// Le ultime righe del log di Kodi sulla Fire TV, lette via ADB: senza add-on da installare
-private const val KODI_LOG = "tail -n 150 /sdcard/Android/data/org.xbmc.kodi/files/.kodi/temp/kodi.log 2>&1"
+// Le ultime righe utili del log di Kodi sulla Fire TV, lette via ADB: senza add-on da installare.
+// Con il debug di Kodi attivo il log è pieno di rumore: si tengono errori e righe su apertura e riproduzione.
+private const val KODI_LOG = "tail -n 3000 /sdcard/Android/data/org.xbmc.kodi/files/.kodi/temp/kodi.log 2>&1 | " +
+    "grep -iE 'error|warning|fail|curl|playlist|playfile|videoplayer|inputstream|ffmpeg|http' | tail -n 120"
 
 private class KodiError(message: String) : Exception(message)
 
