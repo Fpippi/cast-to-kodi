@@ -6,12 +6,15 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.content.res.Configuration
+import android.net.ConnectivityManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.os.Bundle
 import android.os.Message
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import android.text.InputType
 import android.text.format.DateFormat
 import android.util.Base64
@@ -19,6 +22,7 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.inputmethod.EditorInfo
 import android.webkit.WebChromeClient
+import android.widget.CheckBox
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -39,7 +43,12 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.Inet4Address
 import java.net.URL
+import java.security.KeyStore
 import java.util.Date
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 import kotlin.concurrent.thread
 
 private const val REPO = "Fpippi/cast-to-kodi"
@@ -60,6 +69,9 @@ private const val DEFAULT_EPISODE = 24 * 60L
 
 // Un episodio va accodato solo se il suo link vale ancora almeno 10 minuti dopo l'inizio previsto
 private const val EXPIRY_MARGIN = 10 * 60L
+
+// Alias nell'Android Keystore della chiave che cifra le password di Kodi
+private const val LOGIN_KEY = "kodi-login"
 
 // Più di qualche episodio non serve: i link scadono dopo qualche ora
 private const val MAX_AUTO_NEXT = 3
@@ -107,6 +119,9 @@ private const val MASTER_PLAYLIST_JS = """(function () {
 
 private class KodiError(message: String) : Exception(message)
 
+// Kodi ha risposto 401: mancano utente e password o sono sbagliati, si chiedono
+private class Unauthorized : Exception()
+
 // La coda non può proseguire con questo video: si avvisa con il motivo e non si accoda
 private class Refused(message: String) : Exception(message)
 
@@ -148,7 +163,7 @@ private class Kodi(val host: String, val auth: String) {
         conn.outputStream.use { it.write(body.toByteArray()) }
         when (conn.responseCode) {
             200 -> {}
-            401 -> throw KodiError("Kodi rifiuta utente e password: correggili con il pulsante Kodi.")
+            401 -> throw Unauthorized()
             else -> throw KodiError("Kodi ha risposto HTTP ${conn.responseCode}.")
         }
         val reply = JSONObject(conn.inputStream.bufferedReader().readText())
@@ -172,6 +187,9 @@ class MainActivity : Activity() {
     // Dominio da cui la pagina principale può navigare: tutto il resto è considerato redirect pubblicitario
     private var allowedDomain = ""
     @Volatile private var pageUrl = ""
+
+    // "IP:porta" -> nome annunciato via mDNS, per riconoscere lo stesso Kodi quando cambia IP
+    private val kodiNames = HashMap<String, String>()
 
     // Mentre si cerca Kodi in rete lo dice il pulsante in basso: un toast sparisce prima di averlo letto
     private var searchingKodi = false
@@ -237,6 +255,7 @@ class MainActivity : Activity() {
         setContentView(root)
         refreshCastButton()
 
+        migrateAuth()
         open(prefs.getString("last", null) ?: GOOGLE)
         if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress()
         checkUpdate()
@@ -397,10 +416,13 @@ class MainActivity : Activity() {
 
     // Tutto passa dalla playlist video di Kodi, così "+ Coda" e gli episodi successivi seguono quello in corso.
     // La coda non si cancella mai: un video nuovo si inserisce dopo quello in corso o in fondo.
-    private fun sendToKodi(video: Video, queued: Boolean) {
+    // typed: utente e password appena scritti nel dialogo dopo un 401, al posto di quelli salvati
+    private fun sendToKodi(video: Video, queued: Boolean, typed: Pair<String, String>? = null) {
         val host = prefs.getString("host", "").orEmpty()
         if (host.isBlank()) return askKodiAddress()
-        val kodi = Kodi(host, prefs.getString("auth", "").orEmpty())
+        val network = currentNetwork()
+        val login = typed ?: savedLogin(host, network)
+        val kodi = Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty())
         val userAgent = web.settings.userAgentString
         val page = pageUrl
 
@@ -408,7 +430,10 @@ class MainActivity : Activity() {
             val sent = try {
                 if (queued) enqueue(kodi, video, userAgent) else playNow(kodi, video, userAgent)
             } catch (e: IOException) {
-                runOnUiThread { relocateKodi(host) { sendToKodi(video, queued) } }
+                runOnUiThread { relocateKodi(host) { sendToKodi(video, queued, typed) } }
+                return@thread
+            } catch (e: Unauthorized) {
+                runOnUiThread { askLogin(host, login, wrong = login != null) { sendToKodi(video, queued, it) } }
                 return@thread
             } catch (e: Refused) {
                 runOnUiThread { notice("Non messo in coda", e.message.orEmpty()) }
@@ -421,6 +446,8 @@ class MainActivity : Activity() {
                 return@thread
             }
             runOnUiThread {
+                // Hanno funzionato: valgono per questo Kodi su questa rete (anche le vecchie senza rete, o dopo un cambio di IP)
+                if (login != null && network != null) storeLogin(host, network, login)
                 toast(sent.message)
                 sent.position?.let { queueNextEpisodes(kodi, page, it, userAgent) }
             }
@@ -599,7 +626,9 @@ class MainActivity : Activity() {
             searchingKodi = false
             refreshCastButton()
             val moveTo = { host: String ->
-                prefs.edit().putString("host", host).putBoolean("manual", false).apply()
+                val name = kodiNames[host].orEmpty()
+                saveLogins(moveLogin(loadLogins(), oldHost, host, name, currentNetwork()))
+                prefs.edit().putString("host", host).putString("name", name).putBoolean("manual", false).apply()
                 toast("Kodi trovato a $host")
                 retry()
             }
@@ -630,7 +659,11 @@ class MainActivity : Activity() {
                 override fun onServiceResolved(info: NsdServiceInfo) = runOnUiThread {
                     // Solo IPv4: un indirizzo IPv6 con i ":" non si può scrivere come "host:porta"
                     @Suppress("DEPRECATION") val address = info.host
-                    if (address is Inet4Address) found.add("${address.hostAddress}:${info.port}")
+                    if (address is Inet4Address) {
+                        val hostPort = "${address.hostAddress}:${info.port}"
+                        found.add(hostPort)
+                        kodiNames[hostPort] = info.serviceName.orEmpty()
+                    }
                     resolving = false
                     resolveNext()
                 }
@@ -705,11 +738,10 @@ class MainActivity : Activity() {
         val manualHelp = label("L'IP è in Fire TV → Impostazioni → La mia Fire TV → Info → Rete. La porta è quella di Kodi, di solito 8080.")
         val manualPanel = section(host, manualHelp)
 
-        val auth = EditText(this).apply {
-            hint = "utente:password"
-            setText(prefs.getString("auth", ""))
-        }
-        val authPanel = section(label("Accesso, se impostato in Kodi"), auth).apply { setPadding(0, dp(16), 0, 0) }
+        val network = currentNetwork()
+        val login = savedLogin(saved, network)
+        val (user, password, showPassword) = loginFields(login)
+        val authPanel = section(label("Accesso, se impostato in Kodi"), user, password, showPassword).apply { setPadding(0, dp(16), 0, 0) }
         val autoNext = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
             setText(prefs.getInt("autoNext", 1).toString())
@@ -764,13 +796,137 @@ class MainActivity : Activity() {
                 val newHost = if (manual) host.text.toString().trim() else chosen.ifBlank { saved }
                 prefs.edit()
                     .putString("host", newHost)
+                    .putString("name", if (manual) "" else kodiNames[newHost] ?: prefs.getString("name", ""))
                     .putBoolean("manual", manual)
-                    .putString("auth", auth.text.toString().trim())
                     .putInt("autoNext", autoNext.text.toString().toIntOrNull()?.coerceIn(0, MAX_AUTO_NEXT) ?: 1)
                     .apply()
+                val typed = user.text.toString().trim() to password.text.toString()
+                when {
+                    // Fuori casa (o senza Wi-Fi) non si sa a che rete legarle: si richiedono al primo 401
+                    network == null -> {}
+                    typed.first.isEmpty() -> saveLogins(replaceLogin(loadLogins(), newHost, prefs.getString("name", "").orEmpty(), network, null))
+                    typed != login || newHost != saved -> storeLogin(newHost, network, typed)
+                }
             }
             .setNegativeButton("Annulla", null)
             .show()
+    }
+
+    // Utente, password nascosta e "Mostra password", già compilati con login se c'è
+    private fun loginFields(login: Pair<String, String>?): Triple<EditText, EditText, CheckBox> {
+        val user = EditText(this).apply {
+            hint = "Utente"
+            isSingleLine = true
+            setText(login?.first.orEmpty())
+        }
+        val hidden = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        val password = EditText(this).apply {
+            hint = "Password"
+            isSingleLine = true
+            inputType = hidden
+            setText(login?.second.orEmpty())
+        }
+        val show = CheckBox(this).apply {
+            text = "Mostra password"
+            setOnCheckedChangeListener { _, checked ->
+                password.inputType = if (checked) InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD else hidden
+                password.setSelection(password.text.length)
+            }
+        }
+        return Triple(user, password, show)
+    }
+
+    // Kodi ha risposto 401: si chiedono utente e password e con OK l'invio riparte da solo
+    private fun askLogin(host: String, tried: Pair<String, String>?, wrong: Boolean, retry: (Pair<String, String>) -> Unit) {
+        val (user, password, show) = loginFields(tried?.copy(second = ""))
+        val message = if (wrong) "Kodi a $host non accetta utente e password." else "Kodi a $host chiede utente e password."
+        val form = section(label(message), user, password, show).apply { setPadding(dp(24), dp(8), dp(24), 0) }
+        AlertDialog.Builder(this)
+            .setTitle("Accesso a Kodi")
+            .setView(form)
+            .setPositiveButton("OK") { _, _ -> retry(user.text.toString().trim() to password.text.toString()) }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+
+    // Impronta della rete attuale (vedi networkKey), null senza rete o senza un gateway IPv4
+    private fun currentNetwork(): String? {
+        val cm = getSystemService(ConnectivityManager::class.java) ?: return null
+        val link = cm.getLinkProperties(cm.activeNetwork) ?: return null
+        val address = link.linkAddresses.firstOrNull { it.address is Inet4Address } ?: return null
+        val gateway = link.routes.firstOrNull { it.isDefaultRoute && it.gateway is Inet4Address }?.gateway
+        return networkKey(address.address.hostAddress, address.prefixLength, gateway?.hostAddress)
+    }
+
+    // Utente e password salvati per il Kodi a host sulla rete network, già decifrati
+    private fun savedLogin(host: String, network: String?): Pair<String, String>? {
+        val name = if (host == prefs.getString("host", "")) prefs.getString("name", "").orEmpty() else kodiNames[host].orEmpty()
+        val login = loginFor(loadLogins(), host, name, network) ?: return null
+        return login.user to (unseal(login.secret) ?: return null)
+    }
+
+    private fun storeLogin(host: String, network: String, login: Pair<String, String>) {
+        val name = if (host == prefs.getString("host", "")) prefs.getString("name", "").orEmpty() else kodiNames[host].orEmpty()
+        val entry = SavedLogin(host, name, network, login.first, seal(login.second))
+        saveLogins(replaceLogin(loadLogins(), host, name, network, entry))
+    }
+
+    // Credenziali in SharedPreferences come JSON, con la password cifrata da seal
+    private fun loadLogins(): List<SavedLogin> {
+        val array = JSONArray(prefs.getString("logins", "[]"))
+        return List(array.length()) { i ->
+            array.getJSONObject(i).let {
+                SavedLogin(it.getString("host"), it.getString("name"), it.getString("network"), it.getString("user"), it.getString("secret"))
+            }
+        }
+    }
+
+    private fun saveLogins(list: List<SavedLogin>) {
+        val array = JSONArray()
+        list.forEach {
+            array.put(JSONObject().put("host", it.host).put("name", it.name).put("network", it.network).put("user", it.user).put("secret", it.secret))
+        }
+        prefs.edit().putString("logins", array.toString()).apply()
+    }
+
+    // Il vecchio "utente:password" unico vale per il Kodi salvato, su qualunque rete finché non funziona di nuovo
+    private fun migrateAuth() {
+        val auth = prefs.getString("auth", "").orEmpty()
+        val host = prefs.getString("host", "").orEmpty()
+        if (auth.isNotBlank() && host.isNotBlank()) {
+            val (user, password) = splitAuth(auth)
+            saveLogins(loadLogins() + SavedLogin(host, "", "", user, seal(password)))
+        }
+        prefs.edit().remove("auth").apply()
+    }
+
+    // Password cifrate con una chiave AES dell'Android Keystore, che non esce dal telefono: "iv:testo" in Base64
+    private fun loginKey(): SecretKey {
+        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        (store.getKey(LOGIN_KEY, null) as? SecretKey)?.let { return it }
+        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        generator.init(
+            KeyGenParameterSpec.Builder(LOGIN_KEY, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .build()
+        )
+        return generator.generateKey()
+    }
+
+    private fun seal(text: String): String {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, loginKey()) }
+        val data = cipher.doFinal(text.toByteArray())
+        return Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(data, Base64.NO_WRAP)
+    }
+
+    // null se non si decifra (chiave persa, es. backup ripristinato su un altro telefono): si richiedono
+    private fun unseal(secret: String): String? = try {
+        val (iv, data) = secret.split(':').map { Base64.decode(it, Base64.NO_WRAP) }
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.DECRYPT_MODE, loginKey(), GCMParameterSpec(128, iv)) }
+        String(cipher.doFinal(data))
+    } catch (e: Exception) {
+        null
     }
 
     private fun section(vararg views: View) = LinearLayout(this).apply {
