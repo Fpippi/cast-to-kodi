@@ -28,6 +28,7 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
+import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.widget.CheckBox
 import android.webkit.WebResourceRequest
@@ -70,6 +71,7 @@ import it.franc.casttokodi.sites.MASTER_PLAYLIST_JS
 import it.franc.casttokodi.sites.MAX_AUTO_NEXT
 import it.franc.casttokodi.sites.NEXT_EPISODES_JS
 import it.franc.casttokodi.sites.isAnimeUnityEpisode
+import it.franc.casttokodi.sites.isGoogleConsent
 import it.franc.casttokodi.sites.linkExpiry
 import kotlin.concurrent.thread
 
@@ -335,7 +337,7 @@ class MainActivity : Activity() {
             }
 
             override fun onPageFinished(view: WebView, url: String) {
-                prefs.edit().putString("last", url).apply()
+                if (!isGoogleConsent(Uri.parse(url).host)) prefs.edit().putString("last", url).apply()
             }
 
             // Chiamato su un thread di background per ogni risorsa, anche dentro gli iframe e per le XHR dei player
@@ -391,8 +393,9 @@ class MainActivity : Activity() {
     // tonale per le secondarie, neutro quando non si può premere. Chiaro e scuro seguono il tema del telefono.
     private fun paint(button: Button, active: Boolean, primary: Boolean) {
         val (background, text) = when {
+            // Il testo da spento è un'istruzione ("Nessun video: avvia il player"): grigio ma leggibile in tutti e due i temi
             !active -> sys(R.color.system_neutral2_100, R.color.system_neutral2_800) to
-                sys(R.color.system_neutral2_500, R.color.system_neutral2_400)
+                sys(R.color.system_neutral2_700, R.color.system_neutral2_200)
             primary -> sys(R.color.system_accent1_600, R.color.system_accent1_200) to
                 sys(R.color.system_accent1_0, R.color.system_accent1_800)
             else -> sys(R.color.system_accent2_100, R.color.system_accent2_700) to
@@ -1213,6 +1216,13 @@ class MainActivity : Activity() {
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+
+    // Il WebView salva i cookie su disco ogni tanto: se l'app viene chiusa prima si perde la scelta sulla pagina
+    // dei cookie di Google (e i login dei siti), che si ripresenterebbe a ogni avvio
+    override fun onPause() {
+        super.onPause()
+        CookieManager.getInstance().flush()
+    }
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
