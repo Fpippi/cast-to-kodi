@@ -187,3 +187,23 @@ fun isNewerVersion(latestTag: String, installed: String): Boolean {
     val current = versionParts(installed) ?: return true // installata senza numero valido: meglio aggiornare
     return latest.zip(current).firstOrNull { (a, b) -> a != b }?.let { (a, b) -> a > b } ?: false
 }
+
+// Nomi della coda: Kodi per un link mostra un pezzo dell'URL ("784674?type=video&token=…"), quindi l'app ricorda il
+// nome della pagina da cui l'ha mandato. La chiave è il link senza gli header che Kodi accoda dopo '|'.
+fun queueKey(file: String): String = file.substringBefore('|')
+
+// I nomi ricordati con quello nuovo in fondo, tenendo solo gli ultimi max (la coda non ne ha mai così tanti)
+fun withTitle(titles: Map<String, String>, file: String, title: String, max: Int = 50): Map<String, String> {
+    val all = LinkedHashMap(titles)
+    all.remove(queueKey(file))
+    all[queueKey(file)] = title
+    return all.entries.toList().takeLast(max).associateTo(LinkedHashMap()) { it.key to it.value }
+}
+
+// Nome di un elemento della coda: quello ricordato, altrimenti il titolo di Kodi se sembra un nome, altrimenti il sito
+fun queueLabel(file: String, kodiTitle: String, titles: Map<String, String>): String {
+    titles[queueKey(file)]?.let { return it }
+    val host = Regex("^\\w+://([^/:?|]+)").find(file)?.groupValues?.get(1)
+    if (kodiTitle.isNotBlank() && (host == null || ('?' !in kodiTitle && '/' !in kodiTitle))) return kodiTitle
+    return if (host != null) "Video da ${shortHost(host)}" else file
+}
