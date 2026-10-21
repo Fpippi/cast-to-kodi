@@ -5,8 +5,7 @@
 - Progetto nato il 2026-10-20. Kodi è installato e configurato sulla Fire TV dell'utente; l'app si installa dal telefono scaricando l'APK dalla release `latest`.
 - 2026-10-20: provato dall'utente su AnimeUnity (VixCloud), funziona: Kodi riproduce i flussi con gli header `Referer` e `User-Agent` passati come `url|Header=valore`. Altri siti non ancora provati.
 - Si lavora su `main`: solo i push su `main` producono una release (i tag e gli altri branch no). Le funzioni da fare sono nelle issue GitHub.
-- Ordine concordato delle issue, una alla volta: #2 ricerca Google → #3 preferiti → #5 filtro dei video → #4 coda → #1 ricerca automatica di Kodi.
-- Fatto finora (Build 9): rilevamento VixCloud, controllo aggiornamenti senza token, firma fissa, barra di caricamento, pulsante verde quando c'è un video.
+- Fatto e unito su main (Build 12): ricerca automatica di Kodi (#1), ricerca Google (#2), preferiti (#3), coda (#4), filtro dei video (#5), interfaccia e colori di sistema (#7–#9). PR #16 (coda che non si cancella, avvisi, episodi successivi AnimeUnity: #11–#13, #15) e rifiniture #14 da unire e provare sul Pixel.
 - 2026-10-20: la storia git è stata riscritta (autore unico `Fpippi` con email noreply). Un clone fatto prima va riallineato con `git fetch origin && git reset --hard origin/main`.
 - Si compila solo su GitHub Actions (`.github/workflows/apk.yml`): l'ambiente di Claude Code non scarica l'SDK Android. Gli errori di build si leggono dai log della run. Chi ha Android Studio può comunque aprire il progetto e compilarlo in locale.
 - Controllo veloce senza SDK (es. nella sessione online, prima di pushare un branch che non va su main): compilare `MainActivity.kt` con `kotlinc` 2.0.21 (zip dalle release GitHub di JetBrains/kotlin) e `-cp` sul jar `org.robolectric:android-all:15-robolectric-*` di Maven Central. Verifica tipi e API, non manifest né risorse.
@@ -28,5 +27,6 @@
 - AnimeUnity, episodi successivi in automatico (#15): JS nella pagina rilegge l'HTML con XHR sincrono e prende `episodes` ed `embed_url` dall'elemento `<video-player>`; il link si legge da `window.masterPlaylist` del player VixCloud caricato in un WebView invisibile. Dipende dalla struttura del sito: se cambia, si rompe qui (l'app avvisa e resta "+ Coda" manuale). Non ancora provato sul sito vero.
 - Il filtro pubblicità (`AD_HOSTS`, `isAd`) è un elenco corto e approssimativo: allungarlo quando un sito mostra ads tra i video trovati.
 - Colori solo da `android.R.color.system_*` (Material You) e tema `Theme.DeviceDefault.DayNight` in `res/values/themes.xml`: niente colori scritti a mano.
-- La ricerca da Google apre altri domini: il blocco dei salti li lascia passare solo se la pagina corrente è `google.*` e il tocco è dell'utente (`hasGesture`).
+- La ricerca da Google apre altri domini: il blocco dei salti li lascia passare tutti quando la pagina corrente è `google.*`, anche senza `hasGesture` (Google apre alcuni risultati da JS).
+- Nella barra in alto `host:porta` (es. `localhost:8080`, `192.168.1.50:8080`) si apre in HTTP; il resto senza punto o con spazi va su Google.
 - `targetSdk 35` forza l'edge-to-edge: il padding degli insets nella root serve.

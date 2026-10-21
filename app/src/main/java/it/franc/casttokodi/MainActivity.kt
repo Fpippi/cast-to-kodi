@@ -69,6 +69,8 @@ private const val EXPIRY_MARGIN = 10 * 60L
 // Più di qualche episodio non serve: i link scadono dopo qualche ora
 private const val MAX_AUTO_NEXT = 3
 
+private val HOST_PORT = Regex("[\\w.-]+:\\d{1,5}(/.*)?")
+
 private val EPISODE_PATH = Regex("/anime/[^/]+/\\d+/?")
 
 // Eseguito nella pagina dell'episodio AnimeUnity: rilegge la pagina (stessi cookie, niente Cloudflare), prende
@@ -305,8 +307,9 @@ class MainActivity : Activity() {
                 if (url.scheme != "http" && url.scheme != "https") return block(url)
                 // I redirect HTTP (es. il sito che cambia dominio) sono ammessi, i salti fatti da JS no
                 if (!request.isForMainFrame || request.isRedirect) return false
-                // Dai risultati di Google si va su altri siti per forza: lì il tocco dell'utente basta
-                if (allowedDomain.startsWith("google.") && request.hasGesture()) return false
+                // Dai risultati di Google si va su altri siti per forza. Non serve il tocco (hasGesture): Google apre
+                // alcuni risultati da JS e il WebView non lo segna come gesto; su Google non ci sono salti pubblicitari
+                if (allowedDomain.startsWith("google.")) return false
                 return if (domainOf(url) == allowedDomain) false else block(url)
             }
 
@@ -344,6 +347,8 @@ class MainActivity : Activity() {
         val url = when {
             text.isEmpty() -> GOOGLE
             text.startsWith("http://") || text.startsWith("https://") -> text
+            // host:porta (localhost:8080, 192.168.1.50:8080): roba di casa, che di solito non ha HTTPS
+            HOST_PORT.matches(text) -> "http://$text"
             // "jojo animeunity" o "jojo" non sono indirizzi: si cercano su Google
             ' ' in text || '.' !in text -> "$GOOGLE/search?q=${Uri.encode(text)}"
             else -> "https://$text"
