@@ -40,6 +40,13 @@ Telefono e Fire TV devono essere sulla stessa rete Wi-Fi.
 
 ## Test
 
-Le regole dell'app che non dipendono da Android (barra degli indirizzi, blocco dei salti, riconoscimento di video e pubblicità) stanno in `Rules.kt` e sono provate in `app/src/test`. Su ogni PR verso `main` il workflow **Test** esegue `./gradlew testDebugUnitTest assembleDebug`; con Android Studio si lanciano con il ▶️ accanto alla classe di test.
+Le regole dell'app che non dipendono da Android (barra degli indirizzi, blocco dei salti, riconoscimento di video e pubblicità) stanno in `Rules.kt` e sono provate in `app/src/test`. Su ogni PR verso `develop` il workflow **Test** esegue `./gradlew testDebugUnitTest`; verso `main` anche `assembleDebug`, e lì andranno i controlli più pesanti; con Android Studio si lanciano con il ▶️ accanto alla classe di test.
 
-Perché una PR con i test rossi non si possa unire: su GitHub *Settings → Branches → Add branch ruleset* (o *Add rule*) per `main`, attiva **Require a pull request before merging** e **Require status checks to pass**, e aggiungi il controllo **test**.
+## Branch
+
+- **`develop`** è dove si lavora: ogni modifica parte da qui e ci torna con una PR.
+- **`main`** è solo per i rilasci: una PR da `develop` a `main` pubblica una nuova "Build N" (il workflow APK parte solo con i push su `main`).
+
+Impostazioni su GitHub (una volta sola):
+1. *Settings → General → Default branch*: scegli `develop`, così le PR nuove puntano lì da sole.
+2. *Settings → Rules → Rulesets → New branch ruleset*, con target `develop` e `main`: attiva **Restrict deletions**, **Require a pull request before merging** e **Require status checks to pass** con il controllo **test**. Così una PR con i test rossi non si può unire e nessuno pusha direttamente sui due branch.

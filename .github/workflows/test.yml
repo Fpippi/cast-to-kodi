@@ -1,10 +1,10 @@
-# Su ogni PR verso main: test della logica e compilazione dell'APK. Se fallisce, la PR non si può unire
-# (con la protezione del branch main che richiede il controllo "test", vedi README).
+# Su ogni PR verso develop (lavoro) i test della logica; verso main (rilascio) anche la compilazione dell'APK. Se fallisce,
+# la PR non si può unire (con i ruleset che richiedono il controllo "test", vedi README).
 name: Test
 
 on:
   pull_request:
-    branches: [main]
+    branches: [develop, main]
   workflow_dispatch:
 
 concurrency:
@@ -25,8 +25,13 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      # I test girano sulla JVM; assembleDebug verifica anche manifest e risorse. Firma con la chiave debug.
-      - run: ./gradlew testDebugUnitTest assembleDebug --stacktrace
+      # Verso develop solo i test, che girano sulla JVM e compilano già il codice: veloci
+      - run: ./gradlew testDebugUnitTest --stacktrace
+
+      # Verso main (rilascio) anche l'APK completo, che verifica manifest e risorse. Firma con la chiave debug.
+      # Qui vanno i controlli più pesanti, quando ce ne saranno. Stesso job "test", così basta un solo check nei ruleset.
+      - if: github.base_ref == 'main'
+        run: ./gradlew assembleDebug --stacktrace
 
       - uses: actions/upload-artifact@v4
         if: failure()
