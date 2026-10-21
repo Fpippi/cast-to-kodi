@@ -7,6 +7,11 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 1.1.2
+
+- Manda a Kodi: tolto il controllo "è partito?" aggiunto nella 1.0.2. Con Kodi lento a rispondere riapriva lo stesso
+  video mentre si stava ancora caricando, e la seconda apertura interrompeva la prima.
+
 ## 1.1.1
 
 - Manda a Kodi: per i video HLS (es. AnimeUnity/VixCloud) l'app manda a Kodi una sola qualità, la migliore, invece della
