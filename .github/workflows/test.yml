@@ -1,0 +1,35 @@
+# Su ogni PR verso main: test della logica e compilazione dell'APK. Se fallisce, la PR non si può unire
+# (con la protezione del branch main che richiede il controllo "test", vedi README).
+name: Test
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Niente paths-ignore: un controllo obbligatorio che non parte resta "in attesa" e blocca la PR
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # I test girano sulla JVM; assembleDebug verifica anche manifest e risorse. Firma con la chiave debug.
+      - run: ./gradlew testDebugUnitTest assembleDebug --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: risultati-test
+          path: app/build/reports/tests/

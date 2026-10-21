@@ -37,3 +37,9 @@ Nel browser dell'app popup, `window.open` e salti verso altri domini vengono blo
 6. **AnimeUnity**: dopo l'invio l'app accoda da sola gli episodi successivi (1 di default, fino a 3, si cambia nel dialogo **Kodi**; 0 = spento).
 
 Telefono e Fire TV devono essere sulla stessa rete Wi-Fi.
+
+## Test
+
+Le regole dell'app che non dipendono da Android (barra degli indirizzi, blocco dei salti, riconoscimento di video e pubblicità) stanno in `Rules.kt` e sono provate in `app/src/test`. Su ogni PR verso `main` il workflow **Test** esegue `./gradlew testDebugUnitTest assembleDebug`; con Android Studio si lanciano con il ▶️ accanto alla classe di test.
+
+Perché una PR con i test rossi non si possa unire: su GitHub *Settings → Branches → Add branch ruleset* (o *Add rule*) per `main`, attiva **Require a pull request before merging** e **Require status checks to pass**, e aggiungi il controllo **test**.
