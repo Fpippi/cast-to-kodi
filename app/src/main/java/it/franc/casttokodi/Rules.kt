@@ -5,6 +5,7 @@ import it.franc.casttokodi.sites.googleSearch
 import it.franc.casttokodi.sites.isGoogle
 import it.franc.casttokodi.sites.isVixCloudPart
 import it.franc.casttokodi.sites.isVixCloudPlaylist
+import java.net.URI
 import java.net.URLEncoder
 
 // Regole dell'app scritte senza API Android (niente Uri, WebView, Context): così le provano i test
@@ -105,6 +106,27 @@ fun shortHost(host: String?): String = host.orEmpty().removePrefix("www.")
 fun initialOf(name: String, host: String?): String =
     (name.firstOrNull { it.isLetterOrDigit() } ?: shortHost(host).firstOrNull { it.isLetterOrDigit() } ?: '?')
         .uppercase()
+
+// Da una playlist HLS principale (master) la qualità migliore, come URL assoluto. Kodi con la master apre tutte le
+// qualità per scegliere (playlist, chiave e primo pezzo di ognuna): sulla Fire TV ci mette più dei 30 secondi che
+// concede e il video non parte (VixCloud, 2026-10-21). null se non è una master o se l'audio è in una traccia a parte,
+// che con una sola qualità si perderebbe: lì si manda la master com'è.
+fun bestVariant(master: String, masterUrl: String): String? {
+    val lines = master.lines().map { it.trim() }
+    if (lines.any { it.startsWith("#EXT-X-MEDIA:") && "TYPE=AUDIO" in it && "URI=" in it }) return null
+    var best: String? = null
+    var bestBandwidth = -1L
+    lines.forEachIndexed { i, line ->
+        if (!line.startsWith("#EXT-X-STREAM-INF:")) return@forEachIndexed
+        val uri = lines.drop(i + 1).firstOrNull { it.isNotEmpty() && !it.startsWith("#") } ?: return@forEachIndexed
+        val bandwidth = Regex("(?<![-A-Z])BANDWIDTH=(\\d+)").find(line)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+        if (bandwidth > bestBandwidth) {
+            bestBandwidth = bandwidth
+            best = uri
+        }
+    }
+    return best?.let { URI(masterUrl).resolve(it).toString() }
+}
 
 // URLEncoder usa '+' per lo spazio, Kodi (e Google) vogliono %20
 fun enc(s: String): String = URLEncoder.encode(s, "UTF-8").replace("+", "%20")

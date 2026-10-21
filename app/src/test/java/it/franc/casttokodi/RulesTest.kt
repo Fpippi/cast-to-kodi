@@ -189,4 +189,23 @@ class RulesTest {
         assertFalse(isNewerVersion("build-18", "1.0.0"))
         assertTrue(isNewerVersion("v1.0.0", "0.1"))
     }
+
+    @Test
+    fun qualitaMigliore() {
+        val master = """#EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=1200000,CODECS="avc1.640028,mp4a.40.2",RESOLUTION=854x480
+https://vixcloud.cc/playlist/1?type=video&rendition=480p&token=a
+#EXT-X-STREAM-INF:AVERAGE-BANDWIDTH=4000000,BANDWIDTH=4500000,RESOLUTION=1920x1080
+https://vixcloud.cc/playlist/1?type=video&rendition=1080p&token=c
+#EXT-X-STREAM-INF:BANDWIDTH=2150000,RESOLUTION=1280x720
+https://vixcloud.cc/playlist/1?type=video&rendition=720p&token=b
+"""
+        assertEquals("https://vixcloud.cc/playlist/1?type=video&rendition=1080p&token=c", bestVariant(master, "https://vixcloud.cc/playlist/1?token=x"))
+        // percorsi relativi alla master
+        assertEquals("https://cdn.example.com/hls/720/index.m3u8", bestVariant("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\n720/index.m3u8\n", "https://cdn.example.com/hls/master.m3u8"))
+        // audio in una traccia a parte: resta la master
+        assertNull(bestVariant("#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"a\",URI=\"audio.m3u8\"\n#EXT-X-STREAM-INF:BANDWIDTH=1,AUDIO=\"a\"\nv.m3u8\n", "https://x.com/m.m3u8"))
+        // non è una master: una playlist dei pezzi
+        assertNull(bestVariant("#EXTM3U\n#EXTINF:4,\n0001.ts\n", "https://x.com/v.m3u8"))
+    }
 }
