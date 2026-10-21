@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 108 108">
+  <!-- Copia dell'icona dell'app (res/drawable/ic_launcher_foreground.xml) per il README -->
+  <rect width="108" height="108" rx="24" fill="#0D5563"/>
+  <g transform="translate(54 54) scale(0.72) translate(-54 -54)" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M46,68 H81 A7,7 0 0 0 88,61 V33 A7,7 0 0 0 81,26 H35 A7,7 0 0 0 28,33 V36" stroke="#FFFFFF" stroke-width="6"/>
+    <path d="M50,80 H74" stroke="#FFFFFF" stroke-width="6"/>
+    <path d="M53,37 L69,47 L53,57 Z" fill="#FFC857" stroke="#FFC857" stroke-width="3"/>
+    <path d="M21,44 H35 A5,5 0 0 1 40,49 V79 A5,5 0 0 1 35,84 H21 A5,5 0 0 1 16,79 V49 A5,5 0 0 1 21,44 Z" fill="#0D5563" stroke="#FFFFFF" stroke-width="5" stroke-linecap="butt" stroke-linejoin="miter"/>
+    <path d="M25.5,77 A2.5,2.5 0 1 0 30.5,77 A2.5,2.5 0 1 0 25.5,77 Z" fill="#FFFFFF" stroke="none"/>
+  </g>
+</svg>
