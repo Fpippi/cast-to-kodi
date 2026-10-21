@@ -7,16 +7,23 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.os.Bundle
 import android.os.Message
 import android.text.InputType
+import android.text.TextUtils
 import android.text.format.DateFormat
 import android.util.Base64
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -25,7 +32,9 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.RadioButton
 import android.widget.RadioGroup
@@ -35,6 +44,7 @@ import android.widget.Toast
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.Inet4Address
@@ -173,6 +183,9 @@ class MainActivity : Activity() {
     private var allowedDomain = ""
     @Volatile private var pageUrl = ""
 
+    // Favicon della pagina aperta, salvata con il preferito
+    private var pageIcon: Bitmap? = null
+
     // Mentre si cerca Kodi in rete lo dice il pulsante in basso: un toast sparisce prima di averlo letto
     private var searchingKodi = false
 
@@ -291,6 +304,11 @@ class MainActivity : Activity() {
                 progress.progress = newProgress
                 progress.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
             }
+
+            override fun onReceivedIcon(view: WebView, icon: Bitmap) {
+                pageIcon = icon
+                fillMissingIcon(view.url, icon)
+            }
         }
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -303,6 +321,7 @@ class MainActivity : Activity() {
 
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 pageUrl = url
+                pageIcon = favicon
                 allowedDomain = domainOf(Uri.parse(url))
                 address.setText(url)
                 videos.clear()
@@ -784,55 +803,191 @@ class MainActivity : Activity() {
         setPadding(0, dp(4), 0, dp(4))
     }
 
-    // Preferiti in SharedPreferences come JSON: [{"title": ..., "url": ...}]
-    private fun loadFavorites(): MutableList<Pair<String, String>> {
+    // Preferiti in SharedPreferences come JSON: [{"title": ..., "url": ..., "icon": PNG in Base64, se c'è}]
+    private fun loadFavorites(): MutableList<Favorite> {
         val array = JSONArray(prefs.getString("favorites", "[]"))
-        return MutableList(array.length()) { i -> array.getJSONObject(i).let { it.getString("title") to it.getString("url") } }
+        return MutableList(array.length()) { i ->
+            array.getJSONObject(i).let { Favorite(it.getString("title"), it.getString("url"), it.optString("icon").ifEmpty { null }) }
+        }
     }
 
-    private fun saveFavorites(list: List<Pair<String, String>>) {
-        val array = JSONArray(list.map { (title, url) -> JSONObject().put("title", title).put("url", url) })
+    private fun saveFavorites(list: List<Favorite>) {
+        val array = JSONArray(list.map { JSONObject().put("title", it.title).put("url", it.url).putOpt("icon", it.icon) })
         prefs.edit().putString("favorites", array.toString()).apply()
     }
 
-    // Tocco apre, pressione lunga elimina; la prima voce aggiunge la pagina aperta se non c'è già
+    private fun encodeIcon(icon: Bitmap): String {
+        val small = if (icon.width > 64 || icon.height > 64) Bitmap.createScaledBitmap(icon, 64, 64, true) else icon
+        val out = ByteArrayOutputStream()
+        small.compress(Bitmap.CompressFormat.PNG, 100, out)
+        return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+    }
+
+    // I preferiti salvati senza icona (prima di #25, o pagina non ancora caricata) la prendono alla prossima visita
+    private fun fillMissingIcon(url: String?, icon: Bitmap) {
+        val list = loadFavorites()
+        val i = list.indexOfFirst { it.url == url && it.icon == null }
+        if (i < 0) return
+        list[i] = list[i].copy(icon = encodeIcon(icon))
+        saveFavorites(list)
+    }
+
+    // Lista dei preferiti: in cima il pulsante per aggiungere la pagina aperta, poi una riga per sito.
+    // Tocco apre, ⋮ (o pressione lunga) per rinominare o togliere
     private fun showFavorites() {
         val list = loadFavorites()
         val current = web.url?.takeIf { it.startsWith("http") }
-        val canAdd = current != null && list.none { it.second == current }
-        val labels = (if (canAdd) listOf("＋ Aggiungi questa pagina") else emptyList()) +
-            list.map { (title, url) -> "$title\n${Uri.parse(url).host}" }
-        if (labels.isEmpty()) return toast("Apri un sito per aggiungerlo ai preferiti")
-        val offset = if (canAdd) 1 else 0
+        val canAdd = current != null && list.none { it.url == current }
+        if (list.isEmpty() && !canAdd) return toast("Apri un sito per aggiungerlo ai preferiti")
 
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Preferiti")
-            .setItems(labels.toTypedArray()) { _, i ->
-                if (i < offset) {
-                    val title = web.title?.takeIf { it.isNotBlank() } ?: Uri.parse(current!!).host.orEmpty()
-                    saveFavorites(list + (title to current!!))
-                    toast("Aggiunto ai preferiti")
-                } else {
-                    open(list[i - offset].second)
-                }
+        lateinit var dialog: AlertDialog
+        val content = section().apply { setPadding(dp(16), dp(8), dp(8), 0) }
+        if (canAdd) {
+            val add = Button(this).apply {
+                text = "＋ Aggiungi questa pagina"
+                setOnClickListener { dialog.dismiss(); addFavorite(current!!) }
             }
-            .setNegativeButton("Chiudi", null)
-            .show()
-        dialog.listView.setOnItemLongClickListener { _, _, i, _ ->
-            if (i < offset) return@setOnItemLongClickListener false
-            val (title, _) = list[i - offset]
-            AlertDialog.Builder(this)
-                .setMessage("Togliere \"$title\" dai preferiti?")
-                .setPositiveButton("Togli") { _, _ ->
-                    list.removeAt(i - offset)
+            paint(add, active = true, primary = true)
+            content.addView(add, LinearLayout.LayoutParams(-1, dp(48)).apply { marginEnd = dp(8); bottomMargin = dp(8) })
+        }
+        if (list.isEmpty()) content.addView(label("Nessun preferito: aggiungi la pagina che hai aperto."))
+        list.forEachIndexed { i, favorite ->
+            content.addView(favoriteRow(favorite, onOpen = { dialog.dismiss(); open(favorite.url) }) { anchor ->
+                favoriteMenu(anchor, favorite) { changed ->
+                    if (changed == null) list.removeAt(i) else list[i] = changed
                     saveFavorites(list)
                     dialog.dismiss()
+                    showFavorites()
                 }
-                .setNegativeButton("Annulla", null)
-                .show()
-            true
+            })
+        }
+        dialog = AlertDialog.Builder(this)
+            .setTitle("Preferiti")
+            .setView(ScrollView(this).apply { addView(content) })
+            .setNegativeButton("Chiudi", null)
+            .show()
+    }
+
+    private fun addFavorite(url: String) {
+        val icon = pageIcon?.let { encodeIcon(it) }
+        askFavoriteName("Aggiungi ai preferiti", suggestedName(web.title, Uri.parse(url).host)) { name ->
+            saveFavorites(loadFavorites() + Favorite(name, url, icon))
+            toast("Aggiunto ai preferiti")
         }
     }
+
+    // Riga di un preferito: icona del sito (o iniziale su un cerchio), nome, dominio più tenue e ⋮
+    private fun favoriteRow(favorite: Favorite, onOpen: () -> Unit, onMenu: (View) -> Unit): View {
+        val host = Uri.parse(favorite.url).host
+        val bitmap = favorite.icon
+            ?.let { runCatching { Base64.decode(it, Base64.DEFAULT) }.getOrNull() }
+            ?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+        val icon: View = if (bitmap != null) {
+            ImageView(this).apply {
+                setImageBitmap(bitmap)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setPadding(dp(8), dp(8), dp(8), dp(8))
+                background = circle(sys(R.color.system_neutral2_100, R.color.system_neutral2_800))
+                clipToOutline = true
+            }
+        } else {
+            TextView(this).apply {
+                text = initialOf(favorite.title, host)
+                gravity = Gravity.CENTER
+                textSize = 18f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(sys(R.color.system_accent1_900, R.color.system_accent1_100))
+                background = circle(sys(R.color.system_accent1_100, R.color.system_accent1_700))
+            }
+        }
+        val name = TextView(this).apply {
+            text = favorite.title
+            textSize = 16f
+            maxLines = 2
+            ellipsize = TextUtils.TruncateAt.END
+            setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50))
+        }
+        val domain = TextView(this).apply {
+            text = shortHost(host)
+            textSize = 13f
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+            setTextColor(sys(R.color.system_neutral2_600, R.color.system_neutral2_400))
+        }
+        val more = Button(this, null, R.attr.borderlessButtonStyle).apply {
+            text = "⋮"
+            textSize = 20f
+            contentDescription = "Rinomina o togli"
+            minWidth = dp(48)
+            minimumWidth = dp(48)
+            setTextColor(sys(R.color.system_neutral2_700, R.color.system_neutral2_200))
+        }
+        more.setOnClickListener { onMenu(more) }
+        return LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(64)
+            setPadding(dp(4), dp(4), 0, dp(4))
+            setBackgroundResource(attr(R.attr.selectableItemBackground))
+            setOnClickListener { onOpen() }
+            setOnLongClickListener { onMenu(more); true }
+            addView(icon, LinearLayout.LayoutParams(dp(40), dp(40)))
+            addView(section(name, domain), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(16) })
+            addView(more, LinearLayout.LayoutParams(dp(48), dp(48)))
+        }
+    }
+
+    // done riceve il preferito rinominato, o null se va tolto
+    private fun favoriteMenu(anchor: View, favorite: Favorite, done: (Favorite?) -> Unit) {
+        PopupMenu(this, anchor).apply {
+            menu.add(0, 1, 0, "Rinomina")
+            menu.add(0, 2, 1, "Togli")
+            setOnMenuItemClickListener { item ->
+                if (item.itemId == 1) {
+                    askFavoriteName("Rinomina", favorite.title) { done(favorite.copy(title = it)) }
+                } else {
+                    AlertDialog.Builder(this@MainActivity)
+                        .setMessage("Togliere \"${favorite.title}\" dai preferiti?")
+                        .setPositiveButton("Togli") { _, _ -> done(null) }
+                        .setNegativeButton("Annulla", null)
+                        .show()
+                }
+                true
+            }
+            show()
+        }
+    }
+
+    // Campo già compilato con initial; lasciato vuoto si tiene initial
+    private fun askFavoriteName(title: String, initial: String, done: (String) -> Unit) {
+        val field = EditText(this).apply {
+            setText(initial)
+            isSingleLine = true
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            setSelectAllOnFocus(true)
+            imeOptions = EditorInfo.IME_ACTION_DONE
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(title)
+            .setView(section(field).apply { setPadding(dp(24), dp(8), dp(24), 0) })
+            .setPositiveButton("Salva") { _, _ -> done(renamed(field.text.toString(), initial)) }
+            .setNegativeButton("Annulla", null)
+            .create()
+        field.setOnEditorActionListener { _, _, _ ->
+            done(renamed(field.text.toString(), initial))
+            dialog.dismiss()
+            true
+        }
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        dialog.show()
+        field.requestFocus()
+    }
+
+    private fun circle(color: Int) = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        setColor(color)
+    }
+
+    private fun attr(id: Int): Int = TypedValue().also { theme.resolveAttribute(id, it, true) }.resourceId
 
     // Per i messaggi lunghi o importanti: un toast sparisce prima di averlo letto
     private fun notice(title: String, message: String) {
