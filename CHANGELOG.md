@@ -7,6 +7,19 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 1.2.0
+
+- Manda a Kodi: all'avvio il telefono scarica la playlist e la chiave del video e le passa a Kodi in rete locale. La
+  Fire TV ci metteva 10-20 secondi per ognuna e Kodi rinuncia dopo 30 ("Playback failed"). I pezzi del video Kodi li
+  prende sempre dal sito: il telefono serve solo nei primi secondi.
+- Manda a Kodi: con il video si mandano anche Origin e cookie del sito, come fa il browser (StreamingCommunity con il
+  player vidxgo rispondeva 403).
+- Manda a Kodi e + Coda restano spenti, con "Invio a Kodi…", finché Kodi non risponde: i tocchi ripetuti non mandano
+  altri video.
+- Niente più avviso "Popup bloccato" sopra al pulsante: i popup restano bloccati, in silenzio.
+- Pulsante Kodi → Coda di Kodi: elenco dei video in coda con quando parte ognuno; si può far partire o togliere un
+  video, o svuotare la coda tranne quello in corso.
+
 ## 1.1.2
 
 - Manda a Kodi: tolto il controllo "è partito?" aggiunto nella 1.0.2. Con Kodi lento a rispondere riapriva lo stesso

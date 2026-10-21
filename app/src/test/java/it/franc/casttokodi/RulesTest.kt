@@ -208,4 +208,22 @@ https://vixcloud.cc/playlist/1?type=video&rendition=720p&token=b
         // non è una master: una playlist dei pezzi
         assertNull(bestVariant("#EXTM3U\n#EXTINF:4,\n0001.ts\n", "https://x.com/v.m3u8"))
     }
+
+    @Test
+    fun nomiDellaCoda() {
+        val file = "https://vixcloud.cc/playlist/1?type=video&rendition=1080p&token=t|Referer=x&User-Agent=y"
+        val titles = withTitle(emptyMap(), file, "JoJo Episodio 3")
+        // Kodi può restituire il link con o senza gli header
+        assertEquals("JoJo Episodio 3", queueLabel(file, "1?type=video", titles))
+        assertEquals("JoJo Episodio 3", queueLabel(queueKey(file), "", titles))
+        // non ricordato: il titolo di Kodi se è un nome, altrimenti il sito
+        assertEquals("Video da vixcloud.cc", queueLabel(file, "1?type=video&rendition=1080p", emptyMap()))
+        assertEquals("Video da vixcloud.cc", queueLabel(file, "", emptyMap()))
+        assertEquals("Trailer", queueLabel("https://www.x.com/a.mp4", "Trailer", emptyMap()))
+        assertEquals("Film.mkv", queueLabel("/sdcard/Film.mkv", "Film.mkv", emptyMap()))
+        // il nome nuovo sostituisce il vecchio e i più vecchi escono
+        val many = (1..5).fold(emptyMap<String, String>()) { acc, i -> withTitle(acc, "https://x.com/$i.m3u8", "Ep $i", max = 3) }
+        assertEquals(listOf("Ep 3", "Ep 4", "Ep 5"), many.values.toList())
+        assertEquals("Nuovo", withTitle(many, "https://x.com/3.m3u8|R=1", "Nuovo", max = 3)["https://x.com/3.m3u8"])
+    }
 }

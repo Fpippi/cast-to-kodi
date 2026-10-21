@@ -33,7 +33,7 @@ App Android personale (Pixel 9 Pro XL) per guardare i video dei siti di streamin
 
 - 🔎 Il telefono fa da browser: apri il sito nell'app e avvii il player.
 - 🎯 L'app intercetta il flusso video (`.m3u8` / `.mp4`) e lo manda a **Kodi**, che lo riproduce direttamente.
-- 🔋 Il video non passa dal telefono: qualità piena e telefono che si può bloccare.
+- 🔋 Il video non passa dal telefono: qualità piena e telefono che si può bloccare. Solo all'avvio il telefono passa a Kodi la playlist e la chiave, che la Fire TV da sola scarica troppo lentamente.
 - 🚫 Popup, `window.open` e salti verso altri domini vengono bloccati: sono quasi tutta la pubblicità di quei siti.
 - 📋 Coda degli episodi nella playlist di Kodi, e su AnimeUnity gli episodi successivi si accodano da soli.
 
@@ -92,12 +92,12 @@ L'app parla con **Kodi**, non con la TV: funziona su qualunque dispositivo dove 
 
 ## ▶️ Uso
 
-1. 📡 Al primo avvio si apre **Dov'è Kodi?**: in *Automatico* l'app cerca Kodi in rete e lo selezioni; in *Manuale* scrivi `IP:porta` (es. `192.168.1.50:8080`). Sotto, utente e password se impostati in Kodi (se mancano, l'app li chiede al primo invio). Si cambia dopo con il pulsante **Kodi**. Se la Fire TV cambia IP, all'invio l'app la ritrova da sola. Le credenziali restano sul telefono, con la password cifrata, legate a quel Kodi e alla rete di casa: su un'altra rete si richiedono.
+1. 📡 Al primo avvio si apre **Dov'è Kodi?**: in *Automatico* l'app cerca Kodi in rete e lo selezioni; in *Manuale* scrivi `IP:porta` (es. `192.168.1.50:8080`). Sotto, utente e password se impostati in Kodi (se mancano, l'app li chiede al primo invio). Si cambia dopo con **Kodi → Dov'è Kodi?**. Se la Fire TV cambia IP, all'invio l'app la ritrova da sola. Le credenziali restano sul telefono, con la password cifrata, legate a quel Kodi e alla rete di casa: su un'altra rete si richiedono.
 2. 🔌 Con la TV spenta premi il **pulsante di accensione** (accanto a ★): l'app trova da sola la Fire TV in rete (anche senza Kodi aperto), la sveglia, la TV si accende e dopo qualche secondo passa sul suo ingresso, poi si apre Kodi; quando risponde l'app scrive "Kodi è pronto". La prima volta la TV chiede di consentire il debug da questo telefono: spunta *Consenti sempre* e premi OK. Se la Fire TV è in sonno profondo non risponde in rete: lì servono Alexa o il telecomando.
 3. 🔍 Nella barra in alto scrivi un indirizzo o una ricerca (es. `jojo animeunity`, va su Google). Con **★** salvi la pagina nei preferiti (con un nome a scelta) e li riapri; con **⋮** accanto a un preferito lo rinomini o lo togli.
 4. 🎬 Vai all'episodio e **avvia il player** (il flusso si rileva solo quando parte).
 5. 📤 Premi **Manda a Kodi**. La pubblicità è già scartata; se restano più video, la playlist principale è la prima.
-6. 📋 **Coda**: tutto passa dalla playlist video di Kodi e non viene mai cancellata. *Manda a Kodi* inserisce il video subito dopo quello in corso e parte; **+ Coda** lo mette in fondo. Se l'episodio non potrebbe partire (video in corso non avviato dall'app, link che scade prima del suo turno) l'app non lo accoda e spiega perché.
+6. 📋 **Coda**: tutto passa dalla playlist video di Kodi e non viene mai cancellata. *Manda a Kodi* inserisce il video subito dopo quello in corso e parte; **+ Coda** lo mette in fondo. Se l'episodio non potrebbe partire (video in corso non avviato dall'app, link che scade prima del suo turno) l'app non lo accoda e spiega perché. Con **Kodi → Coda di Kodi** la vedi: il video in corso (▶), quelli già visti, quando parte ognuno e se il link è scaduto; tocca un video per farlo partire o toglierlo, **Svuota** toglie tutto tranne quello in corso.
 7. 🪵 Se Kodi dice *Playback failed*: pulsante **Kodi → Log di Kodi**. L'app legge le ultime righe del log dalla Fire TV via ADB (come il pulsante di accensione, niente add-on) e con **Condividi** le mandi dove serve.
 
 > [!IMPORTANT]
