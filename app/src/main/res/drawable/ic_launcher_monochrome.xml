@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 108x108 dp; il disegno è scalato al 72% per stare nella zona sicura di 66 dp -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.72"
+        android:scaleY="0.72">
+        <!-- TV, aperta dove passa davanti il telefono -->
+        <path
+            android:pathData="M46,68 H81 A7,7 0 0 0 88,61 V33 A7,7 0 0 0 81,26 H35 A7,7 0 0 0 28,33 V36"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="6"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M50,80 H74"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="6"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M53,37 L69,47 L53,57 Z"
+            android:fillColor="#FFFFFF"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="3"
+            android:strokeLineJoin="round" />
+        <!-- telefono -->
+        <path
+            android:pathData="M21,44 H35 A5,5 0 0 1 40,49 V79 A5,5 0 0 1 35,84 H21 A5,5 0 0 1 16,79 V49 A5,5 0 0 1 21,44 Z"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="5" />
+        <path
+            android:pathData="M25.5,77 A2.5,2.5 0 1 0 30.5,77 A2.5,2.5 0 1 0 25.5,77 Z"
+            android:fillColor="#FFFFFF" />
+    </group>
+</vector>
