@@ -199,6 +199,8 @@ class MainActivity : Activity() {
 
     // Mentre si cerca Kodi in rete lo dice il pulsante in basso: un toast sparisce prima di averlo letto
     private var searchingKodi = false
+    // Un invio alla volta: i tocchi ripetuti su "Manda a Kodi" mentre Kodi risponde non mandano altri video
+    private var sending = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -326,7 +328,7 @@ class MainActivity : Activity() {
             // ogni tocco su "avvia" riapre il popup e il video non parte mai. Gli si dà una finestra finta,
             // mai mostrata, che non scarica niente e si chiude da sola.
             override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
-                toast("Popup bloccato")
+                // Niente avviso: compariva sopra a "Manda a Kodi" a ogni tocco sul player
                 val sink = WebView(this@MainActivity)
                 sink.webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = true
@@ -407,11 +409,12 @@ class MainActivity : Activity() {
 
     private fun refreshCastButton() {
         val count = playable().size
-        val ready = count > 0 && !searchingKodi
+        val ready = count > 0 && !searchingKodi && !sending
         cast.isEnabled = ready
         queue.isEnabled = ready
         cast.text = when {
             searchingKodi -> "Cerco Kodi in rete…"
+            sending -> "Invio a Kodi…"
             count == 0 -> "Nessun video: avvia il player"
             count == 1 -> "Manda a Kodi"
             else -> "Manda a Kodi ($count)"
@@ -458,6 +461,7 @@ class MainActivity : Activity() {
     // La coda non si cancella mai: un video nuovo si inserisce dopo quello in corso o in fondo.
     // typed: utente e password appena scritti nel dialogo dopo un 401, al posto di quelli salvati
     private fun sendToKodi(video: Video, queued: Boolean, typed: Pair<String, String>? = null) {
+        if (sending) return
         val host = prefs.getString("host", "").orEmpty()
         if (host.isBlank()) return askKodiAddress()
         val network = currentNetwork()
@@ -465,27 +469,37 @@ class MainActivity : Activity() {
         val kodi = Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty())
         val userAgent = web.settings.userAgentString
         val page = pageUrl
+        sending = true
+        refreshCastButton()
+        // Il pulsante torna attivo prima di qualunque dialogo, così il nuovo tentativo che ne parte non viene scartato
+        val done = { then: () -> Unit ->
+            runOnUiThread {
+                sending = false
+                refreshCastButton()
+                then()
+            }
+        }
 
         thread {
             val sent = try {
                 if (queued) enqueue(kodi, video, userAgent) else playNow(kodi, video, userAgent)
             } catch (e: IOException) {
-                runOnUiThread { relocateKodi(host) { sendToKodi(video, queued, typed) } }
+                done { relocateKodi(host) { sendToKodi(video, queued, typed) } }
                 return@thread
             } catch (e: Unauthorized) {
-                runOnUiThread { askLogin(host, login, wrong = login != null) { sendToKodi(video, queued, it) } }
+                done { askLogin(host, login, wrong = login != null) { sendToKodi(video, queued, it) } }
                 return@thread
             } catch (e: Refused) {
-                runOnUiThread { notice("Non messo in coda", e.message.orEmpty()) }
+                done { notice("Non messo in coda", e.message.orEmpty()) }
                 return@thread
             } catch (e: KodiError) {
-                runOnUiThread { notice("Kodi non ha accettato il video", e.message.orEmpty()) }
+                done { notice("Kodi non ha accettato il video", e.message.orEmpty()) }
                 return@thread
             } catch (e: Exception) {
-                runOnUiThread { notice("Errore", e.message.orEmpty()) }
+                done { notice("Errore", e.message.orEmpty()) }
                 return@thread
             }
-            runOnUiThread {
+            done {
                 // Hanno funzionato: valgono per questo Kodi su questa rete (anche le vecchie senza rete, o dopo un cambio di IP)
                 if (login != null && network != null) storeLogin(host, network, login)
                 toast(sent.message)
