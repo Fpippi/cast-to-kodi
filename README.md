@@ -1,6 +1,6 @@
-# Cast to Kodi
+# Couch Cast
 
-App Android personale (Pixel 9 Pro XL) per guardare i video dei siti di streaming sulla Fire TV, gratis e senza pubblicità.
+App Android personale (Pixel 9 Pro XL) per guardare i video dei siti di streaming sulla Fire TV, gratis e senza pubblicità. Sul telefono si chiama **Couch Cast**; repo, release e APK (`CastToKodi.apk`) mantengono il vecchio nome, così aggiornamenti e Obtainium continuano a funzionare.
 
 Il telefono fa da browser e da telecomando: apri il sito nell'app, avvii il player, l'app intercetta il flusso video (`.m3u8` / `.mp4`) e lo manda a **Kodi** sulla Fire TV, che lo riproduce direttamente. Il video non passa dal telefono, quindi la qualità è piena e il telefono si può bloccare.
 
