@@ -10,6 +10,9 @@ const val GOOGLE = "https://www.google.com"
 // ponytail: elenco corto dei circuiti pubblicitari visti nei player; allungarlo quando se ne incontrano altri
 private val AD_HOSTS = listOf("doubleclick", "googlesyndication", "imasdk", "adnxs", "adsrvr", "popads", "exoclick", "juicyads")
 
+// host:porta (localhost:8080, 192.168.1.50:8080): roba di casa, che di solito non ha HTTPS
+private val HOST_PORT = Regex("[\\w.-]+:\\d{1,5}(/.*)?")
+
 class Video(val url: String, val referer: String, val label: String, val main: Boolean)
 
 // Cosa aprire per il testo scritto nella barra in alto
@@ -18,6 +21,7 @@ fun addressFor(input: String): String {
     return when {
         text.isEmpty() -> GOOGLE
         text.startsWith("http://") || text.startsWith("https://") -> text
+        HOST_PORT.matches(text) -> "http://$text"
         // "jojo animeunity" o "jojo" non sono indirizzi: si cercano su Google
         ' ' in text || '.' !in text -> "$GOOGLE/search?q=${enc(text)}"
         else -> "https://$text"
@@ -28,12 +32,13 @@ fun addressFor(input: String): String {
 fun domainOf(host: String?) = host.orEmpty().split('.').takeLast(2).joinToString(".")
 
 // true se la pagina principale non deve andare a url: popup e salti fatti da JS verso altri domini
-fun blocksNavigation(scheme: String?, host: String?, allowedDomain: String, mainFrame: Boolean, redirect: Boolean, gesture: Boolean): Boolean {
+fun blocksNavigation(scheme: String?, host: String?, allowedDomain: String, mainFrame: Boolean, redirect: Boolean): Boolean {
     if (scheme != "http" && scheme != "https") return true
     // I redirect HTTP (es. il sito che cambia dominio) sono ammessi, i salti fatti da JS no
     if (!mainFrame || redirect) return false
-    // Dai risultati di Google si va su altri siti per forza: lì il tocco dell'utente basta
-    if (allowedDomain.startsWith("google.") && gesture) return false
+    // Dai risultati di Google si va su altri siti per forza. Non serve il tocco (hasGesture): Google apre
+    // alcuni risultati da JS e il WebView non lo segna come gesto; su Google non ci sono salti pubblicitari
+    if (allowedDomain.startsWith("google.")) return false
     return domainOf(host) != allowedDomain
 }
 
