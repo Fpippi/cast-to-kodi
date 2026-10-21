@@ -41,3 +41,11 @@ const val NEXT_EPISODES_JS = """(function (n) {
     return JSON.stringify({ error: String(e) });
   }
 })(COUNT)"""
+
+// Nome in coda di un episodio accodato da solo, dal nome della pagina di quello mandato:
+// "JoJo Episodio 3" -> "JoJo Episodio 4"; se la pagina non dice il numero, lo si aggiunge
+fun nextEpisodeTitle(current: String, number: String): String {
+    val episode = Regex("(?i)\\b(episodio|ep\\.?)\\s*\\d+")
+    val last = episode.findAll(current).lastOrNull() ?: return "$current · Episodio $number".trimStart(' ', '·')
+    return current.replaceRange(last.range, "Episodio $number")
+}
