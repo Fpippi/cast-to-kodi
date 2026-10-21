@@ -80,6 +80,28 @@ fun videoFor(url: String, referer: String, host: String?, path: String?, query: 
     }
 }
 
+// Preferito salvato. icon è la favicon in PNG Base64, assente per quelli salvati prima di #25
+data class Favorite(val title: String, val url: String, val icon: String? = null)
+
+// Nome proposto quando si aggiunge una pagina: il titolo senza il nome del sito in coda
+// ("Guarda JoJo Episodio 3 - AnimeUnity" -> "Guarda JoJo Episodio 3"), o il dominio se non c'è titolo
+fun suggestedName(pageTitle: String?, host: String?): String {
+    val title = pageTitle.orEmpty().replace(Regex("\\s+"), " ").trim()
+    val short = title.split(" - ", " | ", " – ", " — ").first().trim()
+    return short.ifEmpty { title }.ifEmpty { shortHost(host) }
+}
+
+// Nome scritto nel campo di rinomina: vuoto vuol dire tenere quello vecchio
+fun renamed(input: String, old: String): String = input.replace(Regex("\\s+"), " ").trim().ifEmpty { old }
+
+// Dominio da mostrare sotto il nome, senza "www."
+fun shortHost(host: String?): String = host.orEmpty().removePrefix("www.")
+
+// Lettera sul cerchio quando il sito non ha favicon
+fun initialOf(name: String, host: String?): String =
+    (name.firstOrNull { it.isLetterOrDigit() } ?: shortHost(host).firstOrNull { it.isLetterOrDigit() } ?: '?')
+        .uppercase()
+
 // URLEncoder usa '+' per lo spazio, Kodi (e Google) vogliono %20
 fun enc(s: String): String = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
 

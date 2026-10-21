@@ -148,4 +148,23 @@ class RulesTest {
         assertEquals("kodi" to "a:b", splitAuth("kodi:a:b"))
         assertEquals("kodi" to "", splitAuth("kodi"))
     }
+
+    @Test
+    fun preferiti() {
+        assertEquals("Guarda JoJo Episodio 3 Streaming SUB ITA",
+            suggestedName("Guarda JoJo Episodio 3 Streaming SUB ITA - AnimeUnity", "www.animeunity.so"))
+        assertEquals("Film", suggestedName("  Film  |  Sito ", "sito.it"))
+        assertEquals("animeunity.so", suggestedName("   ", "www.animeunity.so"))
+        assertEquals("animeunity.so", suggestedName(null, "www.animeunity.so"))
+        assertEquals("- Solo trattino", suggestedName("- Solo trattino", "x.it"))
+
+        // Nome vuoto = si tiene quello vecchio; spazi ripuliti
+        assertEquals("Vecchio", renamed("   ", "Vecchio"))
+        assertEquals("JoJo stagione 2", renamed("  JoJo   stagione 2 ", "Vecchio"))
+
+        assertEquals("J", initialOf("jojo", "animeunity.so"))
+        assertEquals("3", initialOf("★ 3 metri", null))
+        assertEquals("A", initialOf("★", "www.animeunity.so"))
+        assertEquals("?", initialOf("", null))
+    }
 }
