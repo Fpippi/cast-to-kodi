@@ -98,6 +98,7 @@ L'app parla con **Kodi**, non con la TV: funziona su qualunque dispositivo dove 
 4. 🎬 Vai all'episodio e **avvia il player** (il flusso si rileva solo quando parte).
 5. 📤 Premi **Manda a Kodi**. La pubblicità è già scartata; se restano più video, la playlist principale è la prima.
 6. 📋 **Coda**: tutto passa dalla playlist video di Kodi e non viene mai cancellata. *Manda a Kodi* inserisce il video subito dopo quello in corso e parte; **+ Coda** lo mette in fondo. Se l'episodio non potrebbe partire (video in corso non avviato dall'app, link che scade prima del suo turno) l'app non lo accoda e spiega perché.
+7. 🪵 Se Kodi dice *Playback failed*: pulsante **Kodi → Log di Kodi**. L'app legge le ultime righe del log dalla Fire TV via ADB (come il pulsante di accensione, niente add-on) e con **Condividi** le mandi dove serve.
 
 > [!IMPORTANT]
 > Telefono e Fire TV devono essere sulla stessa rete Wi-Fi.
