@@ -19,6 +19,9 @@ import android.os.Message
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.text.InputType
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ImageSpan
 import android.text.TextUtils
 import android.text.format.DateFormat
 import android.util.Base64
@@ -207,13 +210,21 @@ class MainActivity : Activity() {
             setOnClickListener { askKodiAddress() }
         }
         val power = Button(this).apply {
-            text = "⏻"
             contentDescription = "Accendi la TV e apri Kodi"
             tooltipText = contentDescription
             setOnClickListener { wakeKodi() }
         }
         paint(favorites, active = true, primary = false)
         paint(power, active = true, primary = false)
+        // Il carattere ⏻ manca nel font del Pixel (si vedeva un quadratino): icona vettoriale nel testo, del colore del testo
+        power.text = SpannableString(" ").apply {
+            val icon = getDrawable(it.franc.casttokodi.R.drawable.ic_power)!!.mutate().apply {
+                val size = dp(22)
+                setBounds(0, 0, size, size)
+                setTint(power.currentTextColor)
+            }
+            setSpan(ImageSpan(icon, ImageSpan.ALIGN_CENTER), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
         paint(settings, active = true, primary = false)
         cast = Button(this).apply {
             setOnClickListener { pickVideo(queued = false) }
@@ -648,9 +659,9 @@ class MainActivity : Activity() {
                 })
                 null
             } catch (e: SocketTimeoutException) {
-                if (confirming) "La TV non ha confermato in tempo. Premi ⏻ e accetta la richiesta sullo schermo." else "Non risponde a $ip.\n\n$NO_ADB_HELP"
+                if (confirming) "La TV non ha confermato in tempo. Premi di nuovo il pulsante di accensione e accetta la richiesta sullo schermo." else "Non risponde a $ip.\n\n$NO_ADB_HELP"
             } catch (e: IOException) {
-                if (confirming) "La TV ha rifiutato il telefono. Premi ⏻ e accetta la richiesta sullo schermo." else "Non risponde a $ip.\n\n$NO_ADB_HELP"
+                if (confirming) "La TV ha rifiutato il telefono. Premi di nuovo il pulsante di accensione e accetta la richiesta sullo schermo." else "Non risponde a $ip.\n\n$NO_ADB_HELP"
             } catch (e: Exception) {
                 e.message.orEmpty()
             }
