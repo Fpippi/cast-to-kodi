@@ -68,7 +68,7 @@ App Android personale (Pixel 9 Pro XL) per guardare i video dei siti di streamin
 
 ## ▶️ Uso
 
-1. 📡 Al primo avvio si apre **Dov'è Kodi?**: in *Automatico* l'app cerca Kodi in rete e lo selezioni; in *Manuale* scrivi `IP:porta` (es. `192.168.1.50:8080`). Sotto, `utente:password` se impostati in Kodi. Si cambia dopo con il pulsante **Kodi**. Se la Fire TV cambia IP, all'invio l'app la ritrova da sola.
+1. 📡 Al primo avvio si apre **Dov'è Kodi?**: in *Automatico* l'app cerca Kodi in rete e lo selezioni; in *Manuale* scrivi `IP:porta` (es. `192.168.1.50:8080`). Sotto, utente e password se impostati in Kodi (se mancano, l'app li chiede al primo invio). Si cambia dopo con il pulsante **Kodi**. Se la Fire TV cambia IP, all'invio l'app la ritrova da sola. Le credenziali restano sul telefono, con la password cifrata, legate a quel Kodi e alla rete di casa: su un'altra rete si richiedono.
 2. 🔍 Nella barra in alto scrivi un indirizzo o una ricerca (es. `jojo animeunity`, va su Google). Con **★** salvi la pagina nei preferiti (con un nome a scelta) e li riapri; con **⋮** accanto a un preferito lo rinomini o lo togli.
 3. 🎬 Vai all'episodio e **avvia il player** (il flusso si rileva solo quando parte).
 4. 📤 Premi **Manda a Kodi**. Pubblicità e pezzi della playlist VixCloud sono già scartati; se restano più video, la playlist principale è la prima.

@@ -104,3 +104,49 @@ fun initialOf(name: String, host: String?): String =
 
 // URLEncoder usa '+' per lo spazio, Kodi (e Google) vogliono %20
 fun enc(s: String): String = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
+
+// Credenziali di un Kodi, legate alla rete di casa in cui hanno funzionato. host è "IP:porta", name il nome
+// annunciato via mDNS ("" se scritto a mano), network l'impronta di networkKey ("" per quelle salvate prima
+// delle credenziali per dispositivo: valgono solo per il loro host). secret è la password già cifrata.
+data class SavedLogin(val host: String, val name: String, val network: String, val user: String, val secret: String)
+
+// Impronta della rete senza permessi di posizione (l'SSID li vorrebbe): sottorete IPv4 più gateway, es.
+// "192.168.1.0/24 via 192.168.1.1". null se non si sa: niente credenziali salvate mandate alla cieca.
+// ponytail: due router con la stessa sottorete e lo stesso gateway (capita) sembrano la stessa casa
+fun networkKey(address: String?, prefixLength: Int, gateway: String?): String? {
+    val ip = ipv4(address) ?: return null
+    if (ipv4(gateway) == null || prefixLength !in 1..32) return null
+    val mask = (-1L shl (32 - prefixLength)) and 0xFFFFFFFFL
+    val net = ip and mask
+    val subnet = (3 downTo 0).joinToString(".") { ((net shr (it * 8)) and 0xFF).toString() }
+    return "$subnet/$prefixLength via $gateway"
+}
+
+private fun ipv4(text: String?): Long? {
+    val parts = text?.split('.')?.takeIf { it.size == 4 } ?: return null
+    return parts.fold(0L) { acc, p -> (acc shl 8) or (p.toIntOrNull()?.takeIf { it in 0..255 } ?: return null).toLong() }
+}
+
+// Le credenziali da provare con il Kodi a host (nome mDNS name, "" se non si sa) sulla rete network.
+// Prima quelle dello stesso host, poi dello stesso nome; solo sulla stessa rete, tranne le vecchie senza rete.
+fun loginFor(saved: List<SavedLogin>, host: String, name: String, network: String?): SavedLogin? {
+    val here = saved.filter { (network != null && it.network == network) || (it.network.isEmpty() && it.host == host) }
+    return here.firstOrNull { it.host == host } ?: here.firstOrNull { name.isNotEmpty() && it.name == name }
+}
+
+// L'elenco con login al posto delle credenziali di quel Kodi su quella rete (null: le toglie e basta)
+fun replaceLogin(saved: List<SavedLogin>, host: String, name: String, network: String, login: SavedLogin?): List<SavedLogin> {
+    val same = loginFor(saved, host, name, network)
+    return saved.filter { it != same } + listOfNotNull(login)
+}
+
+// Kodi ha cambiato IP sulla stessa rete (l'ha ritrovato la ricerca): le sue credenziali lo seguono
+fun moveLogin(saved: List<SavedLogin>, oldHost: String, newHost: String, name: String, network: String?): List<SavedLogin> {
+    val login = loginFor(saved, oldHost, "", network) ?: return saved
+    if (network == null) return saved
+    val moved = login.copy(host = newHost, name = name.ifEmpty { login.name }, network = network)
+    return replaceLogin(saved.filter { it != login }, newHost, moved.name, network, moved)
+}
+
+// Il vecchio campo unico "utente:password"; la password può contenere ':' ma l'utente di Kodi no
+fun splitAuth(auth: String): Pair<String, String> = auth.substringBefore(':') to auth.substringAfter(':', "")
