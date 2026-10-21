@@ -40,4 +40,12 @@ class SitesTest {
         assertFalse(isGoogleConsent("www.google.com"))
         assertFalse(isGoogleConsent(null))
     }
+
+    @Test
+    fun nomeEpisodioSuccessivo() {
+        assertEquals("JoJo Episodio 4", nextEpisodeTitle("JoJo Episodio 3", "4"))
+        assertEquals("JoJo Ep. 2 Episodio 12", nextEpisodeTitle("JoJo Ep. 2 episodio 11", "12"))
+        assertEquals("JoJo · Episodio 4", nextEpisodeTitle("JoJo", "4"))
+        assertEquals("Episodio 4", nextEpisodeTitle("", "4"))
+    }
 }
