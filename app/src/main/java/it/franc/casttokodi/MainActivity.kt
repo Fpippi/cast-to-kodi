@@ -59,6 +59,12 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import it.franc.casttokodi.sites.GOOGLE
+import it.franc.casttokodi.sites.MASTER_PLAYLIST_JS
+import it.franc.casttokodi.sites.MAX_AUTO_NEXT
+import it.franc.casttokodi.sites.NEXT_EPISODES_JS
+import it.franc.casttokodi.sites.isAnimeUnityEpisode
+import it.franc.casttokodi.sites.linkExpiry
 import kotlin.concurrent.thread
 
 private const val REPO = "Fpippi/cast-to-kodi"
@@ -82,50 +88,6 @@ private const val EXPIRY_MARGIN = 10 * 60L
 
 // Alias nell'Android Keystore della chiave che cifra le password di Kodi
 private const val LOGIN_KEY = "kodi-login"
-
-// Più di qualche episodio non serve: i link scadono dopo qualche ora
-private const val MAX_AUTO_NEXT = 3
-
-private val EPISODE_PATH = Regex("/anime/[^/]+/\\d+/?")
-
-// Eseguito nella pagina dell'episodio AnimeUnity: rilegge la pagina (stessi cookie, niente Cloudflare), prende
-// l'elenco degli episodi dall'elemento <video-player> e, per ognuno dei COUNT successivi, l'embed_url del suo player.
-private const val NEXT_EPISODES_JS = """(function (n) {
-  function player(url) {
-    var x = new XMLHttpRequest();
-    x.open('GET', url, false);
-    x.send();
-    if (x.status != 200) return null;
-    return new DOMParser().parseFromString(x.responseText, 'text/html').querySelector('video-player');
-  }
-  try {
-    var p = player(location.href);
-    if (!p) return JSON.stringify({ error: 'player' });
-    var episodes = JSON.parse(p.getAttribute('episodes') || '[]');
-    var id = location.pathname.replace(/\/$/, '').split('/').pop();
-    var i = episodes.findIndex(function (e) { return String(e.id) == id; });
-    if (i < 0) return JSON.stringify({ error: 'episode' });
-    var base = location.pathname.replace(/\/$/, '').replace(/\/[^\/]*$/, '');
-    var next = episodes.slice(i + 1, i + 1 + n).map(function (e) {
-      var q = player(location.origin + base + '/' + e.id);
-      return { number: String(e.number), embed: q ? q.getAttribute('embed_url') : null };
-    });
-    return JSON.stringify({ next: next });
-  } catch (e) {
-    return JSON.stringify({ error: String(e) });
-  }
-})(COUNT)"""
-
-// Eseguito nella pagina del player VixCloud: la playlist principale con i parametri del token, come la chiede il player
-private const val MASTER_PLAYLIST_JS = """(function () {
-  var m = window.masterPlaylist;
-  if (!m || !m.url) return null;
-  var u = new URL(m.url);
-  var p = m.params || {};
-  for (var k in p) if (p[k] !== undefined && p[k] !== null && p[k] !== '') u.searchParams.set(k, p[k]);
-  if (window.canPlayFHD) u.searchParams.set('h', '1');
-  return u.toString();
-})()"""
 
 private class KodiError(message: String) : Exception(message)
 
@@ -542,7 +504,7 @@ class MainActivity : Activity() {
 
     // VixCloud scrive nel link la scadenza del token (expires=<secondi unix>): un episodio che parte dopo non si vede
     private fun expiryProblem(url: String, startsIn: Long): String? {
-        val expires = Uri.parse(url).getQueryParameter("expires")?.toLongOrNull() ?: return null
+        val expires = linkExpiry(Uri.parse(url).encodedQuery) ?: return null
         val startsAt = System.currentTimeMillis() / 1000 + startsIn
         if (startsAt + EXPIRY_MARGIN < expires) return null
         val time = DateFormat.getTimeFormat(this).format(Date(expires * 1000))
@@ -560,7 +522,7 @@ class MainActivity : Activity() {
     private fun queueNextEpisodes(kodi: Kodi, page: String, after: Int, userAgent: String) {
         val count = prefs.getInt("autoNext", 1)
         val uri = Uri.parse(page)
-        if (count <= 0 || !domainOf(uri).startsWith("animeunity.") || !EPISODE_PATH.matches(uri.path.orEmpty())) return
+        if (count <= 0 || !isAnimeUnityEpisode(uri.host, uri.path)) return
         if (web.url != page) return
         web.evaluateJavascript(NEXT_EPISODES_JS.replace("COUNT", count.toString())) { result ->
             val reply = (JSONTokener(result).nextValue() as? String)?.let { JSONObject(it) }
