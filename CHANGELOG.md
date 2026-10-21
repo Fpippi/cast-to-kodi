@@ -17,6 +17,8 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - Manda a Kodi e + Coda restano spenti, con "Invio a Kodi…", finché Kodi non risponde: i tocchi ripetuti non mandano
   altri video.
 - Niente più avviso "Popup bloccato" sopra al pulsante: i popup restano bloccati, in silenzio.
+- Pulsante Kodi → Coda di Kodi: elenco dei video in coda con quando parte ognuno; si può far partire o togliere un
+  video, o svuotare la coda tranne quello in corso.
 
 ## 1.1.2
 
