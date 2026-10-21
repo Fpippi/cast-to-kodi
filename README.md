@@ -37,6 +37,29 @@ App Android personale (Pixel 9 Pro XL) per guardare i video dei siti di streamin
 - 🚫 Popup, `window.open` e salti verso altri domini vengono bloccati: sono quasi tutta la pubblicità di quei siti.
 - 📋 Coda degli episodi nella playlist di Kodi, e su AnimeUnity gli episodi successivi si accodano da soli.
 
+## 📺 Dispositivi compatibili
+
+L'app parla con **Kodi**, non con la TV: funziona su qualunque dispositivo dove gira Kodi con il controllo remoto via HTTP. Il pulsante **⏻** invece usa ADB in rete (porta 5555) e l'HDMI-CEC, quindi va solo su Fire OS e Android TV.
+
+| Dispositivo | Kodi | Manda a Kodi | ⏻ Accendi |
+|---|---|---|---|
+| Fire TV Stick / Cube con **Fire OS**, TV con Fire TV integrata | APK con Downloader | ✅ | ✅ Debug ADB in rete già previsto |
+| Fire TV con **Vega OS** (Stick 4K Select, Stick HD 2026) | ❌ non si installa | ❌ | ❌ |
+| **Android TV** (Sony Bravia, Philips, TCL, Hisense Android, Sharp…) | Play Store | ✅ | ⚠️ dipende dal modello: serve il debug ADB sulla porta 5555 |
+| **Nvidia Shield TV** | Play Store | ✅ | ✅ *Opzioni sviluppatore → Debug di rete* |
+| Box Android generici (Xiaomi Mi Box, Homatics, Onn…) | Play Store o APK | ✅ | ⚠️ come Android TV |
+| **Google TV** (Chromecast con Google TV, Google TV Streamer, TV Google TV) | Play Store | ✅ | ⚠️ di solito no: il *Debug wireless* usa l'abbinamento con codice e una porta che cambia, non la 5555 |
+| PC Windows / Mac / Linux collegato alla TV | kodi.tv | ✅ | ❌ |
+| Raspberry Pi, LibreELEC, CoreELEC, OSMC | kodi.tv / immagine dedicata | ✅ | ❌ |
+| Xbox One / Series | Microsoft Store | ✅ | ❌ |
+| **LG webOS** | ⚠️ solo port della comunità (Homebrew, modalità sviluppatore), webOS 4+ | ⚠️ in teoria sì, non provato | ❌ |
+| **Apple TV** (HD e 4K) | ⚠️ solo sideload con Xcode da un Mac, da rifirmare | ⚠️ in teoria sì, non provato | ❌ |
+| **Samsung Tizen**, **Roku**, Chromecast senza Google TV | ❌ Kodi non esiste | ❌ | ❌ |
+
+- ✅ = funziona, ⚠️ = funziona con limiti o non verificato, ❌ = no. Provato davvero solo sulla Fire TV con Fire OS.
+- Su TV Samsung, LG, Roku si può comunque attaccare all'HDMI un dispositivo della lista (es. una Fire TV Stick con Fire OS o un Chromecast con Google TV).
+- **⏻ su Android TV / Google TV**: l'app si collega in ADB "classico" alla porta 5555. Se il dispositivo ha solo il *Debug wireless* di Android 11+, la 5555 si può aprire una volta da un PC (`adb tcpip 5555`), ma si richiude a ogni riavvio. In sonno profondo molti dispositivi spengono la rete: lì il pulsante non ha nessuno da svegliare.
+
 ## 🛠️ Preparazione (una volta sola)
 
 ### 📺 Fire TV
