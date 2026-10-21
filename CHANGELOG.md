@@ -7,6 +7,11 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 1.1.0
+
+- Log di Kodi: nel dialogo **Kodi** il pulsante *Log di Kodi* legge le ultime righe del log dalla Fire TV via ADB e le
+  fa condividere, così si vede perché Kodi non riproduce un video senza installare add-on.
+
 ## 1.0.3
 
 - Popup: invece di rifiutarli, l'app dà ai popup una finestra finta e invisibile che non scarica niente. I player che
