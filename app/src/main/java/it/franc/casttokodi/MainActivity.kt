@@ -69,6 +69,7 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import it.franc.casttokodi.sites.GOOGLE
 import it.franc.casttokodi.sites.MASTER_PLAYLIST_JS
+import it.franc.casttokodi.sites.DEFAULT_AUTO_NEXT
 import it.franc.casttokodi.sites.MAX_AUTO_NEXT
 import it.franc.casttokodi.sites.NEXT_EPISODES_JS
 import it.franc.casttokodi.sites.isAnimeUnityEpisode
@@ -279,6 +280,7 @@ class MainActivity : Activity() {
         refreshCastButton()
 
         migrateAuth()
+        migrateAutoNext()
         open(prefs.getString("last", null) ?: GOOGLE)
         if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress()
         checkUpdate()
@@ -702,7 +704,7 @@ class MainActivity : Activity() {
     // AnimeUnity: dopo l'invio si accodano da soli gli N episodi successivi, subito dopo quello mandato.
     // L'elenco degli episodi e il player di ognuno si leggono dalla pagina del sito, il link video dal player.
     private fun queueNextEpisodes(kodi: Kodi, page: String, after: Int, userAgent: String, title: String) {
-        val count = prefs.getInt("autoNext", 1)
+        val count = prefs.getInt("autoNext", DEFAULT_AUTO_NEXT)
         val uri = Uri.parse(page)
         if (count <= 0 || !isAnimeUnityEpisode(uri.host, uri.path)) return
         if (web.url != page) return
@@ -1013,7 +1015,7 @@ class MainActivity : Activity() {
         val authPanel = section(label("Accesso, se impostato in Kodi"), user, password, showPassword).apply { setPadding(0, dp(16), 0, 0) }
         val autoNext = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
-            setText(prefs.getInt("autoNext", 1).toString())
+            setText(prefs.getInt("autoNext", DEFAULT_AUTO_NEXT).toString())
         }
         val autoNextPanel = section(
             label("AnimeUnity: episodi successivi da accodare da soli (0 = mai, massimo $MAX_AUTO_NEXT)"),
@@ -1067,7 +1069,7 @@ class MainActivity : Activity() {
                     .putString("host", newHost)
                     .putString("name", if (manual) "" else kodiNames[newHost] ?: prefs.getString("name", ""))
                     .putBoolean("manual", manual)
-                    .putInt("autoNext", autoNext.text.toString().toIntOrNull()?.coerceIn(0, MAX_AUTO_NEXT) ?: 1)
+                    .putInt("autoNext", autoNext.text.toString().toIntOrNull()?.coerceIn(0, MAX_AUTO_NEXT) ?: DEFAULT_AUTO_NEXT)
                     .apply()
                 val typed = user.text.toString().trim() to password.text.toString()
                 when {
@@ -1392,6 +1394,13 @@ class MainActivity : Activity() {
             saveLogins(loadLogins() + SavedLogin(host, "", "", user, seal(password)))
         }
         prefs.edit().remove("auth").apply()
+    }
+
+    // Fino alla 1.2.1 gli episodi automatici partivano da 1 e il dialogo "Dov'è Kodi?" salvava quel valore anche senza
+    // toccarlo: una volta sola si riportano a spenti, poi resta quello che si sceglie
+    private fun migrateAutoNext() {
+        if (prefs.getBoolean("autoNextMigrated", false)) return
+        prefs.edit().putInt("autoNext", DEFAULT_AUTO_NEXT).putBoolean("autoNextMigrated", true).apply()
     }
 
     // Password cifrate con una chiave AES dell'Android Keystore, che non esce dal telefono: "iv:testo" in Base64

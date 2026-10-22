@@ -35,7 +35,7 @@ App Android personale (Pixel 9 Pro XL) per guardare i video dei siti di streamin
 - 🎯 L'app intercetta il flusso video (`.m3u8` / `.mp4`) e lo manda a **Kodi**, che lo riproduce direttamente.
 - 🔋 Il video non passa dal telefono: qualità piena e telefono che si può bloccare. Solo all'avvio il telefono passa a Kodi la playlist e la chiave, che la Fire TV da sola scarica troppo lentamente.
 - 🚫 Popup, `window.open` e salti verso altri domini vengono bloccati: sono quasi tutta la pubblicità di quei siti.
-- 📋 Coda degli episodi nella playlist di Kodi, e su AnimeUnity gli episodi successivi si accodano da soli.
+- 📋 Coda degli episodi nella playlist di Kodi, e su AnimeUnity, se vuoi, gli episodi successivi si accodano da soli.
 
 ## 📺 Dispositivi compatibili
 
@@ -112,7 +112,7 @@ Funzioni in più che valgono solo per alcuni siti o player. Il resto dell'app fu
 
 ### ⏭️ AnimeUnity
 
-- Dopo l'invio l'app accoda da sola gli episodi successivi (1 di default, fino a 3, si cambia nel dialogo **Kodi**; 0 = spento). Solo sulle pagine degli episodi di `animeunity.*`.
+- Se lo accendi, dopo l'invio l'app accoda da sola gli episodi successivi (fino a 3, si sceglie in **Kodi → Dov'è Kodi?**; 0 = spento, ed è così di default). Solo sulle pagine degli episodi di `animeunity.*`.
 - Legge l'elenco degli episodi dalla pagina e il link di ognuno dal player VixCloud: se il sito cambia struttura l'app avvisa e resta **+ Coda** a mano.
 
 ### 🎞️ Player VixCloud (AnimeUnity, StreamingCommunity e altri siti che lo usano)
