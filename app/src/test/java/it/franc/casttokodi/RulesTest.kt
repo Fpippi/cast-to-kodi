@@ -226,4 +226,29 @@ https://vixcloud.cc/playlist/1?type=video&rendition=720p&token=b
         assertEquals(listOf("Ep 3", "Ep 4", "Ep 5"), many.values.toList())
         assertEquals("Nuovo", withTitle(many, "https://x.com/3.m3u8|R=1", "Nuovo", max = 3)["https://x.com/3.m3u8"])
     }
+
+    @Test
+    fun playlistDalBrowser() {
+        assertTrue(isHlsPath("/hls/4154796/master.m3u8"))
+        assertFalse(isHlsPath("/video/1.mp4"))
+        assertFalse(isHlsPath(null))
+
+        val server = mapOf<String?, List<String>>(
+            null to listOf("HTTP/1.1 200 OK"),
+            "Content-Type" to listOf("application/vnd.apple.mpegurl"),
+            "Content-Encoding" to listOf("gzip"),
+            "Content-Length" to listOf("123"),
+            "Set-Cookie" to listOf("a=1"),
+            "Cache-Control" to listOf("no-cache"),
+        )
+        assertEquals(
+            mapOf("Content-Type" to "application/vnd.apple.mpegurl", "Cache-Control" to "no-cache", "Access-Control-Allow-Origin" to "https://v.vidxgo.co"),
+            forwardedHeaders(server, "https://v.vidxgo.co")
+        )
+        // quello del server resta com'è
+        assertEquals(
+            mapOf("access-control-allow-origin" to "*"),
+            forwardedHeaders(mapOf("access-control-allow-origin" to listOf("*")), "https://v.vidxgo.co")
+        )
+    }
 }

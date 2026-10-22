@@ -55,6 +55,20 @@ fun isVideoPath(path: String?): Boolean {
     return p.endsWith(".m3u8") || p.endsWith(".mp4") || isVixCloudPlaylist(p)
 }
 
+// Playlist HLS che l'app scarica al posto del WebView (vedi capturePlaylist in MainActivity)
+fun isHlsPath(path: String?): Boolean = path?.lowercase()?.endsWith(".m3u8") == true
+
+// Header della risposta scaricata dall'app da ridare al WebView: via quelli che non valgono più (il corpo è già
+// decompresso e intero) e i cookie, che li tiene CookieManager. Se il server non ha mandato
+// Access-Control-Allow-Origin (non ha visto l'Origin del player) lo si aggiunge, se no il player rifiuta la risposta.
+fun forwardedHeaders(headers: Map<String?, List<String>>, origin: String?): Map<String, String> {
+    val skip = setOf("content-encoding", "content-length", "transfer-encoding", "connection", "set-cookie", "set-cookie2")
+    val out = headers.filterKeys { it != null && it.lowercase() !in skip }
+        .map { (name, values) -> name!! to values.joinToString(", ") }.toMap().toMutableMap()
+    if (out.keys.none { it.equals("Access-Control-Allow-Origin", true) }) out["Access-Control-Allow-Origin"] = origin ?: "*"
+    return out
+}
+
 fun isAd(host: String?, path: String?): Boolean {
     val h = host.orEmpty().lowercase()
     val p = path.orEmpty().lowercase()
