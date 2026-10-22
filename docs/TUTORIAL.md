@@ -161,12 +161,14 @@ al successivo. L'app non la cancella mai.
 3. Apri l'episodio 3, avvia il player, premi **+ Coda**.
 4. Metti giù il telefono: la TV va avanti da sola 1 → 2 → 3.
 
-### Su AnimeUnity fa da sola
+### Su AnimeUnity può fare da sola (se la accendi)
 
-Su AnimeUnity, dopo **Manda a Kodi** (o **+ Coda**) l'app mette in coda da sola l'episodio successivo e scrive
-*"In coda anche: episodio …"*. Quanti episodi aggiungere si sceglie in **Kodi → Dov'è Kodi?**, in fondo
-(1 di default, massimo 3, `0` = spento). Se il sito cambia e l'app non ci riesce, te lo dice: in quel caso usa **+ Coda**
-a mano.
+Su AnimeUnity l'app può mettere in coda da sola gli episodi successivi, così non devi premere **+ Coda** per ognuno.
+**Di default è spenta.** Per accenderla: **Kodi → Dov'è Kodi?**, nell'ultima casella in fondo
+(*"AnimeUnity: episodi successivi…"*) scrivi quanti episodi accodare (massimo 3, `0` = spenta) e premi **Salva**.
+
+Da quel momento, dopo **Manda a Kodi** (o **+ Coda**) l'app accoda gli episodi dopo e scrive
+*"In coda anche: episodio …"*. Se il sito cambia e l'app non ci riesce, te lo dice: in quel caso usa **+ Coda** a mano.
 
 ### Quando l'app non mette in coda (e perché)
 
