@@ -48,4 +48,6 @@ android {
 // Solo per i test (app/src/test), non entra nell'APK
 dependencies {
     testImplementation("junit:junit:4.13.2")
+    // org.json di Android nei test sulla JVM è vuoto: serve quello vero per il Kodi finto (KodiTest, StreamsTest)
+    testImplementation("org.json:json:20240303")
 }
