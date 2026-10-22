@@ -19,9 +19,6 @@ import android.os.Message
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.text.InputType
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.ImageSpan
 import android.text.TextUtils
 import android.text.format.DateFormat
 import android.util.Base64
@@ -232,15 +229,12 @@ class MainActivity : Activity() {
         }
         paint(favorites, active = true, primary = false)
         paint(power, active = true, primary = false)
-        // Il carattere ⏻ manca nel font del Pixel (si vedeva un quadratino): icona vettoriale nel testo, del colore del testo
-        power.text = SpannableString(" ").apply {
-            val icon = getDrawable(it.franc.casttokodi.R.drawable.ic_power)!!.mutate().apply {
-                val size = dp(22)
-                setBounds(0, 0, size, size)
-                setTint(power.currentTextColor)
-            }
-            setSpan(ImageSpan(icon, ImageSpan.ALIGN_CENTER), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        }
+        // Il carattere ⏻ manca nel font del Pixel (si vedeva un quadratino): icona vettoriale disegnata sopra, al centro,
+        // del colore del testo. Il testo resta uno spazio, così altezza e linea di base sono quelle di ★ e Kodi
+        // (con l'icona dentro il testo, in un ImageSpan, il pulsante usciva più alto e spostato)
+        power.text = " "
+        power.foreground = getDrawable(it.franc.casttokodi.R.drawable.ic_power)!!.mutate().apply { setTint(power.currentTextColor) }
+        power.foregroundGravity = Gravity.CENTER
         paint(settings, active = true, primary = false)
         cast = Button(this).apply {
             setOnClickListener { pickVideo(queued = false) }
