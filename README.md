@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Fpippi/cast-to-kodi/releases/latest/download/CastToKodi.apk"><b>📥 Scarica l'APK</b></a>
+  <a href="https://github.com/Fpippi/cast-to-kodi/releases/latest/download/CastToKodi.apk"><b>📥 Scarica l'APK</b></a> · <a href="docs/TUTORIAL.md"><b>📖 Come si usa</b></a>
 </p>
 
 ---
@@ -91,6 +91,9 @@ L'app parla con **Kodi**, non con la TV: funziona su qualunque dispositivo dove 
 </details>
 
 ## ▶️ Uso
+
+> [!TIP]
+> Prima volta? C'è una guida passo passo, con esempi e soluzioni ai problemi comuni: **[📖 Come si usa Couch Cast](docs/TUTORIAL.md)**.
 
 1. 📡 Al primo avvio si apre **Dov'è Kodi?**: in *Automatico* l'app cerca Kodi in rete e lo selezioni; in *Manuale* scrivi `IP:porta` (es. `192.168.1.50:8080`). Sotto, utente e password se impostati in Kodi (se mancano, l'app li chiede al primo invio). Si cambia dopo con **Kodi → Dov'è Kodi?**. Se la Fire TV cambia IP, all'invio l'app la ritrova da sola. Le credenziali restano sul telefono, con la password cifrata, legate a quel Kodi e alla rete di casa: su un'altra rete si richiedono.
 2. 🔌 Con la TV spenta premi il **pulsante di accensione** (accanto a ★): l'app trova da sola la Fire TV in rete (anche senza Kodi aperto), la sveglia, la TV si accende e dopo qualche secondo passa sul suo ingresso, poi si apre Kodi; quando risponde l'app scrive "Kodi è pronto". La prima volta la TV chiede di consentire il debug da questo telefono: spunta *Consenti sempre* e premi OK. Se la Fire TV è in sonno profondo non risponde in rete: lì servono Alexa o il telecomando.
