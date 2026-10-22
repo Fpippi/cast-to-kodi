@@ -1,11 +1,8 @@
 package it.franc.casttokodi
 
-import com.sun.net.httpserver.HttpExchange
-import com.sun.net.httpserver.HttpServer
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
-import java.net.InetSocketAddress
 import java.net.URL
 import java.net.URLDecoder
 import java.util.Base64
@@ -28,14 +25,11 @@ class FakeKodi(private val login: String? = null) : AutoCloseable {
     // I metodi chiamati, in ordine
     val calls = mutableListOf<String>()
 
-    private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
-        createContext("/jsonrpc") { serve(it) }
-        start()
-    }
+    private val server = TinyHttp { serve(it) }
 
-    val host = "127.0.0.1:${server.address.port}"
+    val host = "127.0.0.1:${server.port}"
 
-    override fun close() = server.stop(0)
+    override fun close() = server.close()
 
     // Kodi in riproduzione dalla coda, alla posizione index
     fun playingFromQueue(index: Int, watched: Long = 0, total: Long = 0) {
@@ -55,15 +49,12 @@ class FakeKodi(private val login: String? = null) : AutoCloseable {
     fun fetchPlaying(): String = fetch(playing ?: error("Kodi è fermo"))
 
     @Synchronized
-    private fun serve(exchange: HttpExchange) = exchange.use {
-        if (login != null) {
-            val sent = it.requestHeaders.getFirst("Authorization")
-            if (sent != "Basic " + Base64.getEncoder().encodeToString(login.toByteArray())) {
-                it.sendResponseHeaders(401, -1)
-                return
-            }
+    private fun serve(http: TinyHttp.Request): TinyHttp.Response {
+        if (http.path != "/jsonrpc" || http.method != "POST") return TinyHttp.Response(404)
+        if (login != null && http.header("Authorization") != "Basic " + Base64.getEncoder().encodeToString(login.toByteArray())) {
+            return TinyHttp.Response(401)
         }
-        val request = JSONObject(it.requestBody.bufferedReader().readText())
+        val request = JSONObject(String(http.body))
         val method = request.getString("method")
         calls += method
         val reply = JSONObject().put("jsonrpc", "2.0").put("id", request.opt("id"))
@@ -72,10 +63,7 @@ class FakeKodi(private val login: String? = null) : AutoCloseable {
         } catch (e: Refusal) {
             reply.put("error", JSONObject().put("code", e.code).put("message", e.message))
         }
-        val body = reply.toString().toByteArray()
-        it.responseHeaders.add("Content-Type", "application/json")
-        it.sendResponseHeaders(200, body.size.toLong())
-        it.responseBody.write(body)
+        return TinyHttp.Response(200, reply.toString().toByteArray(), "application/json")
     }
 
     private class Refusal(val code: Int, message: String) : Exception(message)

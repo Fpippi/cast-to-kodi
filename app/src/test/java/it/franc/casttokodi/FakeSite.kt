@@ -1,8 +1,5 @@
 package it.franc.casttokodi
 
-import com.sun.net.httpserver.HttpServer
-import java.net.InetSocketAddress
-
 // Un sito di streaming finto, come quelli col player VixCloud: playlist principale con due qualità, playlist dei
 // pezzi con chiave AES e i pezzi del video. Conta le richieste e si ricorda gli header ricevuti.
 // oneShot: la playlist principale vale una volta sola, poi 403 (come vidxgo su StreamingCommunity, 2026-10-21).
@@ -10,33 +7,23 @@ class FakeSite(private val oneShot: Boolean = false, private val broken: Boolean
     val hits = mutableMapOf<String, Int>()
     val referers = mutableMapOf<String, String?>()
 
-    private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
-        createContext("/") { exchange ->
-            exchange.use {
-                val path = it.requestURI.path
-                val count = synchronized(hits) {
-                    referers[path] = it.requestHeaders.getFirst("Referer")
-                    hits.merge(path, 1, Int::plus)!!
-                }
-                val body = when {
-                    broken -> null
-                    path == "/master.m3u8" && oneShot && count > 1 -> null
-                    else -> files[path]
-                }
-                if (body == null) {
-                    it.sendResponseHeaders(if (broken) 500 else 403, -1)
-                } else {
-                    it.sendResponseHeaders(200, body.size.toLong())
-                    it.responseBody.write(body)
-                }
-            }
+    private val server = TinyHttp {
+        val path = it.path
+        val count = synchronized(hits) {
+            referers[path] = it.header("Referer")
+            hits.merge(path, 1, Int::plus)!!
         }
-        start()
+        val body = when {
+            broken -> null
+            path == "/master.m3u8" && oneShot && count > 1 -> null
+            else -> files[path]
+        }
+        if (body == null) TinyHttp.Response(if (broken) 500 else 403) else TinyHttp.Response(200, body)
     }
 
-    val base = "http://127.0.0.1:${server.address.port}"
+    val base = "http://127.0.0.1:${server.port}"
 
-    override fun close() = server.stop(0)
+    override fun close() = server.close()
 
     fun hits(path: String) = synchronized(hits) { hits[path] ?: 0 }
 
