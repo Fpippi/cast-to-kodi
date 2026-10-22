@@ -8,6 +8,8 @@ sul telefono, avvii il video, premi un pulsante e il video parte sulla TV. Poi p
 > [!IMPORTANT]
 > Telefono e Fire TV devono essere collegati **allo stesso Wi-Fi**.
 
+_Le animazioni di questa guida sono disegni che mostrano i passaggi, non registrazioni dello schermo: colori e dettagli dell'app vera possono essere un po' diversi._
+
 ## Indice
 
 1. [Cosa c'è sullo schermo](#1-cosa-cè-sullo-schermo)
@@ -70,6 +72,8 @@ Da fare **una volta sola**, con il telecomando della Fire TV. I passaggi dettagl
 
 ## 3. Prima volta: collegare l'app a Kodi
 
+<p align="center"><img src="img/configura.gif" width="640" alt="Animazione: la finestra Dov'è Kodi? trova Kodi, si tocca e si salva"></p>
+
 1. **Apri Kodi sulla TV** (deve essere acceso per farsi trovare).
 2. **Apri Couch Cast** sul telefono. Al primo avvio compare la finestra **Dov'è Kodi?**.
 3. Scheda **Automatico**: l'app scrive *"Cerco Kodi sul Wi-Fi…"* e dopo qualche secondo mostra quello che ha trovato.
@@ -89,6 +93,8 @@ Fatto. Per cambiare queste scelte in futuro: pulsante **Kodi → Dov'è Kodi?**.
 
 ## 4. Accendere la TV dal telefono
 
+<p align="center"><img src="img/accendi.gif" width="640" alt="Animazione: con la TV spenta si preme il pulsante di accensione, la TV si accende e apre Kodi"></p>
+
 Con la TV spenta (in standby) premi **⏻**, in alto accanto a ★.
 
 1. L'app cerca la Fire TV in rete (*"Cerco la Fire TV in rete…"*), anche se Kodi è chiuso.
@@ -104,6 +110,8 @@ Con la TV spenta (in standby) premi **⏻**, in alto accanto a ★.
 ---
 
 ## 5. Trovare e aprire un video
+
+<p align="center"><img src="img/manda-a-kodi.gif" width="640" alt="Animazione: ricerca su Google, apertura dell'episodio, avvio del player, Manda a Kodi e video sulla TV"></p>
 
 1. Tocca la **barra in alto** e scrivi il sito o una ricerca, poi premi Invio.
    - `animeunity.so` → apre il sito.
@@ -138,6 +146,8 @@ La coda **vive dentro Kodi**, non nel telefono: è la playlist video di Kodi. Qu
 al successivo. L'app non la cancella mai.
 
 ### Manda a Kodi e + Coda: la differenza
+
+<p align="center"><img src="img/coda.gif" width="640" alt="Animazione: + Coda sull'episodio 2, Coda di Kodi mostra l'episodio 1 in riproduzione e il 2 in attesa"></p>
 
 | | Cosa fa |
 |---|---|
@@ -182,6 +192,8 @@ Tocca un video per **Riproduci ora** o **Togli dalla coda**. **Svuota** toglie t
 ---
 
 ## 8. Preferiti
+
+<p align="center"><img src="img/preferiti.gif" width="640" alt="Animazione: ★, Aggiungi questa pagina, scelta del nome, poi riapertura dal preferito"></p>
 
 - **Salvare una pagina**: aprila, premi **★** e poi **＋ Aggiungi questa pagina**. Scegli un nome e salva.
 - **Riaprirla**: **★** e tocca il nome.
