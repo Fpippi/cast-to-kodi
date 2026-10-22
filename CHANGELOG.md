@@ -7,6 +7,14 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 1.2.2
+
+- Il pulsante di accensione ha la stessa altezza di ★ e Kodi.
+- AnimeUnity: l'accodamento automatico degli episodi successivi parte spento (si accende da Kodi → Dov'è Kodi?). Anche chi
+  l'aveva già acceso lo ritrova spento una volta.
+- Tutorial passo passo con animazioni in docs/TUTORIAL.md, collegato dal README.
+- Test con un Kodi finto e un sito finto che provano invio, coda e password.
+
 ## 1.2.1
 
 - StreamingCommunity (player vidxgo): le playlist del video le scarica l'app al posto del browser e se ne tiene una
