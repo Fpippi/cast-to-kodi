@@ -144,7 +144,7 @@ class Kodi(val host: String, val auth: String) {
         } catch (e: KodiError) {
             throw Refused("Kodi non accetta questo video in coda (${e.message}).")
         }
-        return Sent("Aggiunto alla coda", position)
+        return Sent("Aggiunto alla coda (la vedi in Kodi → Coda di Kodi)", position)
     }
 
     // Episodio successivo messo in coda da solo, in posizione position. Il motivo se non si può, altrimenti null
@@ -160,6 +160,15 @@ class Kodi(val host: String, val auth: String) {
         val reply = call("Playlist.GetItems", playlist().put("properties", JSONArray(listOf("title", "file")))) as? JSONObject
         val items = reply?.optJSONArray("items") ?: JSONArray()
         return state to List(items.length()) { items.getJSONObject(it) }
+    }
+
+    // Un video partito fuori dalla coda (dal telecomando, da un'altra app o senza coda) non è nella playlist:
+    // lo si legge a parte, così la schermata dice comunque cosa sta andando. null se non ce n'è
+    fun playingOutside(state: KodiState): JSONObject? {
+        if (state.playerId == null || state.fromQueue) return null
+        val properties = JSONArray(listOf("title", "file"))
+        return (call("Player.GetItem", JSONObject().put("playerid", state.playerId).put("properties", properties)) as? JSONObject)
+            ?.optJSONObject("item")
     }
 
     // Se la coda sta andando si salta lì, altrimenti si fa partire la coda da quel video

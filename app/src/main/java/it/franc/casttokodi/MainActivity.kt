@@ -177,6 +177,8 @@ class MainActivity : Activity() {
         queue = Button(this).apply {
             text = "+ Coda"
             setOnClickListener { pickVideo(queued = true) }
+            // Pressione lunga: apre la coda di Kodi
+            setOnLongClickListener { showQueue(); true }
         }
         progress = ProgressBar(this, null, R.attr.progressBarStyleHorizontal).apply {
             max = 100
@@ -929,17 +931,27 @@ class MainActivity : Activity() {
     // La playlist video di Kodi, cioè la coda: cosa c'è, cosa sta andando e quando parte il resto.
     // Tocco su un video: riproduci ora o togli. Quello in corso non si tocca (Kodi non lo toglie).
     private fun showQueue() {
-        onKodi({ kodi -> kodi.queue() }, { (state, items) ->
+        onKodi({ kodi ->
+            val (state, items) = kodi.queue()
+            Triple(state, items, kodi.playingOutside(state))
+        }, { (state, items, outside) ->
             val titles = loadTitles()
             val current = if (state.fromQueue) state.position else -1
             lateinit var dialog: AlertDialog
             val content = section().apply { setPadding(dp(16), dp(8), dp(8), 0) }
             content.addView(label(when {
+                outside != null && items.isEmpty() ->
+                    "Kodi sta riproducendo un video partito fuori dalla coda, e la coda è vuota. \"+ Coda\" non può accodare dopo " +
+                        "questo video: usa \"Manda a Kodi\" sull'episodio e da lì accoda gli altri."
+                outside != null -> "Kodi sta riproducendo un video partito fuori dalla coda: quando finisce non passa a questi. Tocca un video per farlo partire."
                 items.isEmpty() -> "La coda è vuota. \"Manda a Kodi\" fa partire un video, \"+ Coda\" lo mette in fondo."
                 state.playerId == null -> "Kodi è fermo: tocca un video per farlo partire da lì."
-                !state.fromQueue -> "Kodi sta riproducendo un video che non è in coda: quando finisce non passa a questi."
                 else -> "Quando un video finisce Kodi passa al successivo."
             }).apply { setPadding(0, 0, dp(8), dp(8)) })
+            outside?.let { item ->
+                val name = queueLabel(item.optString("file"), item.optString("title").ifBlank { item.optString("label") }, titles)
+                content.addView(queueRow(0, name, "▶ In riproduzione, fuori dalla coda", playing = true, done = false) {})
+            }
             items.forEachIndexed { i, item ->
                 val file = item.optString("file")
                 val name = queueLabel(file, item.optString("title").ifBlank { item.optString("label") }, titles)
