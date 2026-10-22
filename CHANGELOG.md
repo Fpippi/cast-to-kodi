@@ -7,6 +7,11 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 1.2.1
+
+- StreamingCommunity (player vidxgo): le playlist del video le scarica l'app al posto del browser e se ne tiene una
+  copia, così all'invio Kodi la riceve dal telefono invece di richiederla al sito, che rispondeva 403.
+
 ## 1.2.0
 
 - Manda a Kodi: all'avvio il telefono scarica la playlist e la chiave del video e le passa a Kodi in rete locale. La

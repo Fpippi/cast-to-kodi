@@ -189,6 +189,8 @@ class MainActivity : Activity() {
     private val videos = LinkedHashMap<String, String>()
     // Playlist e chiavi passate a Kodi dal telefono (kodiItem con viaPhone)
     private val relay = Relay()
+    // Playlist .m3u8 scaricate per il WebView: indirizzo → corpo e indirizzo finale (capturePlaylist)
+    private val captured = LinkedHashMap<String, Pair<ByteArray, String>>()
 
     // Dominio da cui la pagina principale può navigare: tutto il resto è considerato redirect pubblicitario
     private var allowedDomain = ""
@@ -385,6 +387,7 @@ class MainActivity : Activity() {
                         if (videos.putIfAbsent(video, referer) == null) refreshCastButton()
                     }
                 }
+                if (request.method == "GET" && isHlsPath(request.url.path)) return capturePlaylist(request)
                 return null
             }
         }
@@ -622,8 +625,44 @@ class MainActivity : Activity() {
         return headers
     }
 
-    // Corpo e indirizzo finale (dopo i redirect), letti con gli stessi header che userà Kodi
+    // Alcuni player (StreamingCommunity con vidxgo, 2026-10-21) danno playlist con un token che vale una volta sola:
+    // dopo il browser, il telefono e Kodi ricevono 403. Le playlist .m3u8 le scarica l'app al posto del WebView, con i
+    // suoi header e cookie, e se ne tiene una copia per l'invio a Kodi. null (il WebView fa da sé) se qualcosa va storto.
+    private fun capturePlaylist(request: WebResourceRequest): WebResourceResponse? = try {
+        val url = request.url.toString()
+        val conn = URL(url).openConnection() as HttpURLConnection
+        conn.connectTimeout = 10_000
+        conn.readTimeout = 10_000
+        // Accept-Encoding no: così il corpo arriva già decompresso
+        request.requestHeaders.forEach { (name, value) -> if (!name.equals("Accept-Encoding", true)) conn.setRequestProperty(name, value) }
+        val referer = request.requestHeaders["Referer"] ?: pageUrl
+        val origin = originOf(referer)
+        if (origin != null && origin != originOf(url) && request.requestHeaders.keys.none { it.equals("Origin", true) }) {
+            conn.setRequestProperty("Origin", origin)
+        }
+        val cookies = CookieManager.getInstance()
+        cookies.getCookie(url)?.let { conn.setRequestProperty("Cookie", it) }
+        val code = conn.responseCode
+        val body = (if (code < 400) conn.inputStream else conn.errorStream)?.use { it.readBytes() } ?: ByteArray(0)
+        conn.headerFields["Set-Cookie"]?.forEach { cookies.setCookie(url, it) }
+        if (code in 200..299) synchronized(captured) {
+            captured.remove(url)
+            captured[url] = body to conn.url.toString()
+            while (captured.size > 30) captured.remove(captured.keys.first())
+        }
+        WebResourceResponse(
+            conn.contentType?.substringBefore(';')?.trim() ?: "application/vnd.apple.mpegurl", "utf-8", code,
+            conn.responseMessage?.takeIf { it.isNotBlank() } ?: "OK", forwardedHeaders(conn.headerFields, origin),
+            ByteArrayInputStream(body)
+        )
+    } catch (e: Exception) {
+        null
+    }
+
+    // Corpo e indirizzo finale (dopo i redirect), letti con gli stessi header che userà Kodi; le playlist già
+    // scaricate per il WebView (capturePlaylist) si prendono dalla copia
     private fun download(url: String, headers: List<Pair<String, String>>): Pair<ByteArray, String> {
+        synchronized(captured) { captured[url] }?.let { return it }
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 5000
         conn.readTimeout = 5000
