@@ -123,7 +123,7 @@ Funzioni in più che valgono solo per alcuni siti o player. Il resto dell'app fu
 
 ## 🧪 Test
 
-Le regole dell'app che non dipendono da Android (barra degli indirizzi, blocco dei salti, riconoscimento di video e pubblicità) stanno in `Rules.kt`, quelle dei singoli siti (gli addon qui sopra) in `sites/`, e sono provate in `app/src/test`. Su ogni PR verso `develop` il workflow **Test** esegue `./gradlew testDebugUnitTest`; verso `main` anche `assembleDebug`, e lì andranno i controlli più pesanti; con Android Studio si lanciano con il ▶️ accanto alla classe di test.
+Le regole dell'app che non dipendono da Android (barra degli indirizzi, blocco dei salti, riconoscimento di video e pubblicità) stanno in `Rules.kt`, quelle dei singoli siti (gli addon qui sopra) in `sites/`, e sono provate in `app/src/test`. Invio, coda e passaggio dal telefono (`Kodi.kt`, `Streams.kt`) si provano contro un **Kodi finto** (`FakeKodi`, risponde al JSON-RPC e tiene la sua playlist) e un **sito di streaming finto** (`FakeSite`: playlist con due qualità, chiave AES, link che vale una volta sola), senza Fire TV; il pulsante di accensione contro un adbd finto (`AdbTest`). Su ogni PR verso `develop` il workflow **Test** esegue `./gradlew testDebugUnitTest`; verso `main` anche `assembleDebug`, e lì andranno i controlli più pesanti; con Android Studio si lanciano con il ▶️ accanto alla classe di test.
 
 ## 🌿 Branch
 
