@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Fpippi/cast-to-kodi/releases/latest/download/CastToKodi.apk"><b>📥 Scarica l'APK</b></a>
+  <a href="https://github.com/Fpippi/cast-to-kodi/releases/latest/download/CastToKodi.apk"><b>📥 Scarica l'APK</b></a> · <a href="docs/TUTORIAL.md"><b>📖 Come si usa</b></a>
 </p>
 
 ---
@@ -35,7 +35,7 @@ App Android personale (Pixel 9 Pro XL) per guardare i video dei siti di streamin
 - 🎯 L'app intercetta il flusso video (`.m3u8` / `.mp4`) e lo manda a **Kodi**, che lo riproduce direttamente.
 - 🔋 Il video non passa dal telefono: qualità piena e telefono che si può bloccare. Solo all'avvio il telefono passa a Kodi la playlist e la chiave, che la Fire TV da sola scarica troppo lentamente.
 - 🚫 Popup, `window.open` e salti verso altri domini vengono bloccati: sono quasi tutta la pubblicità di quei siti.
-- 📋 Coda degli episodi nella playlist di Kodi, e su AnimeUnity gli episodi successivi si accodano da soli.
+- 📋 Coda degli episodi nella playlist di Kodi, e su AnimeUnity, se vuoi, gli episodi successivi si accodano da soli.
 
 ## 📺 Dispositivi compatibili
 
@@ -92,6 +92,9 @@ L'app parla con **Kodi**, non con la TV: funziona su qualunque dispositivo dove 
 
 ## ▶️ Uso
 
+> [!TIP]
+> Prima volta? C'è una guida passo passo, con esempi e soluzioni ai problemi comuni: **[📖 Come si usa Couch Cast](docs/TUTORIAL.md)**.
+
 1. 📡 Al primo avvio si apre **Dov'è Kodi?**: in *Automatico* l'app cerca Kodi in rete e lo selezioni; in *Manuale* scrivi `IP:porta` (es. `192.168.1.50:8080`). Sotto, utente e password se impostati in Kodi (se mancano, l'app li chiede al primo invio). Si cambia dopo con **Kodi → Dov'è Kodi?**. Se la Fire TV cambia IP, all'invio l'app la ritrova da sola. Le credenziali restano sul telefono, con la password cifrata, legate a quel Kodi e alla rete di casa: su un'altra rete si richiedono.
 2. 🔌 Con la TV spenta premi il **pulsante di accensione** (accanto a ★): l'app trova da sola la Fire TV in rete (anche senza Kodi aperto), la sveglia, la TV si accende e dopo qualche secondo passa sul suo ingresso, poi si apre Kodi; quando risponde l'app scrive "Kodi è pronto". La prima volta la TV chiede di consentire il debug da questo telefono: spunta *Consenti sempre* e premi OK. Se la Fire TV è in sonno profondo non risponde in rete: lì servono Alexa o il telecomando.
 3. 🔍 Nella barra in alto scrivi un indirizzo o una ricerca (es. `jojo animeunity`, va su Google). Con **★** salvi la pagina nei preferiti (con un nome a scelta) e li riapri; con **⋮** accanto a un preferito lo rinomini o lo togli.
@@ -109,7 +112,7 @@ Funzioni in più che valgono solo per alcuni siti o player. Il resto dell'app fu
 
 ### ⏭️ AnimeUnity
 
-- Dopo l'invio l'app accoda da sola gli episodi successivi (1 di default, fino a 3, si cambia nel dialogo **Kodi**; 0 = spento). Solo sulle pagine degli episodi di `animeunity.*`.
+- Se lo accendi, dopo l'invio l'app accoda da sola gli episodi successivi (fino a 3, si sceglie in **Kodi → Dov'è Kodi?**; 0 = spento, ed è così di default). Solo sulle pagine degli episodi di `animeunity.*`.
 - Legge l'elenco degli episodi dalla pagina e il link di ognuno dal player VixCloud: se il sito cambia struttura l'app avvisa e resta **+ Coda** a mano.
 
 ### 🎞️ Player VixCloud (AnimeUnity, StreamingCommunity e altri siti che lo usano)
@@ -123,7 +126,7 @@ Funzioni in più che valgono solo per alcuni siti o player. Il resto dell'app fu
 
 ## 🧪 Test
 
-Le regole dell'app che non dipendono da Android (barra degli indirizzi, blocco dei salti, riconoscimento di video e pubblicità) stanno in `Rules.kt`, quelle dei singoli siti (gli addon qui sopra) in `sites/`, e sono provate in `app/src/test`. Su ogni PR verso `develop` il workflow **Test** esegue `./gradlew testDebugUnitTest`; verso `main` anche `assembleDebug`, e lì andranno i controlli più pesanti; con Android Studio si lanciano con il ▶️ accanto alla classe di test.
+Le regole dell'app che non dipendono da Android (barra degli indirizzi, blocco dei salti, riconoscimento di video e pubblicità) stanno in `Rules.kt`, quelle dei singoli siti (gli addon qui sopra) in `sites/`, e sono provate in `app/src/test`. Invio, coda e passaggio dal telefono (`Kodi.kt`, `Streams.kt`) si provano contro un **Kodi finto** (`FakeKodi`, risponde al JSON-RPC e tiene la sua playlist) e un **sito di streaming finto** (`FakeSite`: playlist con due qualità, chiave AES, link che vale una volta sola), senza Fire TV; il pulsante di accensione contro un adbd finto (`AdbTest`). Su ogni PR verso `develop` il workflow **Test** esegue `./gradlew testDebugUnitTest`; verso `main` anche `assembleDebug`, e lì andranno i controlli più pesanti; con Android Studio si lanciano con il ▶️ accanto alla classe di test.
 
 ## 🌿 Branch
 

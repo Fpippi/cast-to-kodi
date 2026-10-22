@@ -19,9 +19,6 @@ import android.os.Message
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.text.InputType
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.ImageSpan
 import android.text.TextUtils
 import android.text.format.DateFormat
 import android.util.Base64
@@ -72,6 +69,7 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import it.franc.casttokodi.sites.GOOGLE
 import it.franc.casttokodi.sites.MASTER_PLAYLIST_JS
+import it.franc.casttokodi.sites.DEFAULT_AUTO_NEXT
 import it.franc.casttokodi.sites.MAX_AUTO_NEXT
 import it.franc.casttokodi.sites.NEXT_EPISODES_JS
 import it.franc.casttokodi.sites.isAnimeUnityEpisode
@@ -89,15 +87,6 @@ private const val NOT_FOUND_HELP = """Nessun Kodi trovato. Controlla che:
 3. telefono e Fire TV siano sullo stesso Wi-Fi.
 
 Oppure passa a "Manuale" e scrivi IP:porta."""
-
-// Kodi riproduce la coda dalla sua playlist video
-private const val VIDEO_PLAYLIST = 1
-
-// Durata ipotizzata di un episodio quando Kodi non la sa ancora, per stimare quando partirà un elemento in coda
-private const val DEFAULT_EPISODE = 24 * 60L
-
-// Un episodio va accodato solo se il suo link vale ancora almeno 10 minuti dopo l'inizio previsto
-private const val EXPIRY_MARGIN = 10 * 60L
 
 // Dopo quanto chiudere la finestra finta data ai popup
 private const val POPUP_SINK_MS = 10_000L
@@ -121,61 +110,6 @@ Se la Fire TV è in sonno profondo il suo Wi-Fi è spento: accendila con Alexa o
 private const val KODI_LOG = "tail -n 3000 /sdcard/Android/data/org.xbmc.kodi/files/.kodi/temp/kodi.log 2>&1 | " +
     "grep -iE 'error|warning|fail|curl|playlist|playfile|videoplayer|inputstream|ffmpeg|http' | tail -n 120"
 
-private class KodiError(message: String) : Exception(message)
-
-// Kodi ha risposto 401: mancano utente e password o sono sbagliati, si chiedono
-private class Unauthorized : Exception()
-
-// La coda non può proseguire con questo video: si avvisa con il motivo e non si accoda
-private class Refused(message: String) : Exception(message)
-
-// position: dove è finito il video nella playlist di Kodi; null se è partito fuori dalla coda
-private class Sent(val message: String, val position: Int?)
-
-private class KodiState(
-    val playerId: Int?,
-    val fromQueue: Boolean,
-    val position: Int,
-    val remaining: Long,
-    val episode: Long,
-    val queueLength: Int,
-) {
-    // Secondi prima che parta l'elemento in posizione index, stimando gli episodi lunghi come quello in corso
-    fun secondsUntil(index: Int): Long =
-        if (playerId == null || !fromQueue) 0 else remaining + (index - position - 1).coerceAtLeast(0) * episode
-}
-
-// Client JSON-RPC di Kodi, da usare su un thread di background. I problemi di rete restano IOException
-// (Kodi forse ha cambiato IP), le risposte di errore diventano KodiError con un messaggio da mostrare.
-private class Kodi(val host: String, val auth: String) {
-    fun call(method: String, params: JSONObject = JSONObject()): Any? {
-        val body = JSONObject()
-            .put("jsonrpc", "2.0")
-            .put("id", 1)
-            .put("method", method)
-            .put("params", params)
-            .toString()
-        val conn = URL("http://$host/jsonrpc").openConnection() as HttpURLConnection
-        conn.requestMethod = "POST"
-        conn.doOutput = true
-        conn.connectTimeout = 5000
-        conn.readTimeout = 10000
-        conn.setRequestProperty("Content-Type", "application/json")
-        if (auth.isNotBlank()) {
-            conn.setRequestProperty("Authorization", "Basic " + Base64.encodeToString(auth.toByteArray(), Base64.NO_WRAP))
-        }
-        conn.outputStream.use { it.write(body.toByteArray()) }
-        when (conn.responseCode) {
-            200 -> {}
-            401 -> throw Unauthorized()
-            else -> throw KodiError("Kodi ha risposto HTTP ${conn.responseCode}.")
-        }
-        val reply = JSONObject(conn.inputStream.bufferedReader().readText())
-        reply.optJSONObject("error")?.let { throw KodiError("$method: ${it.optString("message")}") }
-        return reply.opt("result")
-    }
-}
-
 class MainActivity : Activity() {
 
     private lateinit var web: WebView
@@ -187,10 +121,8 @@ class MainActivity : Activity() {
 
     // url del video -> Referer con cui la pagina l'ha richiesto (molti host rifiutano richieste senza)
     private val videos = LinkedHashMap<String, String>()
-    // Playlist e chiavi passate a Kodi dal telefono (kodiItem con viaPhone)
-    private val relay = Relay()
-    // Playlist .m3u8 scaricate per il WebView: indirizzo → corpo e indirizzo finale (capturePlaylist)
-    private val captured = LinkedHashMap<String, Pair<ByteArray, String>>()
+    // Link per Kodi, con playlist e chiavi passate dal telefono (kodiItem con viaPhone)
+    private val streams = Streams(Relay()) { localAddress()?.first }
 
     // Dominio da cui la pagina principale può navigare: tutto il resto è considerato redirect pubblicitario
     private var allowedDomain = ""
@@ -232,15 +164,12 @@ class MainActivity : Activity() {
         }
         paint(favorites, active = true, primary = false)
         paint(power, active = true, primary = false)
-        // Il carattere ⏻ manca nel font del Pixel (si vedeva un quadratino): icona vettoriale nel testo, del colore del testo
-        power.text = SpannableString(" ").apply {
-            val icon = getDrawable(it.franc.casttokodi.R.drawable.ic_power)!!.mutate().apply {
-                val size = dp(22)
-                setBounds(0, 0, size, size)
-                setTint(power.currentTextColor)
-            }
-            setSpan(ImageSpan(icon, ImageSpan.ALIGN_CENTER), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        }
+        // Il carattere ⏻ manca nel font del Pixel (si vedeva un quadratino): icona vettoriale disegnata sopra, al centro,
+        // del colore del testo. Il testo resta uno spazio, così altezza e linea di base sono quelle di ★ e Kodi
+        // (con l'icona dentro il testo, in un ImageSpan, il pulsante usciva più alto e spostato)
+        power.text = " "
+        power.foreground = getDrawable(it.franc.casttokodi.R.drawable.ic_power)!!.mutate().apply { setTint(power.currentTextColor) }
+        power.foregroundGravity = Gravity.CENTER
         paint(settings, active = true, primary = false)
         cast = Button(this).apply {
             setOnClickListener { pickVideo(queued = false) }
@@ -287,6 +216,7 @@ class MainActivity : Activity() {
         refreshCastButton()
 
         migrateAuth()
+        migrateAutoNext()
         open(prefs.getString("last", null) ?: GOOGLE)
         if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress()
         checkUpdate()
@@ -491,7 +421,8 @@ class MainActivity : Activity() {
 
         thread {
             val sent = try {
-                if (queued) enqueue(kodi, video, userAgent, title) else playNow(kodi, video, userAgent, title)
+                if (queued) kodi.enqueue({ kodiItem(video.url, video.referer, userAgent, title, viaPhone = it) }) { expiryProblem(video.url, it) }
+                else kodi.playNow(kodiItem(video.url, video.referer, userAgent, title, viaPhone = true))
             } catch (e: IOException) {
                 done { relocateKodi(host) { sendToKodi(video, queued, typed) } }
                 return@thread
@@ -517,77 +448,6 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun playNow(kodi: Kodi, video: Video, userAgent: String, title: String): Sent {
-        val item = kodiItem(video.url, video.referer, userAgent, title, viaPhone = true)
-        val state = kodiState(kodi)
-        return try {
-            if (state.fromQueue) {
-                val position = state.position + 1
-                kodi.call("Playlist.Insert", playlist().put("position", position).put("item", item))
-                kodi.call("Player.GoTo", JSONObject().put("playerid", state.playerId).put("to", position))
-                Sent("Inviato a Kodi", position)
-            } else {
-                // Kodi fermo o con un video non partito dall'app: in fondo alla coda, e si parte da lì
-                val position = state.queueLength
-                kodi.call("Playlist.Add", playlist().put("item", item))
-                kodi.call("Player.Open", JSONObject().put("item", playlist().put("position", position)))
-                Sent("Inviato a Kodi", position)
-            }
-        } catch (e: KodiError) {
-            openWithoutQueue(kodi, item)
-        }
-    }
-
-    // Con alcuni link la playlist di Kodi è più severa di Player.Open {file}: il video parte da solo, senza coda dietro
-    private fun openWithoutQueue(kodi: Kodi, item: JSONObject): Sent {
-        kodi.call("Player.Open", JSONObject().put("item", item))
-        return Sent("Inviato a Kodi, ma senza coda: Kodi non riproduce questo video dalla playlist", null)
-    }
-
-    // Accoda solo se l'episodio partirà davvero: altrimenti Refused con il motivo, da mostrare
-    private fun enqueue(kodi: Kodi, video: Video, userAgent: String, title: String): Sent {
-        val state = kodiState(kodi)
-        if (state.playerId == null) return playNow(kodi, video, userAgent, title)
-        if (!state.fromQueue) {
-            throw Refused(
-                "Il video in corso su Kodi non è partito dall'app: quando finisce, Kodi non passa alla coda.\n\n" +
-                    "Premi \"Manda a Kodi\" su questo episodio: parte subito e da lì puoi accodare gli altri."
-            )
-        }
-        val position = state.queueLength
-        expiryProblem(video.url, state.secondsUntil(position))?.let { throw Refused(it) }
-        try {
-            kodi.call("Playlist.Add", playlist().put("item", kodiItem(video.url, video.referer, userAgent, title)))
-        } catch (e: KodiError) {
-            throw Refused("Kodi non accetta questo video in coda (${e.message}).")
-        }
-        return Sent("Aggiunto alla coda (la vedi in Kodi → Coda di Kodi)", position)
-    }
-
-    private fun kodiState(kodi: Kodi): KodiState {
-        val players = kodi.call("Player.GetActivePlayers") as? JSONArray ?: JSONArray()
-        val items = kodi.call("Playlist.GetItems", playlist()) as? JSONObject
-        val queueLength = items?.optJSONObject("limits")?.optInt("total") ?: 0
-        val player = (0 until players.length()).map { players.getJSONObject(it) }.firstOrNull { it.optString("type") == "video" }
-            ?: return KodiState(null, false, -1, 0, DEFAULT_EPISODE, queueLength)
-        val id = player.getInt("playerid")
-        val properties = JSONArray(listOf("playlistid", "position", "time", "totaltime"))
-        val p = kodi.call("Player.GetProperties", JSONObject().put("playerid", id).put("properties", properties)) as JSONObject
-        val total = seconds(p.optJSONObject("totaltime"))
-        val position = p.optInt("position", -1)
-        return KodiState(
-            playerId = id,
-            fromQueue = p.optInt("playlistid", -1) == VIDEO_PLAYLIST && position >= 0,
-            position = position,
-            remaining = (total - seconds(p.optJSONObject("time"))).coerceAtLeast(0),
-            episode = if (total > 0) total else DEFAULT_EPISODE,
-            queueLength = queueLength,
-        )
-    }
-
-    private fun seconds(time: JSONObject?): Long =
-        if (time == null) 0 else time.optLong("hours") * 3600 + time.optLong("minutes") * 60 + time.optLong("seconds")
-
     // VixCloud scrive nel link la scadenza del token (expires=<secondi unix>): un episodio che parte dopo non si vede
     private fun expiryProblem(url: String, startsIn: Long): String? {
         val expires = linkExpiry(Uri.parse(url).encodedQuery) ?: return null
@@ -597,23 +457,11 @@ class MainActivity : Activity() {
         return "Il link di questo episodio scade alle $time, prima che tocchi a lui: mettilo in coda più tardi."
     }
 
-    private fun playlist() = JSONObject().put("playlistid", VIDEO_PLAYLIST)
-
-    // Kodi accetta gli header HTTP accodati all'URL: url|Header=valore&Header2=valore.
-    // Da un thread di background: per le playlist HLS si legge la master e si manda una sola qualità (bestVariant).
-    // viaPhone: playlist e chiave le passa il telefono (Relay), per i video che Kodi apre subito.
-    // title è il nome da mostrare nella coda (vedi queueLabel)
+    // Il video per Kodi (vedi Streams.kodiFile), da un thread di background. title è il nome da mostrare nella coda (vedi queueLabel)
     private fun kodiItem(url: String, referer: String, userAgent: String, title: String, viaPhone: Boolean = false): JSONObject {
-        val headers = streamHeaders(url, referer, userAgent)
-        val suffix = headers.joinToString("&") { (name, value) -> "$name=${enc(value)}" }
-        if (url.substringBefore('?').lowercase().endsWith(".mp4")) {
-            rememberTitle(url, title)
-            return JSONObject().put("file", "$url|$suffix")
-        }
-        val quality = singleQuality(url, headers)
-        val stream = if (viaPhone) relayed(quality, headers) ?: quality else quality
-        rememberTitle(stream, title)
-        return JSONObject().put("file", "$stream|$suffix")
+        val file = streams.kodiFile(url, streamHeaders(url, referer, userAgent), viaPhone)
+        rememberTitle(queueKey(file), title)
+        return JSONObject().put("file", file)
     }
 
     // Gli header che manderebbe il browser: oltre a Referer e User-Agent, l'Origin della pagina del player quando il
@@ -647,11 +495,7 @@ class MainActivity : Activity() {
         val code = conn.responseCode
         val body = (if (code < 400) conn.inputStream else conn.errorStream)?.use { it.readBytes() } ?: ByteArray(0)
         conn.headerFields["Set-Cookie"]?.forEach { cookies.setCookie(url, it) }
-        if (code in 200..299) synchronized(captured) {
-            captured.remove(url)
-            captured[url] = body to conn.url.toString()
-            while (captured.size > 30) captured.remove(captured.keys.first())
-        }
+        if (code in 200..299) streams.capture(url, body, conn.url.toString())
         WebResourceResponse(
             conn.contentType?.substringBefore(';')?.trim() ?: "application/vnd.apple.mpegurl", "utf-8", code,
             conn.responseMessage?.takeIf { it.isNotBlank() } ?: "OK", forwardedHeaders(conn.headerFields, origin),
@@ -661,56 +505,10 @@ class MainActivity : Activity() {
         null
     }
 
-    // Corpo e indirizzo finale (dopo i redirect), letti con gli stessi header che userà Kodi; le playlist già
-    // scaricate per il WebView (capturePlaylist) si prendono dalla copia
-    private fun download(url: String, headers: List<Pair<String, String>>): Pair<ByteArray, String> {
-        synchronized(captured) { captured[url] }?.let { return it }
-        val conn = URL(url).openConnection() as HttpURLConnection
-        conn.connectTimeout = 5000
-        conn.readTimeout = 5000
-        headers.forEach { (name, value) -> conn.setRequestProperty(name, value) }
-        val body = conn.inputStream.use { it.readBytes() }
-        return body to conn.url.toString()
-    }
-
-    // La qualità migliore della playlist HLS; se qualcosa va storto si manda il link com'era
-    private fun singleQuality(url: String, headers: List<Pair<String, String>>): String = try {
-        val (body, finalUrl) = download(url, headers)
-        bestVariant(String(body), finalUrl) ?: url
-    } catch (e: Exception) {
-        url
-    }
-
-    // La playlist della qualità scelta e le sue chiavi, scaricate dal telefono e servite a Kodi in rete locale:
-    // la Fire TV ci mette 10-20 s per ognuna e Kodi rinuncia dopo 30. I pezzi Kodi li prende dal sito.
-    // null (si manda il link diretto) se non si riesce: niente IP sul Wi-Fi, playlist non HLS, errori di rete.
-    private fun relayed(url: String, headers: List<Pair<String, String>>): String? = try {
-        val ip = localAddress()?.first
-        if (ip == null) null else {
-            val base = "http://$ip:${relay.port()}"
-            // Diverso a ogni avvio dell'app: un vecchio elemento nella coda di Kodi non riceve il video di un altro
-            val id = System.currentTimeMillis()
-            val keys = HashMap<String, String>()
-            val (body, finalUrl) = download(url, headers)
-            relayPlaylist(String(body), finalUrl) { key ->
-                keys.getOrPut(key) {
-                    val path = "k$id-${keys.size}"
-                    relay.put(path, download(key, headers).first, "application/octet-stream")
-                    "$base/$path"
-                }
-            }?.let { playlist ->
-                relay.put("v$id.m3u8", playlist.toByteArray(), "application/vnd.apple.mpegurl")
-                "$base/v$id.m3u8"
-            }
-        }
-    } catch (e: Exception) {
-        null
-    }
-
     // AnimeUnity: dopo l'invio si accodano da soli gli N episodi successivi, subito dopo quello mandato.
     // L'elenco degli episodi e il player di ognuno si leggono dalla pagina del sito, il link video dal player.
     private fun queueNextEpisodes(kodi: Kodi, page: String, after: Int, userAgent: String, title: String) {
-        val count = prefs.getInt("autoNext", 1)
+        val count = prefs.getInt("autoNext", DEFAULT_AUTO_NEXT)
         val uri = Uri.parse(page)
         if (count <= 0 || !isAnimeUnityEpisode(uri.host, uri.path)) return
         if (web.url != page) return
@@ -738,12 +536,7 @@ class MainActivity : Activity() {
                     }
                     thread {
                         val problem = try {
-                            val position = after + 1 + i
-                            expiryProblem(stream, kodiState(kodi).secondsUntil(position))
-                                ?: run {
-                                    kodi.call("Playlist.Insert", playlist().put("position", position).put("item", kodiItem(stream, embed, userAgent, nextEpisodeTitle(title, number))))
-                                    null
-                                }
+                            kodi.insertAt(after + 1 + i, { kodiItem(stream, embed, userAgent, nextEpisodeTitle(title, number)) }) { expiryProblem(stream, it) }
                         } catch (e: Exception) {
                             "Kodi: ${e.message}"
                         }
@@ -1021,7 +814,7 @@ class MainActivity : Activity() {
         val authPanel = section(label("Accesso, se impostato in Kodi"), user, password, showPassword).apply { setPadding(0, dp(16), 0, 0) }
         val autoNext = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
-            setText(prefs.getInt("autoNext", 1).toString())
+            setText(prefs.getInt("autoNext", DEFAULT_AUTO_NEXT).toString())
         }
         val autoNextPanel = section(
             label("AnimeUnity: episodi successivi da accodare da soli (0 = mai, massimo $MAX_AUTO_NEXT)"),
@@ -1075,7 +868,7 @@ class MainActivity : Activity() {
                     .putString("host", newHost)
                     .putString("name", if (manual) "" else kodiNames[newHost] ?: prefs.getString("name", ""))
                     .putBoolean("manual", manual)
-                    .putInt("autoNext", autoNext.text.toString().toIntOrNull()?.coerceIn(0, MAX_AUTO_NEXT) ?: 1)
+                    .putInt("autoNext", autoNext.text.toString().toIntOrNull()?.coerceIn(0, MAX_AUTO_NEXT) ?: DEFAULT_AUTO_NEXT)
                     .apply()
                 val typed = user.text.toString().trim() to password.text.toString()
                 when {
@@ -1139,17 +932,8 @@ class MainActivity : Activity() {
     // Tocco su un video: riproduci ora o togli. Quello in corso non si tocca (Kodi non lo toglie).
     private fun showQueue() {
         onKodi({ kodi ->
-            val state = kodiState(kodi)
-            val reply = kodi.call("Playlist.GetItems", playlist().put("properties", JSONArray(listOf("title", "file")))) as? JSONObject
-            val items = reply?.optJSONArray("items") ?: JSONArray()
-            // Un video partito fuori dalla coda (dal telecomando, da un'altra app o senza coda) non è nella playlist:
-            // lo si legge a parte, così la schermata dice comunque cosa sta andando
-            val outside = if (state.playerId != null && !state.fromQueue) {
-                val properties = JSONArray(listOf("title", "file"))
-                (kodi.call("Player.GetItem", JSONObject().put("playerid", state.playerId).put("properties", properties)) as? JSONObject)
-                    ?.optJSONObject("item")
-            } else null
-            Triple(state, List(items.length()) { items.getJSONObject(it) }, outside)
+            val (state, items) = kodi.queue()
+            Triple(state, items, kodi.playingOutside(state))
         }, { (state, items, outside) ->
             val titles = loadTitles()
             val current = if (state.fromQueue) state.position else -1
@@ -1248,13 +1032,9 @@ class MainActivity : Activity() {
             setOnMenuItemClickListener { item ->
                 close()
                 if (item.itemId == 1) {
-                    onKodi({ kodi ->
-                        // Se la coda sta andando si salta lì, altrimenti si fa partire la coda da quel video
-                        if (state.fromQueue) kodi.call("Player.GoTo", JSONObject().put("playerid", state.playerId).put("to", index))
-                        else kodi.call("Player.Open", JSONObject().put("item", playlist().put("position", index)))
-                    }, { toast("Parte: $name") })
+                    onKodi({ kodi -> kodi.playFrom(state, index) }, { toast("Parte: $name") })
                 } else {
-                    onKodi({ kodi -> kodi.call("Playlist.Remove", playlist().put("position", index)) }, { showQueue() })
+                    onKodi({ kodi -> kodi.remove(index) }, { showQueue() })
                 }
                 true
             }
@@ -1262,16 +1042,12 @@ class MainActivity : Activity() {
         }
     }
 
-    // Toglie tutto tranne il video in corso (current, -1 se nessuno): niente Playlist.Clear, che lo staccherebbe dalla coda
+    // Toglie tutto tranne il video in corso (vedi Kodi.clearQueue)
     private fun clearQueue(current: Int) {
         AlertDialog.Builder(this)
             .setMessage(if (current >= 0) "Togliere dalla coda tutti i video tranne quello in corso?" else "Togliere tutti i video dalla coda?")
             .setPositiveButton("Svuota") { _, _ ->
-                onKodi({ kodi ->
-                    val total = (kodi.call("Playlist.GetItems", playlist()) as? JSONObject)?.optJSONObject("limits")?.optInt("total") ?: 0
-                    // Dal fondo, così le posizioni ancora da togliere non si spostano
-                    for (i in total - 1 downTo 0) if (i != current) kodi.call("Playlist.Remove", playlist().put("position", i))
-                }, { showQueue() })
+                onKodi({ kodi -> kodi.clearQueue(current) }, { showQueue() })
             }
             .setNegativeButton("Annulla", null)
             .show()
@@ -1414,6 +1190,13 @@ class MainActivity : Activity() {
             saveLogins(loadLogins() + SavedLogin(host, "", "", user, seal(password)))
         }
         prefs.edit().remove("auth").apply()
+    }
+
+    // Fino alla 1.2.1 gli episodi automatici partivano da 1 e il dialogo "Dov'è Kodi?" salvava quel valore anche senza
+    // toccarlo: una volta sola si riportano a spenti, poi resta quello che si sceglie
+    private fun migrateAutoNext() {
+        if (prefs.getBoolean("autoNextMigrated", false)) return
+        prefs.edit().putInt("autoNext", DEFAULT_AUTO_NEXT).putBoolean("autoNextMigrated", true).apply()
     }
 
     // Password cifrate con una chiave AES dell'Android Keystore, che non esce dal telefono: "iv:testo" in Base64
