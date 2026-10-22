@@ -248,6 +248,8 @@ class MainActivity : Activity() {
         queue = Button(this).apply {
             text = "+ Coda"
             setOnClickListener { pickVideo(queued = true) }
+            // Pressione lunga: apre la coda di Kodi
+            setOnLongClickListener { showQueue(); true }
         }
         progress = ProgressBar(this, null, R.attr.progressBarStyleHorizontal).apply {
             max = 100
@@ -559,7 +561,7 @@ class MainActivity : Activity() {
         } catch (e: KodiError) {
             throw Refused("Kodi non accetta questo video in coda (${e.message}).")
         }
-        return Sent("Aggiunto alla coda", position)
+        return Sent("Aggiunto alla coda (la vedi in Kodi → Coda di Kodi)", position)
     }
 
     private fun kodiState(kodi: Kodi): KodiState {
@@ -1140,18 +1142,32 @@ class MainActivity : Activity() {
             val state = kodiState(kodi)
             val reply = kodi.call("Playlist.GetItems", playlist().put("properties", JSONArray(listOf("title", "file")))) as? JSONObject
             val items = reply?.optJSONArray("items") ?: JSONArray()
-            state to List(items.length()) { items.getJSONObject(it) }
-        }, { (state, items) ->
+            // Un video partito fuori dalla coda (dal telecomando, da un'altra app o senza coda) non è nella playlist:
+            // lo si legge a parte, così la schermata dice comunque cosa sta andando
+            val outside = if (state.playerId != null && !state.fromQueue) {
+                val properties = JSONArray(listOf("title", "file"))
+                (kodi.call("Player.GetItem", JSONObject().put("playerid", state.playerId).put("properties", properties)) as? JSONObject)
+                    ?.optJSONObject("item")
+            } else null
+            Triple(state, List(items.length()) { items.getJSONObject(it) }, outside)
+        }, { (state, items, outside) ->
             val titles = loadTitles()
             val current = if (state.fromQueue) state.position else -1
             lateinit var dialog: AlertDialog
             val content = section().apply { setPadding(dp(16), dp(8), dp(8), 0) }
             content.addView(label(when {
+                outside != null && items.isEmpty() ->
+                    "Kodi sta riproducendo un video partito fuori dalla coda, e la coda è vuota. \"+ Coda\" non può accodare dopo " +
+                        "questo video: usa \"Manda a Kodi\" sull'episodio e da lì accoda gli altri."
+                outside != null -> "Kodi sta riproducendo un video partito fuori dalla coda: quando finisce non passa a questi. Tocca un video per farlo partire."
                 items.isEmpty() -> "La coda è vuota. \"Manda a Kodi\" fa partire un video, \"+ Coda\" lo mette in fondo."
                 state.playerId == null -> "Kodi è fermo: tocca un video per farlo partire da lì."
-                !state.fromQueue -> "Kodi sta riproducendo un video che non è in coda: quando finisce non passa a questi."
                 else -> "Quando un video finisce Kodi passa al successivo."
             }).apply { setPadding(0, 0, dp(8), dp(8)) })
+            outside?.let { item ->
+                val name = queueLabel(item.optString("file"), item.optString("title").ifBlank { item.optString("label") }, titles)
+                content.addView(queueRow(0, name, "▶ In riproduzione, fuori dalla coda", playing = true, done = false) {})
+            }
             items.forEachIndexed { i, item ->
                 val file = item.optString("file")
                 val name = queueLabel(file, item.optString("title").ifBlank { item.optString("label") }, titles)
