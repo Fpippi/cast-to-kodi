@@ -7,6 +7,12 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 1.2.3
+
+- Coda di Kodi: se Kodi sta riproducendo un video partito fuori dalla coda, compare in cima con il motivo per cui la
+  coda non lo segue, invece di una lista vuota senza spiegazioni.
+- Tenendo premuto **+ Coda** si apre la coda; dopo "+ Coda" l'avviso dice dove trovarla (Kodi → Coda di Kodi).
+
 ## 1.2.2
 
 - Il pulsante di accensione ha la stessa altezza di ★ e Kodi.

@@ -159,6 +159,21 @@ class KodiTest {
         assertEquals(listOf("b"), fake.playlist)
     }
 
+    // Video partito fuori dalla coda: la coda lo mostra a parte, così non sembra vuota senza motivo
+    @Test
+    fun codaConVideoFuoriCoda() = FakeKodi().use { fake ->
+        fake.playingOutside("https://x.com/film.m3u8")
+        val kodi = Kodi(fake.host, "")
+        val (state, items) = kodi.queue()
+        assertTrue(items.isEmpty())
+        assertEquals("https://x.com/film.m3u8", kodi.playingOutside(state)?.getString("file"))
+
+        // Dalla coda invece niente: è già nell'elenco
+        fake.playlist += "a"
+        fake.playingFromQueue(0)
+        assertNull(kodi.playingOutside(kodi.queue().first))
+    }
+
     @Test
     fun password() = FakeKodi(login = "kodi:segreta").use { fake ->
         for (auth in listOf("", "kodi:sbagliata")) {

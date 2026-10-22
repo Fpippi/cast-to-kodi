@@ -79,6 +79,10 @@ class FakeKodi(private val login: String? = null) : AutoCloseable {
                 .put("time", clock(time))
                 .put("totaltime", clock(totaltime))
         }
+        "Player.GetItem" -> {
+            if (playing == null || params.optInt("playerid") != 1) throw Refusal(-32100, "Failed to execute method.")
+            JSONObject().put("item", JSONObject().put("file", playing).put("label", playing!!.substringAfterLast('/')).put("title", ""))
+        }
         "Playlist.GetItems" -> {
             videoPlaylist(params)
             // Come Kodi: con la playlist vuota "items" non c'è
