@@ -8,6 +8,9 @@ import it.franc.casttokodi.domainOf
 // Più di qualche episodio non serve: i link scadono dopo qualche ora
 const val MAX_AUTO_NEXT = 3
 
+// Spento finché non lo si accende nel dialogo "Dov'è Kodi?" (scelta di Pippo, 2026-10-22)
+const val DEFAULT_AUTO_NEXT = 0
+
 private val EPISODE_PATH = Regex("/anime/[^/]+/\\d+/?")
 
 // true sulla pagina di un episodio (animeunity.<qualunque>/anime/<titolo>/<id>): solo lì si cercano i successivi
