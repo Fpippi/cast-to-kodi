@@ -12,8 +12,8 @@ on the phone, start the video, press a button and the video plays on the TV. The
 
 > [!NOTE]
 > The app's interface is in Italian. In this guide button names and messages are written as they appear in the app,
-> with a translation in brackets. The animations are drawings that show the steps, not screen recordings: colours and
-> details of the real app may differ a little.
+> with a translation in brackets. The animations are drawings of the version 2.1 interface, not screen recordings:
+> colours and details of the real app may differ a little.
 
 ## Contents
 
@@ -41,7 +41,10 @@ on the phone, start the video, press a button and the video plays on the TV. The
 │                 site page                    │
 │                                              │
 │                 (+≡)  ( 📺 Manda a Kodi )     │  ← only when there's a video
-│ [ ||  Episodio 11 · Su Kodi · 12:40 di 23:50 ]│  ← Kodi bar, always
+│ ╭──────────────────────────────────────────╮ │
+│ │ [▶] Episodio 11                   ‖   ▯  │ │  ← Kodi bar, always
+│ │     ● Su Kodi · 12:40 di 23:50           │ │
+│ ╰━━━━━━━━━━━━━━━━──────────────────────────╯ │
 └──────────────────────────────────────────────┘
 ```
 
@@ -50,7 +53,7 @@ on the phone, start the video, press a button and the video plays on the TV. The
 | **Address bar** ("Cerca o scrivi un indirizzo") | Type a site (`animeunity.so`) or a search (`jojo animeunity`, goes to Google). The site's icon is on the left. Until you tap it, it shows only the site's name; tapping it brings back the full address. |
 | **🛡 with a number** | Shows up when the app blocked popups or jumps to other sites on this page. Tap it to see which ones and open one, if you needed it. |
 | **★** | Your favourite sites. Filled if the open page is already a favourite. |
-| **Kodi bar** (at the bottom) | What Kodi is playing, with play/pause. If Kodi is on but idle it says *niente in riproduzione* (nothing playing); if it is off or not answering there is the **⏻** button to turn the TV on. Tap it to open the remote with the queue. |
+| **Kodi bar** (at the bottom) | Always there, as soon as the app knows where Kodi is. It shows what is playing, with the time, play/pause and a thin line at the bottom that moves forward. The dot next to the status is lit if Kodi answers. If Kodi is on but idle it says *Acceso, niente in riproduzione* (On, nothing playing); if it is off or not answering there is the **⏻** button to turn the TV on. The button on the right, or a tap on the bar, opens the remote with the queue. |
 | **⋮** | A small menu: *Telecomando* (Remote), *Coda di Kodi* (Kodi queue), *Pagina iniziale* (Home page), *Impostazioni* (Settings: where Kodi is, power on, AnimeUnity, Kodi log, guide, version). |
 | **Manda a Kodi** (Send to Kodi) | Plays the page's video on the TV right away. It shows up at the bottom right, over the site, only when a video starts on the page. |
 | **+ Coda** (+ Queue: the round icon with lines and a +, next to *Manda a Kodi*) | Puts the video at the end of Kodi's queue, without interrupting what you are watching. Long-press it to open the queue. |
@@ -83,7 +86,7 @@ To do **once only**, with the Fire TV remote. The detailed steps to install Kodi
 
 ## 3. First time: connect the app to Kodi
 
-<p align="center"><img src="img/configura.gif" width="640" alt="Animation: the Dov'è Kodi? window finds Kodi, you tap it and save"></p>
+<p align="center"><img src="img/configura.gif" width="640" alt="Animation: the Dov'è Kodi? window finds Kodi, you tap it and save; the Kodi bar shows up at the bottom"></p>
 
 1. **Open Kodi on the TV** (it must be on to be found).
 2. **Open Couch Cast** on the phone. On first launch the **Dov'è Kodi?** (Where is Kodi?) window appears.
@@ -94,7 +97,8 @@ To do **once only**, with the Fire TV remote. The detailed steps to install Kodi
 5. **Login, if set in Kodi**: if you set a username and password in Kodi, type them here. If you skip them, the app asks
    for them by itself (*Accesso a Kodi*, "Kodi login" window) the first time you send a video.
 
-Done. To change these choices later: **⋮ → Impostazioni → Kodi**.
+Done: the **Kodi bar** shows up at the bottom, and on the home page the Kodi card shows its name. To change these
+choices later: **⋮ → Impostazioni → Kodi**.
 
 > [!TIP]
 > - If the Fire TV changes address (it happens after a router restart), the app finds it again by itself when sending.
@@ -104,7 +108,7 @@ Done. To change these choices later: **⋮ → Impostazioni → Kodi**.
 
 ## 4. Turn the TV on from the phone
 
-<p align="center"><img src="img/accendi.gif" width="640" alt="Animation: with the TV off you press the power button, the TV turns on and opens Kodi"></p>
+<p align="center"><img src="img/accendi.gif" width="640" alt="Animation: with the TV off you press the power button in the Kodi bar, the TV turns on and opens Kodi"></p>
 
 With the TV off (in standby) press **⏻** in the Kodi bar at the bottom (or *Accendi* on the home page).
 
@@ -129,7 +133,18 @@ With the TV off (in standby) press **⏻** in the Kodi bar at the bottom (or *Ac
    - `jojo animeunity` → searches Google; from Google results you can open any site.
 2. Go to the episode or movie page.
 3. **Start the player** (press play on the video). This step is essential: the app only sees the video once it starts.
-4. The bottom button turns coloured and says **Manda a Kodi**. Now you can also pause the video on the phone.
+4. At the bottom right, over the site, **Manda a Kodi** and the round **+ Coda** button show up. Now you can also pause
+   the video on the phone.
+
+### From Chrome or another app: Share → Couch Cast
+
+Found the episode page in Chrome, or someone sent it to you on WhatsApp? Tap **Share** and pick **Couch Cast**: the
+page opens in the app and you carry on from step 3 (start the player, then Manda a Kodi).
+
+- A message with the link in the middle of the text is fine too: the app takes the first link.
+- If you share plain text with no link, the app searches it on Google.
+- If the link is already the video (it ends in `.m3u8` or `.mp4`), a panel opens: **Manda a Kodi** ("Send to Kodi")
+  starts it on the TV right away, **Apri qui** ("Open here") opens it in the app.
 
 > [!TIP]
 > Ads that open windows or take you to other sites are blocked silently.
@@ -183,7 +198,7 @@ next one by itself. The app never clears it.
 
 ### Manda a Kodi and + Coda: the difference
 
-<p align="center"><img src="img/coda.gif" width="640" alt="Animation: + Coda on episode 2, Coda di Kodi shows episode 1 playing and 2 waiting"></p>
+<p align="center"><img src="img/coda.gif" width="640" alt="Animation: + Coda on episode 2, then the Kodi bar opens the Coda tab with episode 1 playing and 2 waiting"></p>
 
 | | What it does |
 |---|---|
@@ -236,13 +251,15 @@ With the **⋮** next to a video pick **Riproduci ora** (Play now) or **Togli da
 
 ## 8. Favourites
 
-<p align="center"><img src="img/preferiti.gif" width="640" alt="Animation: ★, add this page, choose the name, then reopen from the favourite"></p>
+<p align="center"><img src="img/preferiti.gif" width="640" alt="Animation: ★, add this page, choose the name, then reopen from its icon on the home page"></p>
 
 - **Save a page**: open it, press **★** and then **＋ Aggiungi questa pagina** (Add this page). Choose a name and save.
-- **Reopen it**: **★** and tap the name.
-- **Rename or remove**: **★**, then **⋮** next to the favourite → **Rinomina** (Rename) or **Togli** (Remove).
+- **Reopen it**: tap its icon on the **home page**, or **★** and tap the name.
+- **Rename or remove**: long-press the icon on the home page, or **★** and **⋮** next to the favourite →
+  **Rinomina** (Rename) or **Togli** (Remove).
+- The **★** at the top is filled when the open page is already a favourite.
 
-The app also reopens the last page you had open by itself.
+The last page you watched is in **Riprendi** (Resume), on the home page.
 
 ---
 
@@ -261,8 +278,8 @@ If **Playback failed** appears on the TV or the video doesn't start:
 ## 10. Update the app
 
 On startup, if there is a new version, **Nuova versione disponibile** ("New version available") appears: press
-**Scarica** (Download) and install the APK over the old one (no need to uninstall). To update with one tap you can use
-**Obtainium** with the repo address.
+**Scarica** (Download) and install the APK over the old one (no need to uninstall). To check by hand: **⋮ → Impostazioni →
+Versione** (Settings, Version). To update with one tap you can use **Obtainium** with the repo address.
 
 ---
 
@@ -277,7 +294,7 @@ On startup, if there is a new version, **Nuova versione disponibile** ("New vers
 | **"Kodi non ha accettato il video"** ("Kodi didn't accept the video") | The site gave a link Kodi can't open. Reload the page, restart the player and try again; if it happens again, send the log. |
 | **"Inviato a Kodi, ma senza coda"** ("Sent to Kodi, but without queue") | The video plays, but Kodi doesn't want it in the playlist: for that video the queue doesn't work. |
 | **"Non messo in coda"** ("Not queued") | Read the reason in the message: see [When the app doesn't queue](#when-the-app-doesnt-queue-and-why). |
-| **"Link scaduto"** ("Link expired") in Coda di Kodi | Reopen the episode page, start the player and send it again. |
+| **"Link scaduto"** ("Link expired") in the Coda tab | Reopen the episode page, start the player and send it again. |
 | **⏻**: **"Fire TV non trovata"** ("Fire TV not found") or **"Fire TV non raggiungibile"** ("Fire TV unreachable") | Check *ADB debugging* on the Fire TV and the same Wi-Fi. If the Fire TV has been off for a long time it's in deep sleep: turn it on with Alexa or the remote. |
 | **⏻**: **"La TV ha rifiutato il telefono"** ("The TV refused the phone") or **"non ha confermato in tempo"** ("didn't confirm in time") | Press ⏻ again and on the TV tick *Always allow* and press OK. |
 | **⏻**: the TV turns on but stays on another input | Check that HDMI-CEC is on both on the Fire TV and on the TV, then switch input with the TV remote. |

@@ -318,7 +318,32 @@ class MainActivity : Activity() {
         migrateAutoNext()
         showHome()
         if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress()
+        openShared(intent)
         checkUpdate()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        openShared(intent)
+    }
+
+    // Condividi → Couch Cast da Chrome o da un'altra app: la pagina si apre qui, dove il video si trova come al solito.
+    // Se il link è già il video (.m3u8, .mp4) si può mandare subito a Kodi, senza pagina.
+    private fun openShared(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_SEND) return
+        // Consumato: se Android ricrea l'Activity con lo stesso intent, il link non si riapre
+        setIntent(Intent())
+        val url = sharedAddress(intent.getStringExtra(Intent.EXTRA_TEXT)) ?: return toast("Nel testo condiviso non c'è un link")
+        if (!isVideoLink(url)) return open(url)
+        val text = TextView(this).apply {
+            this.text = "Il link condiviso è già un video:\n$url"
+            textSize = 14f
+            setTextColor(sys(R.color.system_neutral2_700, R.color.system_neutral2_200))
+            setPadding(dp(24), 0, dp(24), dp(8))
+        }
+        sheet("Video condiviso", text,
+            "Apri qui" to { open(url) },
+            "Manda a Kodi" to { sendToKodi(Video(url, "", "", true), queued = false, page = url) })
     }
 
     // L'ultima release ha come tag vX.Y.Z, con X.Y.Z = versionName dell'APK (da CHANGELOG.md, vedi .github/workflows/apk.yml).
@@ -725,8 +750,9 @@ class MainActivity : Activity() {
 
     // Tutto passa dalla playlist video di Kodi, così "+ Coda" e gli episodi successivi seguono quello in corso.
     // La coda non si cancella mai: un video nuovo si inserisce dopo quello in corso o in fondo.
-    // typed: utente e password appena scritti nel dialogo dopo un 401, al posto di quelli salvati
-    private fun sendToKodi(video: Video, queued: Boolean, typed: Pair<String, String>? = null) {
+    // typed: utente e password appena scritti nel dialogo dopo un 401, al posto di quelli salvati.
+    // page: la pagina del video, o il video stesso quando è arrivato da Condividi senza pagina
+    private fun sendToKodi(video: Video, queued: Boolean, typed: Pair<String, String>? = null, page: String = pageUrl) {
         if (sending) return
         val host = prefs.getString("host", "").orEmpty()
         if (host.isBlank()) return askKodiAddress()
@@ -734,8 +760,7 @@ class MainActivity : Activity() {
         val login = typed ?: savedLogin(host, network)
         val kodi = Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty())
         val userAgent = web.settings.userAgentString
-        val page = pageUrl
-        val title = suggestedName(web.title, Uri.parse(page).host)
+        val title = suggestedName(web.title.takeIf { page == pageUrl }, Uri.parse(page).host)
         sending = true
         refreshCastButton()
         // Il pulsante torna attivo prima di qualunque dialogo, così il nuovo tentativo che ne parte non viene scartato
@@ -752,10 +777,10 @@ class MainActivity : Activity() {
                 if (queued) kodi.enqueue({ kodiItem(video.url, video.referer, userAgent, title, viaPhone = it) }) { expiryProblem(video.url, it) }
                 else kodi.playNow(kodiItem(video.url, video.referer, userAgent, title, viaPhone = true))
             } catch (e: IOException) {
-                done { relocateKodi(host) { sendToKodi(video, queued, typed) } }
+                done { relocateKodi(host) { sendToKodi(video, queued, typed, page) } }
                 return@thread
             } catch (e: Unauthorized) {
-                done { askLogin(host, login, wrong = login != null) { sendToKodi(video, queued, it) } }
+                done { askLogin(host, login, wrong = login != null) { sendToKodi(video, queued, it, page) } }
                 return@thread
             } catch (e: Refused) {
                 done { notice("Non messo in coda", e.message.orEmpty()) }
@@ -797,7 +822,9 @@ class MainActivity : Activity() {
     // video sta su un altro dominio e i cookie del sito del video. Senza, alcuni CDN rispondono 403
     // (StreamingCommunity con il player vidxgo, 2026-10-21).
     private fun streamHeaders(url: String, referer: String, userAgent: String): List<Pair<String, String>> {
-        val headers = mutableListOf("Referer" to referer, "User-Agent" to userAgent)
+        // Referer vuoto (video arrivato da Condividi, senza pagina): non lo si manda, come il browser
+        val headers = mutableListOf("User-Agent" to userAgent)
+        if (referer.isNotBlank()) headers.add(0, "Referer" to referer)
         val origin = originOf(referer)
         if (origin != null && origin != originOf(url)) headers += "Origin" to origin
         CookieManager.getInstance().getCookie(url)?.takeIf { it.isNotBlank() }?.let { headers += "Cookie" to it }

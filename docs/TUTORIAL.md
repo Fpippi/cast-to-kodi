@@ -10,7 +10,7 @@ sul telefono, avvii il video, premi un pulsante e il video parte sulla TV. Poi p
 > [!IMPORTANT]
 > Telefono e Fire TV devono essere collegati **allo stesso Wi-Fi**.
 
-_Le animazioni di questa guida sono disegni che mostrano i passaggi, non registrazioni dello schermo: colori e dettagli dell'app vera possono essere un po' diversi._
+_Le animazioni di questa guida sono disegni dell'interfaccia della versione 2.1, non registrazioni dello schermo: colori e dettagli dell'app vera possono essere un po' diversi._
 
 ## Indice
 
@@ -38,7 +38,10 @@ _Le animazioni di questa guida sono disegni che mostrano i passaggi, non registr
 │              pagina del sito                 │
 │                                              │
 │                 (+≡)  ( 📺 Manda a Kodi )     │  ← solo quando c'è un video
-│ [ ||  Episodio 11 · Su Kodi · 12:40 di 23:50 ]│  ← barra di Kodi, sempre
+│ ╭──────────────────────────────────────────╮ │
+│ │ [▶] Episodio 11                   ‖   ▯  │ │  ← barra di Kodi, sempre
+│ │     ● Su Kodi · 12:40 di 23:50           │ │
+│ ╰━━━━━━━━━━━━━━━━──────────────────────────╯ │
 └──────────────────────────────────────────────┘
 ```
 
@@ -47,7 +50,7 @@ _Le animazioni di questa guida sono disegni che mostrano i passaggi, non registr
 | **Barra degli indirizzi** | Scrivi un sito (`animeunity.so`) o una ricerca (`jojo animeunity`, va su Google). A sinistra l'icona del sito. Finché non la tocchi mostra solo il nome del sito; toccandola torna l'indirizzo intero. |
 | **🛡 con un numero** | Compare quando l'app ha bloccato popup o salti verso altri siti su questa pagina. Toccalo per vedere quali e aprirne uno, se serviva. |
 | **★** | I tuoi siti preferiti. Piena se la pagina aperta è già tra i preferiti. |
-| **Barra di Kodi** (in fondo) | Cosa riproduce Kodi, con play/pausa. Se Kodi è acceso ma fermo scrive *niente in riproduzione*; se è spento o non risponde c'è il pulsante **⏻** per accendere la TV. Toccala per aprire il telecomando con la coda. |
+| **Barra di Kodi** (in fondo) | C'è sempre, appena l'app sa dov'è Kodi. Mostra cosa riproduce, con il tempo, play/pausa e una linea sottile in basso che avanza. Il pallino accanto allo stato è acceso se Kodi risponde. Se Kodi è acceso ma fermo scrive *Acceso, niente in riproduzione*; se è spento o non risponde c'è il pulsante **⏻** per accendere la TV. Il pulsante a destra, o un tocco sulla barra, apre il telecomando con la coda. |
 | **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Pagina iniziale*, *Impostazioni* (dov'è Kodi, accensione, AnimeUnity, log di Kodi, guida, versione). |
 | **Manda a Kodi** | Fa partire subito sulla TV il video della pagina. Compare in basso a destra, sopra il sito, solo quando sulla pagina parte un video. |
 | **+ Coda** (l'icona tonda con le righe e il +, accanto a *Manda a Kodi*) | Mette il video in fondo alla coda di Kodi, senza interrompere quello che stai guardando. Tenendola premuta si apre la coda. |
@@ -80,7 +83,7 @@ Da fare **una volta sola**, con il telecomando della Fire TV. I passaggi dettagl
 
 ## 3. Prima volta: collegare l'app a Kodi
 
-<p align="center"><img src="img/configura.gif" width="640" alt="Animazione: la finestra Dov'è Kodi? trova Kodi, si tocca e si salva"></p>
+<p align="center"><img src="img/configura.gif" width="640" alt="Animazione: la finestra Dov'è Kodi? trova Kodi, si tocca e si salva; in fondo compare la barra di Kodi"></p>
 
 1. **Apri Kodi sulla TV** (deve essere acceso per farsi trovare).
 2. **Apri Couch Cast** sul telefono. Al primo avvio compare la finestra **Dov'è Kodi?**.
@@ -91,7 +94,8 @@ Da fare **una volta sola**, con il telecomando della Fire TV. I passaggi dettagl
 5. **Accesso, se impostato in Kodi**: se in Kodi hai messo utente e password scrivili qui. Se li salti, l'app li chiede
    da sola (finestra *Accesso a Kodi*) la prima volta che mandi un video.
 
-Fatto. Per cambiare queste scelte in futuro: **⋮ → Impostazioni → Kodi**.
+Fatto: in fondo compare la **barra di Kodi**, e nella pagina iniziale il riquadro di Kodi mostra il suo nome. Per cambiare
+queste scelte in futuro: **⋮ → Impostazioni → Kodi**.
 
 > [!TIP]
 > - Se la Fire TV cambia indirizzo (succede dopo un riavvio del router), all'invio l'app la ritrova da sola.
@@ -101,7 +105,7 @@ Fatto. Per cambiare queste scelte in futuro: **⋮ → Impostazioni → Kodi**.
 
 ## 4. Accendere la TV dal telefono
 
-<p align="center"><img src="img/accendi.gif" width="640" alt="Animazione: con la TV spenta si preme il pulsante di accensione, la TV si accende e apre Kodi"></p>
+<p align="center"><img src="img/accendi.gif" width="640" alt="Animazione: con la TV spenta si preme il pulsante di accensione nella barra di Kodi, la TV si accende e apre Kodi"></p>
 
 Con la TV spenta (in standby) premi **⏻** nella barra di Kodi in fondo (o *Accendi* nella pagina iniziale).
 
@@ -126,7 +130,18 @@ Con la TV spenta (in standby) premi **⏻** nella barra di Kodi in fondo (o *Acc
    - `jojo animeunity` → cerca su Google; dai risultati di Google puoi aprire qualunque sito.
 2. Vai alla pagina dell'episodio o del film.
 3. **Avvia il player** (premi play sul video). Questo passaggio è indispensabile: l'app vede il video solo quando parte.
-4. Il pulsante in basso diventa colorato e dice **Manda a Kodi**. Ora puoi anche mettere in pausa il video sul telefono.
+4. In basso a destra, sopra il sito, compaiono **Manda a Kodi** e il pulsante tondo **+ Coda**. Ora puoi anche mettere
+   in pausa il video sul telefono.
+
+### Da Chrome o da un'altra app: Condividi → Couch Cast
+
+Hai trovato la pagina dell'episodio in Chrome, o qualcuno te l'ha mandata su WhatsApp? Tocca **Condividi** e scegli
+**Couch Cast**: la pagina si apre nell'app e da lì si continua dal punto 3 (avvia il player, poi Manda a Kodi).
+
+- Va bene anche un messaggio con il link in mezzo al testo: l'app prende il primo link.
+- Se condividi solo del testo, senza link, l'app lo cerca su Google.
+- Se il link è già il video (finisce con `.m3u8` o `.mp4`), si apre un pannello: **Manda a Kodi** lo fa partire subito
+  sulla TV, **Apri qui** lo apre nell'app.
 
 > [!TIP]
 > La pubblicità che apre finestre o ti porta su altri siti viene bloccata da sola, senza avvisi.
@@ -177,7 +192,7 @@ al successivo. L'app non la cancella mai.
 
 ### Manda a Kodi e + Coda: la differenza
 
-<p align="center"><img src="img/coda.gif" width="640" alt="Animazione: + Coda sull'episodio 2, Coda di Kodi mostra l'episodio 1 in riproduzione e il 2 in attesa"></p>
+<p align="center"><img src="img/coda.gif" width="640" alt="Animazione: + Coda sull'episodio 2, poi la barra di Kodi apre la scheda Coda con l'episodio 1 in riproduzione e il 2 in attesa"></p>
 
 | | Cosa fa |
 |---|---|
@@ -226,13 +241,15 @@ quello in corso, **↻** rilegge la coda da Kodi.
 
 ## 8. Preferiti
 
-<p align="center"><img src="img/preferiti.gif" width="640" alt="Animazione: ★, Aggiungi questa pagina, scelta del nome, poi riapertura dal preferito"></p>
+<p align="center"><img src="img/preferiti.gif" width="640" alt="Animazione: ★, Aggiungi questa pagina, scelta del nome, poi riapertura dall'icona nella pagina iniziale"></p>
 
 - **Salvare una pagina**: aprila, premi **★** e poi **＋ Aggiungi questa pagina**. Scegli un nome e salva.
-- **Riaprirla**: **★** e tocca il nome.
-- **Rinominare o togliere**: **★**, poi **⋮** accanto al preferito → **Rinomina** o **Togli**.
+- **Riaprirla**: tocca la sua icona nella **pagina iniziale**, oppure **★** e tocca il nome.
+- **Rinominare o togliere**: tieni premuta l'icona nella pagina iniziale, oppure **★** e **⋮** accanto al preferito →
+  **Rinomina** o **Togli**.
+- La **★** in alto è piena quando la pagina aperta è già tra i preferiti.
 
-L'app riapre anche da sola l'ultima pagina che avevi aperto.
+L'ultima pagina che hai guardato la ritrovi in **Riprendi**, nella pagina iniziale.
 
 ---
 
@@ -251,7 +268,8 @@ Se sulla TV compare **Playback failed** o il video non parte:
 ## 10. Aggiornare l'app
 
 All'avvio, se c'è una versione nuova, compare **Nuova versione disponibile**: premi **Scarica** e installa l'APK sopra
-quello vecchio (non serve disinstallare). Per aggiornare con un tocco si può usare **Obtainium** con l'indirizzo del repo.
+quello vecchio (non serve disinstallare). Per controllare a mano: **⋮ → Impostazioni → Versione**. Per aggiornare con un
+tocco si può usare **Obtainium** con l'indirizzo del repo.
 
 ---
 
@@ -266,7 +284,7 @@ quello vecchio (non serve disinstallare). Per aggiornare con un tocco si può us
 | **"Kodi non ha accettato il video"** | Il sito ha dato un link che Kodi non sa aprire. Ricarica la pagina, riavvia il player e riprova; se ricapita, manda il log. |
 | **"Inviato a Kodi, ma senza coda"** | Il video parte, ma Kodi non lo vuole nella playlist: per quel video la coda non funziona. |
 | **"Non messo in coda"** | Leggi il motivo nel messaggio: vedi [Quando l'app non mette in coda](#quando-lapp-non-mette-in-coda-e-perché). |
-| **"Link scaduto"** nella Coda di Kodi | Riapri la pagina dell'episodio, avvia il player e rimandalo. |
+| **"Link scaduto"** nella scheda Coda | Riapri la pagina dell'episodio, avvia il player e rimandalo. |
 | **⏻**: **"Fire TV non trovata"** o **"Fire TV non raggiungibile"** | Controlla *Debug ADB* sulla Fire TV e lo stesso Wi-Fi. Se la Fire TV è spenta da tanto è in sonno profondo: accendila con Alexa o con il telecomando. |
 | **⏻**: **"La TV ha rifiutato il telefono"** o **"non ha confermato in tempo"** | Premi di nuovo ⏻ e sulla TV spunta *Consenti sempre* e premi OK. |
 | **⏻**: la TV si accende ma resta su un altro ingresso | Controlla che l'HDMI-CEC sia attivo sia sulla Fire TV sia sulla TV, poi cambia ingresso con il telecomando della TV. |

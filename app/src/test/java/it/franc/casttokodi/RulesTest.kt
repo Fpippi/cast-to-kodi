@@ -24,6 +24,29 @@ class RulesTest {
     }
 
     @Test
+    fun linkCondiviso() {
+        // Chrome manda solo il link, altre app una frase con il link dentro
+        assertEquals("https://animeunity.so/anime/1", sharedAddress("https://animeunity.so/anime/1"))
+        assertEquals("https://animeunity.so/anime/1", sharedAddress("JoJo ep. 3\nhttps://animeunity.so/anime/1"))
+        assertEquals("https://example.com/a?b=1", sharedAddress("Guarda qui: https://example.com/a?b=1."))
+        assertEquals("https://example.com/a", sharedAddress("(vedi https://example.com/a)"))
+        assertEquals("http://192.168.1.50:8080/x", sharedAddress("Kodi: http://192.168.1.50:8080/x, prova"))
+        // Senza link il testo si cerca su Google, come nella barra in alto
+        assertEquals("$GOOGLE/search?q=jojo%20animeunity", sharedAddress("jojo animeunity"))
+        assertNull(sharedAddress("   "))
+        assertNull(sharedAddress(null))
+    }
+
+    @Test
+    fun linkGiaVideo() {
+        assertTrue(isVideoLink("https://cdn.example.com/ep3/master.m3u8?token=x"))
+        assertTrue(isVideoLink("https://cdn.example.com/film.MP4"))
+        assertTrue(isVideoLink("https://vixcloud.co/playlist/123?token=x&expires=1"))
+        assertFalse(isVideoLink("https://animeunity.so/anime/1-jojo/2"))
+        assertFalse(isVideoLink("non è un link"))
+    }
+
+    @Test
     fun dominio() {
         assertEquals("animeunity.so", domainOf("www.animeunity.so"))
         assertEquals("vixcloud.co", domainOf("vixcloud.co"))
