@@ -41,6 +41,27 @@ class KodiState(
         if (playerId == null || !fromQueue) 0 else remaining + (index - position - 1).coerceAtLeast(0) * episode
 }
 
+// Una traccia audio o di sottotitoli del video in corso, come la descrive Kodi (lingua di 3 lettere, nome)
+class Track(val index: Int, val language: String, val name: String)
+
+// Quello che mostra il telecomando: il video in corso (playerId null se Kodi è fermo), a che punto è, le tracce e il volume.
+// time e total in secondi; currentAudio e currentSubtitle sono indici di audio e subtitles, -1 se non ce n'è
+class NowPlaying(
+    val playerId: Int?,
+    val title: String,
+    val file: String,
+    val time: Long,
+    val total: Long,
+    val paused: Boolean,
+    val audio: List<Track>,
+    val currentAudio: Int,
+    val subtitles: List<Track>,
+    val currentSubtitle: Int,
+    val subtitlesOn: Boolean,
+    val volume: Int,
+    val muted: Boolean,
+)
+
 // Client JSON-RPC di Kodi, da usare su un thread di background. I problemi di rete restano IOException
 // (Kodi forse ha cambiato IP), le risposte di errore diventano KodiError con un messaggio da mostrare.
 class Kodi(val host: String, val auth: String) {
@@ -144,7 +165,7 @@ class Kodi(val host: String, val auth: String) {
         } catch (e: KodiError) {
             throw Refused("Kodi non accetta questo video in coda (${e.message}).")
         }
-        return Sent("Aggiunto alla coda (la vedi in Kodi → Coda di Kodi)", position)
+        return Sent("Aggiunto alla coda (la vedi in ⋮ → Coda di Kodi)", position)
     }
 
     // Episodio successivo messo in coda da solo, in posizione position. Il motivo se non si può, altrimenti null
@@ -186,5 +207,109 @@ class Kodi(val host: String, val auth: String) {
         val total = (call("Playlist.GetItems", playlist()) as? JSONObject)?.optJSONObject("limits")?.optInt("total") ?: 0
         // Dal fondo, così le posizioni ancora da togliere non si spostano
         for (i in total - 1 downTo 0) if (i != current) remove(i)
+    }
+
+    // Telecomando: il video in corso in una volta sola (il telecomando lo rilegge ogni secondo) e i comandi.
+    // I comandi sul video vogliono il playerId di NowPlaying; con Kodi fermo non si chiamano.
+    fun nowPlaying(): NowPlaying {
+        val app = call("Application.GetProperties", JSONObject().put("properties", JSONArray(listOf("volume", "muted")))) as? JSONObject
+        val volume = app?.optInt("volume", 100) ?: 100
+        val muted = app?.optBoolean("muted") ?: false
+        val players = call("Player.GetActivePlayers") as? JSONArray ?: JSONArray()
+        val player = (0 until players.length()).map { players.getJSONObject(it) }.firstOrNull { it.optString("type") == "video" }
+            ?: return NowPlaying(null, "", "", 0, 0, false, emptyList(), -1, emptyList(), -1, false, volume, muted)
+        val id = player.getInt("playerid")
+        val properties = JSONArray(
+            listOf("time", "totaltime", "speed", "audiostreams", "currentaudiostream", "subtitles", "currentsubtitle", "subtitleenabled")
+        )
+        val p = call("Player.GetProperties", JSONObject().put("playerid", id).put("properties", properties)) as JSONObject
+        val item = (call("Player.GetItem", JSONObject().put("playerid", id).put("properties", JSONArray(listOf("title", "file")))) as? JSONObject)
+            ?.optJSONObject("item") ?: JSONObject()
+        val audio = tracks(p.optJSONArray("audiostreams"))
+        val subtitles = tracks(p.optJSONArray("subtitles"))
+        return NowPlaying(
+            playerId = id,
+            title = item.optString("title").ifBlank { item.optString("label") },
+            file = item.optString("file"),
+            time = seconds(p.optJSONObject("time")),
+            total = seconds(p.optJSONObject("totaltime")),
+            paused = p.optInt("speed", 1) == 0,
+            audio = audio,
+            currentAudio = audio.indexOfFirst { it.index == p.optJSONObject("currentaudiostream")?.optInt("index", -1) },
+            subtitles = subtitles,
+            currentSubtitle = subtitles.indexOfFirst { it.index == p.optJSONObject("currentsubtitle")?.optInt("index", -1) },
+            subtitlesOn = p.optBoolean("subtitleenabled"),
+            volume = volume,
+            muted = muted,
+        )
+    }
+
+    private fun tracks(array: JSONArray?): List<Track> = List(array?.length() ?: 0) {
+        val t = array!!.getJSONObject(it)
+        Track(t.optInt("index", it), t.optString("language"), t.optString("name"))
+    }
+
+    private fun player(id: Int) = JSONObject().put("playerid", id)
+
+    fun playPause(id: Int) {
+        call("Player.PlayPause", player(id))
+    }
+
+    fun stop(id: Int) {
+        call("Player.Stop", player(id))
+    }
+
+    // Al secondo esatto (barra di avanzamento, "Vai al minuto")
+    fun seekTo(id: Int, seconds: Long) {
+        val s = seconds.coerceAtLeast(0)
+        val time = JSONObject().put("hours", s / 3600).put("minutes", s / 60 % 60).put("seconds", s % 60).put("milliseconds", 0)
+        call("Player.Seek", player(id).put("value", JSONObject().put("time", time)))
+    }
+
+    // Salto relativo, indietro se negativo: sempre di quanto dice il pulsante, non dei passi di Kodi (su/giù = 10 minuti)
+    fun skip(id: Int, seconds: Int) {
+        call("Player.Seek", player(id).put("value", JSONObject().put("seconds", seconds)))
+    }
+
+    // Video dopo o prima nella coda (la playlist video di Kodi)
+    fun next(id: Int) {
+        call("Player.GoTo", player(id).put("to", "next"))
+    }
+
+    fun previous(id: Int) {
+        call("Player.GoTo", player(id).put("to", "previous"))
+    }
+
+    // 1.0 = normale. Kodi accetta solo da 0,8 a 1,5, e con alcuni video la rifiuta: lì arriva un KodiError
+    fun setTempo(id: Int, tempo: Double) {
+        call("Player.SetTempo", player(id).put("tempo", tempo))
+    }
+
+    fun volume(up: Boolean) {
+        call("Application.SetVolume", JSONObject().put("volume", if (up) "increment" else "decrement"))
+    }
+
+    fun toggleMute() {
+        call("Application.SetMute", JSONObject().put("mute", "toggle"))
+    }
+
+    fun setAudio(id: Int, track: Track) {
+        call("Player.SetAudioStream", player(id).put("stream", track.index))
+    }
+
+    // track null: sottotitoli spenti
+    fun setSubtitle(id: Int, track: Track?) {
+        if (track == null) call("Player.SetSubtitle", player(id).put("subtitle", "off"))
+        else call("Player.SetSubtitle", player(id).put("subtitle", track.index).put("enable", true))
+    }
+
+    // Tasti del telecomando di Kodi: Up, Down, Left, Right, Select, Back, Home, ContextMenu, Info
+    fun press(key: String) {
+        call("Input.$key")
+    }
+
+    // Testo nel campo che Kodi ha aperto (la ricerca, un nome): con done Kodi lo conferma come con OK
+    fun sendText(text: String) {
+        call("Input.SendText", JSONObject().put("text", text).put("done", true))
     }
 }

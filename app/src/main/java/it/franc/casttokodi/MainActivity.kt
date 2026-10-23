@@ -3,6 +3,7 @@ package it.franc.casttokodi
 import android.R
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.Dialog
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.content.res.Configuration
@@ -10,7 +11,10 @@ import android.net.ConnectivityManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Typeface
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.net.nsd.NsdManager
@@ -27,6 +31,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
+import android.view.Window
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.webkit.CookieManager
@@ -38,6 +43,8 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupMenu
@@ -45,8 +52,8 @@ import android.widget.ProgressBar
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.TextView
-import android.widget.Toast
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -69,7 +76,6 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
-import it.franc.casttokodi.sites.GOOGLE
 import it.franc.casttokodi.sites.MASTER_PLAYLIST_JS
 import it.franc.casttokodi.sites.DEFAULT_AUTO_NEXT
 import it.franc.casttokodi.sites.MAX_AUTO_NEXT
@@ -117,7 +123,28 @@ class MainActivity : Activity() {
     private lateinit var web: WebView
     private lateinit var address: EditText
     private lateinit var cast: Button
-    private lateinit var queue: Button
+    private lateinit var queue: ImageButton
+    private lateinit var castBar: View
+    private lateinit var favorites: ImageButton
+    private lateinit var siteIcon: ImageView
+    private lateinit var shield: TextView
+    private lateinit var snack: TextView
+    private lateinit var mini: View
+    private lateinit var home: ScrollView
+    private lateinit var homeContent: LinearLayout
+    private lateinit var homeKodiTitle: TextView
+    private lateinit var homeKodiStatus: TextView
+    private lateinit var homeKodiButton: Button
+    // Kodi ha risposto all'ultima lettura del mini-player? null = non ancora chiesto
+    private var kodiReachable: Boolean? = null
+    private lateinit var miniTitle: TextView
+    private lateinit var miniStatus: TextView
+    private lateinit var miniPlay: ImageButton
+    private lateinit var miniProgress: ProgressBar
+    // Video che Kodi sta riproducendo, letto dal mini-player; null = Kodi fermo o non raggiungibile
+    private var miniNow: NowPlaying? = null
+    // Ogni avvio del ciclo di lettura del mini-player ha il suo numero: in onPause si cambia e il ciclo vecchio si ferma
+    @Volatile private var miniGeneration = 0
     private lateinit var progress: ProgressBar
     private val prefs by lazy { getSharedPreferences("kodi", MODE_PRIVATE) }
 
@@ -135,52 +162,103 @@ class MainActivity : Activity() {
 
     // Favicon della pagina aperta, salvata con il preferito
     private var pageIcon: Bitmap? = null
+    // Popup e salti bloccati sulla pagina aperta: si contano nello scudo della barra invece di un avviso a ogni blocco
+    private val blocked = mutableListOf<Uri>()
 
     // Mentre si cerca Kodi in rete lo dice il pulsante in basso: un toast sparisce prima di averlo letto
     private var searchingKodi = false
     // Un invio alla volta: i tocchi ripetuti su "Manda a Kodi" mentre Kodi risponde non mandano altri video
     private var sending = false
+    // App in primo piano: con il telefono bloccato il telecomando smette di chiedere a Kodi a che punto è
+    @Volatile private var resumed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val onSurface = sys(R.color.system_neutral1_900, R.color.system_neutral1_100)
+        val onSurfaceVariant = sys(R.color.system_neutral2_700, R.color.system_neutral2_200)
         address = EditText(this).apply {
             hint = "Cerca o scrivi un indirizzo"
             isSingleLine = true
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
             imeOptions = EditorInfo.IME_ACTION_GO
+            background = null
+            textSize = 15f
+            setTextColor(onSurface)
+            setHintTextColor(onSurfaceVariant)
+            setPadding(0, 0, 0, 0)
+            setSelectAllOnFocus(true)
             setOnEditorActionListener { _, _, _ -> open(text.toString()); true }
         }
-        val favorites = Button(this).apply {
-            text = "★"
-            setOnClickListener { showFavorites() }
+        siteIcon = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
-        val settings = Button(this).apply {
-            text = "Kodi"
-            setOnClickListener { kodiMenu(this) }
+        shield = TextView(this).apply {
+            textSize = 12f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER_VERTICAL
+            setTextColor(onSurfaceVariant)
+            setCompoundDrawablesRelativeWithIntrinsicBounds(icon(it.franc.casttokodi.R.drawable.ic_shield, onSurfaceVariant, 14), null, null, null)
+            compoundDrawablePadding = dp(4)
+            setPadding(dp(8), 0, dp(10), 0)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat()
+                setStroke(dp(1), sys(R.color.system_neutral2_400, R.color.system_neutral2_600))
+            }
+            visibility = View.GONE
+            setOnClickListener { showBlocked() }
         }
-        val power = Button(this).apply {
-            contentDescription = "Accendi la TV e apri Kodi"
-            tooltipText = contentDescription
-            setOnClickListener { wakeKodi() }
+        // Barra a pillola: icona del sito, indirizzo e, se ha bloccato qualcosa, lo scudo con il conto
+        val pill = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), 0, dp(6), 0)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(24).toFloat()
+                setColor(sys(R.color.system_neutral1_100, R.color.system_neutral1_800))
+            }
+            addView(siteIcon, LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(10) })
+            addView(address, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(shield, LinearLayout.LayoutParams(-2, dp(28)).apply { marginStart = dp(4) })
         }
-        paint(favorites, active = true, primary = false)
-        paint(power, active = true, primary = false)
-        // Il carattere ⏻ manca nel font del Pixel (si vedeva un quadratino): icona vettoriale disegnata sopra, al centro,
-        // del colore del testo. Il testo resta uno spazio, così altezza e linea di base sono quelle di ★ e Kodi
-        // (con l'icona dentro il testo, in un ImageSpan, il pulsante usciva più alto e spostato)
-        power.text = " "
-        power.foreground = getDrawable(it.franc.casttokodi.R.drawable.ic_power)!!.mutate().apply { setTint(power.currentTextColor) }
-        power.foregroundGravity = Gravity.CENTER
-        paint(settings, active = true, primary = false)
+        favorites = iconButton(it.franc.casttokodi.R.drawable.ic_star, "Preferiti") { showFavorites() }
+        val power = iconButton(it.franc.casttokodi.R.drawable.ic_power, "Accendi la TV e apri Kodi") { wakeKodi() }
+        val settings = iconButton(it.franc.casttokodi.R.drawable.ic_more, "Kodi: coda, impostazioni e log") { kodiMenu(it) }
+
+        // "Manda a Kodi" e "+ Coda" galleggiano sul sito e compaiono solo quando c'è un video da mandare
         cast = Button(this).apply {
+            textSize = 15f
+            isAllCaps = false
+            stateListAnimator = null
+            elevation = dp(6).toFloat()
+            compoundDrawablePadding = dp(10)
+            setPadding(dp(16), 0, dp(20), 0)
             setOnClickListener { pickVideo(queued = false) }
         }
-        queue = Button(this).apply {
-            text = "+ Coda"
+        queue = ImageButton(this).apply {
+            contentDescription = "Metti in coda su Kodi (tieni premuto per vedere la coda)"
+            tooltipText = "Metti in coda"
+            stateListAnimator = null
+            elevation = dp(6).toFloat()
             setOnClickListener { pickVideo(queued = true) }
             // Pressione lunga: apre la coda di Kodi
             setOnLongClickListener { showQueue(); true }
+        }
+        castBar = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL or Gravity.END
+            addView(queue, LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginEnd = dp(12) })
+            addView(cast, LinearLayout.LayoutParams(-2, dp(56)))
+        }
+        snack = TextView(this).apply {
+            textSize = 14f
+            setTextColor(sys(R.color.system_neutral1_50, R.color.system_neutral1_900))
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            elevation = dp(6).toFloat()
+            background = GradientDrawable().apply {
+                cornerRadius = dp(8).toFloat()
+                setColor(sys(R.color.system_neutral1_800, R.color.system_neutral1_100))
+            }
+            visibility = View.GONE
         }
         progress = ProgressBar(this, null, R.attr.progressBarStyleHorizontal).apply {
             max = 100
@@ -190,23 +268,39 @@ class MainActivity : Activity() {
         setupWebView()
 
         val topBar = LinearLayout(this).apply {
-            setPadding(dp(8), dp(4), dp(8), 0)
-            addView(address, LinearLayout.LayoutParams(0, -2, 1f))
-            addView(favorites, LinearLayout.LayoutParams(dp(56), -2).apply { marginStart = dp(4) })
-            addView(power, LinearLayout.LayoutParams(dp(56), -2).apply { marginStart = dp(4) })
-            addView(settings, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(4) })
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), dp(6), dp(4), dp(6))
+            addView(pill, LinearLayout.LayoutParams(0, dp(48), 1f))
+            addView(favorites, LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginStart = dp(4) })
+            addView(power, LinearLayout.LayoutParams(dp(44), dp(44)))
+            addView(settings, LinearLayout.LayoutParams(dp(44), dp(44)))
         }
-        val bottomBar = LinearLayout(this).apply {
-            setPadding(dp(8), dp(4), dp(8), dp(4))
-            addView(cast, LinearLayout.LayoutParams(0, dp(56), 1f))
-            addView(queue, LinearLayout.LayoutParams(-2, dp(56)).apply { marginStart = dp(8) })
+        val overlay = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.END
+            setPadding(dp(16), 0, dp(16), dp(16))
+            addView(castBar, LinearLayout.LayoutParams(-2, -2))
+            addView(snack, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
         }
+        homeContent = section().apply { setPadding(dp(16), dp(8), dp(16), dp(24)) }
+        home = ScrollView(this).apply {
+            setBackgroundColor(sys(R.color.system_neutral1_10, R.color.system_neutral1_900))
+            addView(homeContent)
+            visibility = View.GONE
+        }
+        val page = FrameLayout(this).apply {
+            addView(web, FrameLayout.LayoutParams(-1, -1))
+            addView(home, FrameLayout.LayoutParams(-1, -1))
+            addView(overlay, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        }
+        mini = miniPlayer()
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            setBackgroundColor(sys(R.color.system_neutral1_10, R.color.system_neutral1_900))
             addView(topBar)
             addView(progress, LinearLayout.LayoutParams(-1, -2))
-            addView(web, LinearLayout.LayoutParams(-1, 0, 1f))
-            addView(bottomBar, LinearLayout.LayoutParams(-1, -2))
+            addView(page, LinearLayout.LayoutParams(-1, 0, 1f))
+            addView(mini, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(8), dp(6), dp(8), dp(6)) })
             // targetSdk 35 forza l'edge-to-edge: senza padding la barra finisce sotto la status bar
             setOnApplyWindowInsetsListener { v, insets ->
                 val i = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.ime())
@@ -215,11 +309,12 @@ class MainActivity : Activity() {
             }
         }
         setContentView(root)
+        showSiteIcon(null)
         refreshCastButton()
 
         migrateAuth()
         migrateAutoNext()
-        open(prefs.getString("last", null) ?: GOOGLE)
+        showHome()
         if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress()
         checkUpdate()
     }
@@ -287,6 +382,7 @@ class MainActivity : Activity() {
 
             override fun onReceivedIcon(view: WebView, icon: Bitmap) {
                 pageIcon = icon
+                showSiteIcon(icon)
                 fillMissingIcon(view.url, icon)
             }
         }
@@ -302,14 +398,19 @@ class MainActivity : Activity() {
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 pageUrl = url
                 pageIcon = favicon
+                showSiteIcon(favicon)
+                home.visibility = View.GONE
                 allowedDomain = domainOf(Uri.parse(url))
-                address.setText(url)
+                if (!address.hasFocus()) address.setText(url)
                 videos.clear()
+                blocked.clear()
+                refreshShield()
+                refreshStar()
                 refreshCastButton()
             }
 
             override fun onPageFinished(view: WebView, url: String) {
-                if (!isGoogleConsent(Uri.parse(url).host)) prefs.edit().putString("last", url).apply()
+                if (!isGoogleConsent(Uri.parse(url).host)) prefs.edit().putString("last", url).putString("lastTitle", view.title).apply()
             }
 
             // Chiamato su un thread di background per ogni risorsa, anche dentro gli iframe e per le XHR dei player
@@ -335,8 +436,48 @@ class MainActivity : Activity() {
     }
 
     private fun block(url: Uri): Boolean {
-        toast("Bloccato: ${url.host ?: url.scheme}")
+        if (blocked.none { it.host == url.host }) blocked += url
+        refreshShield()
         return true
+    }
+
+    private fun refreshShield() {
+        shield.text = blocked.size.toString()
+        shield.contentDescription = "${blocked.size} popup o salti bloccati"
+        shield.visibility = if (blocked.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    // Lo scudo mostra cosa è stato bloccato: se serviva (un login, un player su un altro dominio) lo si apre da qui
+    private fun showBlocked() {
+        val list = blocked.toList()
+        AlertDialog.Builder(this)
+            .setTitle("Bloccati su questa pagina")
+            .setItems(list.map { it.host ?: it.scheme ?: it.toString() }.toTypedArray()) { _, i ->
+                allowedDomain = domainOf(list[i])
+                web.loadUrl(list[i].toString())
+            }
+            .setNegativeButton("Chiudi", null)
+            .show()
+    }
+
+    private fun showSiteIcon(icon: Bitmap?) {
+        if (icon != null) {
+            siteIcon.setImageBitmap(icon)
+            siteIcon.imageTintList = null
+        } else {
+            siteIcon.setImageResource(it.franc.casttokodi.R.drawable.ic_public)
+            siteIcon.imageTintList = ColorStateList.valueOf(sys(R.color.system_neutral2_700, R.color.system_neutral2_200))
+        }
+    }
+
+    // Stella piena se la pagina aperta è già nei preferiti
+    private fun refreshStar() {
+        val url = web.url
+        val saved = url != null && loadFavorites().any { it.url == url }
+        favorites.setImageDrawable(icon(
+            if (saved) it.franc.casttokodi.R.drawable.ic_star_filled else it.franc.casttokodi.R.drawable.ic_star,
+            if (saved) sys(R.color.system_accent1_600, R.color.system_accent1_200) else sys(R.color.system_neutral2_700, R.color.system_neutral2_200),
+        ))
     }
 
     private fun domainOf(url: Uri) = domainOf(url.host)
@@ -347,20 +488,54 @@ class MainActivity : Activity() {
         videoFor(url, referer, uri.host, uri.path, uri.encodedQuery)
     })
 
+    // Senza video i pulsanti non ci sono: il sito resta tutto visibile. Mentre si cerca Kodi o si manda il video
+    // restano, spenti, con quello che sta succedendo.
     private fun refreshCastButton() {
         val count = playable().size
-        val ready = count > 0 && !searchingKodi && !sending
+        val busy = searchingKodi || sending
+        val ready = count > 0 && !busy
+        castBar.visibility = if ((count > 0 && home.visibility != View.VISIBLE) || busy) View.VISIBLE else View.GONE
         cast.isEnabled = ready
         queue.isEnabled = ready
+        queue.visibility = if (busy) View.GONE else View.VISIBLE
         cast.text = when {
             searchingKodi -> "Cerco Kodi in rete…"
             sending -> "Invio a Kodi…"
-            count == 0 -> "Nessun video: avvia il player"
             count == 1 -> "Manda a Kodi"
-            else -> "Manda a Kodi ($count)"
+            else -> "Manda a Kodi · $count"
         }
-        paint(cast, ready, primary = true)
-        paint(queue, ready, primary = false)
+        // Pulsanti galleggianti di Material You: contenitore dell'accento per l'azione principale, tonale per la coda
+        val (castBg, castFg) = sys(R.color.system_accent1_100, R.color.system_accent1_700) to
+            sys(R.color.system_accent1_900, R.color.system_accent1_100)
+        val (queueBg, queueFg) = sys(R.color.system_accent2_100, R.color.system_accent2_700) to
+            sys(R.color.system_accent2_900, R.color.system_accent2_100)
+        cast.background = rounded(castBg, 16)
+        cast.setTextColor(castFg)
+        cast.alpha = if (ready) 1f else 0.7f
+        cast.setCompoundDrawablesRelativeWithIntrinsicBounds(icon(it.franc.casttokodi.R.drawable.ic_cast, castFg), null, null, null)
+        queue.background = rounded(queueBg, 24)
+        queue.setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_queue, queueFg))
+    }
+
+    // Sfondo arrotondato con l'onda al tocco
+    private fun rounded(color: Int, radius: Int) = RippleDrawable(
+        ColorStateList.valueOf(0x33808080),
+        GradientDrawable().apply { cornerRadius = dp(radius).toFloat(); setColor(color) },
+        null,
+    )
+
+    private fun icon(id: Int, color: Int, size: Int = 24) = getDrawable(id)!!.mutate().apply {
+        setTint(color)
+        setBounds(0, 0, dp(size), dp(size))
+    }
+
+    // Pulsante tondo con solo l'icona, come quelli delle barre di Android
+    private fun iconButton(id: Int, description: String, onClick: (View) -> Unit) = ImageButton(this).apply {
+        contentDescription = description
+        tooltipText = description
+        setImageDrawable(icon(id, sys(R.color.system_neutral2_700, R.color.system_neutral2_200)))
+        setBackgroundResource(attr(R.attr.selectableItemBackgroundBorderless))
+        setOnClickListener(onClick)
     }
 
     // Colori di sistema (Material You, presi dallo sfondo del Pixel): accento per l'azione principale,
@@ -391,8 +566,9 @@ class MainActivity : Activity() {
         val list = playable()
         if (list.isEmpty()) return
         if (list.size == 1) return sendToKodi(list[0], queued)
-        lateinit var dialog: AlertDialog
-        val content = section().apply { setPadding(dp(16), dp(8), dp(16), 0) }
+        lateinit var dialog: Dialog
+        val content = section().apply { setPadding(dp(24), 0, dp(24), dp(8)) }
+        content.addView(label("Di solito è il primo, il video completo."))
         val userAgent = web.settings.userAgentString
         list.forEach { video ->
             val image = ImageView(this).apply {
@@ -434,11 +610,7 @@ class MainActivity : Activity() {
                 }
             }
         }
-        dialog = AlertDialog.Builder(this)
-            .setTitle(if (queued) "Quale video mettere in coda? Di solito è il primo" else "Quale video? Di solito è il primo")
-            .setView(ScrollView(this).apply { addView(content) })
-            .setNegativeButton("Annulla", null)
-            .show()
+        dialog = sheet(if (queued) "Quale video mettere in coda?" else "Quale video mandare a Kodi?", content)
     }
 
     // Durata in secondi e un fotogramma piccolo, per riconoscere l'episodio da un trailer o da una pubblicità.
@@ -520,6 +692,7 @@ class MainActivity : Activity() {
                 // Hanno funzionato: valgono per questo Kodi su questa rete (anche le vecchie senza rete, o dopo un cambio di IP)
                 if (login != null && network != null) storeLogin(host, network, login)
                 toast(sent.message)
+                readMini()
                 sent.position?.let { queueNextEpisodes(kodi, page, it, userAgent, title) }
             }
         }
@@ -962,13 +1135,17 @@ class MainActivity : Activity() {
     // Il pulsante Kodi apre un menu: la coda si guarda spesso, le impostazioni e il log ogni tanto
     private fun kodiMenu(anchor: View) {
         PopupMenu(this, anchor).apply {
-            menu.add(0, 1, 0, "Coda di Kodi")
-            menu.add(0, 2, 1, "Dov'è Kodi?")
-            menu.add(0, 3, 2, "Log di Kodi")
+            menu.add(0, 4, 0, "Telecomando")
+            menu.add(0, 1, 1, "Coda di Kodi")
+            menu.add(0, 2, 2, "Dov'è Kodi?")
+            menu.add(0, 3, 3, "Log di Kodi")
+            menu.add(0, 5, 4, "Pagina iniziale")
             setOnMenuItemClickListener { item ->
                 when (item.itemId) {
                     1 -> showQueue()
                     2 -> askKodiAddress()
+                    4 -> showRemote()
+                    5 -> showHome()
                     else -> showKodiLog()
                 }
                 true
@@ -1014,8 +1191,8 @@ class MainActivity : Activity() {
         }, { (state, items, outside) ->
             val titles = loadTitles()
             val current = if (state.fromQueue) state.position else -1
-            lateinit var dialog: AlertDialog
-            val content = section().apply { setPadding(dp(16), dp(8), dp(8), 0) }
+            lateinit var dialog: Dialog
+            val content = section().apply { setPadding(dp(24), 0, dp(16), dp(8)) }
             content.addView(label(when {
                 outside != null && items.isEmpty() ->
                     "Kodi sta riproducendo un video partito fuori dalla coda, e la coda è vuota. \"+ Coda\" non può accodare dopo " +
@@ -1037,13 +1214,8 @@ class MainActivity : Activity() {
                     queueMenu(anchor, name, state, i) { dialog.dismiss() }
                 })
             }
-            val builder = AlertDialog.Builder(this)
-                .setTitle("Coda di Kodi")
-                .setView(ScrollView(this).apply { addView(content) })
-                .setPositiveButton("Aggiorna") { _, _ -> showQueue() }
-                .setNegativeButton("Chiudi", null)
-            if (items.size > (if (current >= 0) 1 else 0)) builder.setNeutralButton("Svuota") { _, _ -> clearQueue(current) }
-            dialog = builder.show()
+            val clear = if (items.size > (if (current >= 0) 1 else 0)) listOf("Svuota" to { clearQueue(current) }) else emptyList()
+            dialog = sheet("Coda di Kodi", content, *(clear + ("Aggiorna" to { showQueue() })).toTypedArray())
         })
     }
 
@@ -1117,6 +1289,594 @@ class MainActivity : Activity() {
             }
             show()
         }
+    }
+
+    // Telecomando di Kodi nel pannello dal basso (⋮ → Telecomando o mini-player)
+    private fun showRemote() {
+        if (prefs.getString("host", "").isNullOrBlank()) return askKodiAddress()
+        sheet("Telecomando", section(remoteView()).apply { setPadding(dp(16), 0, dp(16), dp(8)) })
+    }
+
+    // Il telecomando, da solo: chi lo mostra (il dialogo qui sopra o un pannello) mette solo la View.
+    // Finché la View è attaccata alla finestra e l'app è in primo piano, rilegge da Kodi il video in corso ogni secondo.
+    // Il telecomando della TV salta dei passi di Kodi (su/giù 10 minuti): qui i salti sono quelli scritti sul pulsante.
+    private fun remoteView(): View {
+        var now: NowPlaying? = null
+        var dragging = false
+        var generation = 0
+        val title = TextView(this).apply {
+            textSize = 18f
+            typeface = Typeface.DEFAULT_BOLD
+            maxLines = 2
+            ellipsize = TextUtils.TruncateAt.END
+            setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50))
+        }
+        val status = TextView(this).apply {
+            textSize = 13f
+            text = "Chiedo a Kodi…"
+            setTextColor(sys(R.color.system_neutral2_600, R.color.system_neutral2_400))
+        }
+        val elapsed = TextView(this).apply { textSize = 13f }
+        val total = TextView(this).apply { textSize = 13f; gravity = Gravity.END }
+        val volume = TextView(this).apply { textSize = 13f; gravity = Gravity.CENTER }
+
+        // Comando sul video in corso; poi si rilegge subito, così il telecomando non resta indietro di un secondo
+        lateinit var refresh: () -> Unit
+        fun video(action: (Kodi, Int) -> Unit) {
+            val id = now?.playerId ?: return toast("Kodi non sta riproducendo niente")
+            onKodi({ action(it, id) }, { refresh() })
+        }
+        fun kodi(action: (Kodi) -> Unit) = onKodi({ action(it) }, { refresh() })
+
+        val bar = SeekBar(this).apply {
+            isEnabled = false
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
+                    if (fromUser) elapsed.text = clockLabel(progress.toLong())
+                }
+                override fun onStartTrackingTouch(bar: SeekBar) {
+                    dragging = true
+                }
+                override fun onStopTrackingTouch(bar: SeekBar) {
+                    dragging = false
+                    video { kodi, id -> kodi.seekTo(id, bar.progress.toLong()) }
+                }
+            })
+        }
+        val playPause = remoteIcon(it.franc.casttokodi.R.drawable.ic_pause, "Play o pausa", primary = true) {
+            video { kodi, id -> kodi.playPause(id) }
+        }
+        val mute = remoteIcon(it.franc.casttokodi.R.drawable.ic_volume_off, "Muto") { kodi { it.toggleMute() } }
+
+        fun show(playing: NowPlaying?, problem: String?) {
+            now = playing
+            if (playing == null) {
+                status.text = problem
+                return
+            }
+            volume.text = if (playing.muted) "Muto" else "Volume ${playing.volume}%"
+            mute.alpha = if (playing.muted) 1f else 0.6f
+            if (playing.playerId == null) {
+                title.text = "Niente in riproduzione"
+                status.text = "Kodi è fermo"
+                bar.isEnabled = false
+                bar.progress = 0
+                elapsed.text = clockLabel(0)
+                total.text = clockLabel(0)
+                return
+            }
+            title.text = queueLabel(playing.file, playing.title, loadTitles())
+            status.text = if (playing.paused) "In pausa" else "In riproduzione"
+            setRemoteIcon(playPause, if (playing.paused) it.franc.casttokodi.R.drawable.ic_play else it.franc.casttokodi.R.drawable.ic_pause)
+            bar.isEnabled = playing.total > 0
+            bar.max = playing.total.toInt().coerceAtLeast(1)
+            if (!dragging) {
+                bar.progress = playing.time.toInt()
+                elapsed.text = clockLabel(playing.time)
+            }
+            total.text = clockLabel(playing.total)
+        }
+
+        // In background: il video in corso, o perché non si sa
+        fun read(): Pair<NowPlaying?, String?> {
+            val host = prefs.getString("host", "").orEmpty()
+            val login = savedLogin(host, currentNetwork())
+            return try {
+                Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty()).nowPlaying() to null
+            } catch (e: Unauthorized) {
+                null to "Kodi chiede utente e password: premi un pulsante per inserirli"
+            } catch (e: Exception) {
+                null to "Kodi non risponde. Se la TV è spenta, accendila con ⏻ qui sotto"
+            }
+        }
+        refresh = { thread { read().let { (playing, problem) -> runOnUiThread { show(playing, problem) } } } }
+
+        val skips = listOf(-30, -10, 10, 30).map { seconds ->
+            remoteText(if (seconds < 0) "−${-seconds} s" else "+$seconds s") { video { kodi, id -> kodi.skip(id, seconds) } }
+        }
+        val transport = listOf(
+            remoteIcon(it.franc.casttokodi.R.drawable.ic_skip_previous, "Video precedente della coda") { video { kodi, id -> kodi.previous(id) } },
+            playPause,
+            remoteIcon(it.franc.casttokodi.R.drawable.ic_stop, "Ferma il video") {
+                if (now?.playerId == null) return@remoteIcon toast("Kodi non sta riproducendo niente")
+                AlertDialog.Builder(this)
+                    .setMessage("Fermare il video su Kodi? La coda resta.")
+                    .setPositiveButton("Ferma") { _, _ -> video { kodi, id -> kodi.stop(id) } }
+                    .setNegativeButton("Annulla", null)
+                    .show()
+            },
+            remoteIcon(it.franc.casttokodi.R.drawable.ic_skip_next, "Video successivo della coda") { video { kodi, id -> kodi.next(id) } },
+        )
+        val options = listOf(
+            remoteText("Vai al minuto") { now?.let { askSeek(it) { seconds -> video { kodi, id -> kodi.seekTo(id, seconds) } } } },
+            remoteText("Velocità") {
+                val id = now?.playerId ?: return@remoteText toast("Kodi non sta riproducendo niente")
+                chooseTempo { tempo -> tempoAt(tempo, id) }
+            },
+        )
+        val tracks = listOf(
+            remoteText("Audio") { now?.takeIf { it.playerId != null }?.let { chooseAudio(it) { track -> video { kodi, id -> kodi.setAudio(id, track) } } } },
+            remoteText("Sottotitoli") { now?.takeIf { it.playerId != null }?.let { chooseSubtitle(it) { track -> video { kodi, id -> kodi.setSubtitle(id, track) } } } },
+        )
+        fun key(icon: Int, description: String, name: String) = remoteIcon(icon, description) { kodi { it.press(name) } }
+        val ok = remoteText("OK") { kodi { it.press("Select") } }
+        val pad = section(
+            padRow(key(it.franc.casttokodi.R.drawable.ic_arrow_up, "Su", "Up")),
+            padRow(key(it.franc.casttokodi.R.drawable.ic_arrow_left, "Sinistra", "Left"), ok, key(it.franc.casttokodi.R.drawable.ic_arrow_right, "Destra", "Right")),
+            padRow(key(it.franc.casttokodi.R.drawable.ic_arrow_down, "Giù", "Down")),
+        )
+        val menus = listOf(
+            remoteText("Indietro") { kodi { it.press("Back") } },
+            remoteText("Home") { kodi { it.press("Home") } },
+            remoteText("Menu") { kodi { it.press("ContextMenu") } },
+            remoteText("Scrivi") { askText { text -> kodi { it.sendText(text) } } },
+        )
+        val sound = listOf(
+            remoteIcon(it.franc.casttokodi.R.drawable.ic_volume_down, "Volume giù") { kodi { it.volume(up = false) } },
+            mute,
+            remoteIcon(it.franc.casttokodi.R.drawable.ic_volume_up, "Volume su") { kodi { it.volume(up = true) } },
+        )
+        val power = remoteText("Accendi la TV e Kodi") { wakeKodi() }
+
+        val times = LinearLayout(this).apply {
+            addView(elapsed, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(total, LinearLayout.LayoutParams(0, -2, 1f))
+        }
+        val hint = label("Durante il video le frecce di Kodi saltano avanti e indietro (su e giù di 10 minuti): per spostarti usa la barra o i salti.").apply {
+            textSize = 12f
+            setTextColor(sys(R.color.system_neutral2_600, R.color.system_neutral2_400))
+        }
+        return section(
+            title, status, bar, times,
+            remoteRow(skips), remoteRow(transport), remoteRow(options), remoteRow(tracks),
+            pad, hint, remoteRow(menus), remoteRow(sound), volume, remoteRow(listOf(power)),
+        ).apply {
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+            addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) {
+                    val mine = ++generation
+                    thread {
+                        while (mine == generation) {
+                            if (resumed) read().let { (playing, problem) -> runOnUiThread { if (mine == generation) show(playing, problem) } }
+                            Thread.sleep(1000)
+                        }
+                    }
+                }
+                override fun onViewDetachedFromWindow(v: View) {
+                    generation++
+                }
+            })
+        }
+    }
+
+    // Pagina iniziale al posto del sito: Kodi (stato e accensione), l'ultima pagina guardata e i preferiti come icone
+    private fun showHome() {
+        home.visibility = View.VISIBLE
+        if (!address.hasFocus()) address.setText("")
+        showSiteIcon(null)
+        blocked.clear()
+        refreshShield()
+        refreshHome()
+        refreshCastButton()
+    }
+
+    private fun refreshHome() {
+        homeContent.removeAllViews()
+        homeContent.addView(kodiCard())
+        refreshKodiCard()
+
+        val last = prefs.getString("last", null)
+        if (last != null) {
+            homeContent.addView(homeHeading("Riprendi"))
+            val host = Uri.parse(last).host
+            val title = prefs.getString("lastTitle", null)?.takeIf { it.isNotBlank() } ?: shortHost(host)
+            val saved = loadFavorites().firstOrNull { Uri.parse(it.url).host == host }
+            val icon = saved?.let { favoriteIcon(it) } ?: ImageView(this).apply {
+                setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_public, sys(R.color.system_neutral2_700, R.color.system_neutral2_200)))
+                scaleType = ImageView.ScaleType.CENTER
+            }
+            homeContent.addView(homeCard().apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setOnClickListener { open(last) }
+                addView(icon, LinearLayout.LayoutParams(dp(40), dp(40)))
+                addView(section(
+                    homeText(title, 15f, bold = true),
+                    homeText(shortHost(host), 13f, bold = false),
+                ), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(16) })
+            })
+        }
+
+        homeContent.addView(homeHeading("Preferiti"))
+        val favorites = loadFavorites()
+        if (favorites.isEmpty()) {
+            homeContent.addView(label("Apri un sito e premi ★ in alto: lo ritrovi qui."))
+        }
+        favorites.chunked(4).forEach { row ->
+            homeContent.addView(LinearLayout(this).apply {
+                row.forEach { favorite -> addView(favoriteTile(favorite), LinearLayout.LayoutParams(0, -2, 1f)) }
+                repeat(4 - row.size) { addView(View(context), LinearLayout.LayoutParams(0, 0, 1f)) }
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+        }
+
+        homeContent.addView(label("Per mandare un video: apri l'episodio e avvia il player sul sito. \"Manda a Kodi\" compare da solo in basso.").apply {
+            textSize = 13f
+            setTextColor(sys(R.color.system_neutral2_600, R.color.system_neutral2_400))
+            setPadding(dp(4), dp(24), dp(4), 0)
+        })
+    }
+
+    // Riquadro di Kodi in cima alla pagina iniziale. Il testo lo aggiorna refreshKodiCard a ogni lettura del mini-player.
+    private fun kodiCard(): View {
+        homeKodiTitle = homeText("", 15f, bold = true)
+        homeKodiStatus = homeText("", 13f, bold = false).apply { maxLines = 2 }
+        homeKodiButton = Button(this).apply {
+            isAllCaps = false
+            stateListAnimator = null
+            background = rounded(sys(R.color.system_accent1_600, R.color.system_accent1_200), 18)
+            setTextColor(sys(R.color.system_accent1_0, R.color.system_accent1_800))
+            setPadding(dp(16), 0, dp(16), 0)
+        }
+        val badge = ImageView(this).apply {
+            setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_remote, sys(R.color.system_accent2_900, R.color.system_accent2_100)))
+            scaleType = ImageView.ScaleType.CENTER
+            background = circle(sys(R.color.system_accent2_100, R.color.system_accent2_700))
+        }
+        return homeCard().apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(badge, LinearLayout.LayoutParams(dp(40), dp(40)))
+            addView(section(homeKodiTitle, homeKodiStatus), LinearLayout.LayoutParams(0, -2, 1f).apply {
+                marginStart = dp(16)
+                marginEnd = dp(8)
+            })
+            addView(homeKodiButton, LinearLayout.LayoutParams(-2, dp(36)))
+        }
+    }
+
+    private fun refreshKodiCard() {
+        if (!::homeKodiTitle.isInitialized) return
+        val host = prefs.getString("host", "").orEmpty()
+        val name = prefs.getString("name", "").orEmpty().ifBlank { "Kodi" }
+        val playing = miniNow?.takeIf { it.playerId != null }
+        homeKodiTitle.text = if (host.isBlank()) "Kodi non ancora scelto" else name
+        homeKodiStatus.text = when {
+            host.isBlank() -> "Scegli la Fire TV con Kodi per mandarle i video"
+            playing != null -> "Sta riproducendo: ${queueLabel(playing.file, playing.title, loadTitles())}"
+            kodiReachable == true -> "Acceso, nessun video in corso"
+            kodiReachable == false -> "Spento o non raggiungibile"
+            else -> "Controllo…"
+        }
+        val (label, action) = when {
+            host.isBlank() -> "Scegli" to { askKodiAddress() }
+            kodiReachable == true -> "Telecomando" to { showRemote() }
+            else -> "Accendi" to { wakeKodi() }
+        }
+        homeKodiButton.text = label
+        homeKodiButton.setOnClickListener { action() }
+    }
+
+    private fun homeCard() = LinearLayout(this).apply {
+        setPadding(dp(16), dp(12), dp(12), dp(12))
+        background = rounded(sys(R.color.system_neutral1_50, R.color.system_neutral1_800), 16)
+        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) }
+    }
+
+    private fun homeHeading(text: String) = TextView(this).apply {
+        this.text = text.uppercase()
+        textSize = 12f
+        typeface = Typeface.DEFAULT_BOLD
+        letterSpacing = 0.08f
+        setTextColor(sys(R.color.system_accent1_600, R.color.system_accent1_200))
+        setPadding(dp(4), dp(24), 0, dp(4))
+    }
+
+    private fun homeText(text: String, size: Float, bold: Boolean) = TextView(this).apply {
+        this.text = text
+        textSize = size
+        maxLines = 1
+        ellipsize = TextUtils.TruncateAt.END
+        if (bold) typeface = Typeface.DEFAULT_BOLD
+        setTextColor(if (bold) sys(R.color.system_neutral1_900, R.color.system_neutral1_50) else sys(R.color.system_neutral2_600, R.color.system_neutral2_400))
+    }
+
+    // Preferito come icona con il nome sotto; pressione lunga per rinominarlo o toglierlo
+    private fun favoriteTile(favorite: Favorite): View {
+        val name = TextView(this).apply {
+            text = favorite.title
+            textSize = 12f
+            gravity = Gravity.CENTER
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            setTextColor(sys(R.color.system_neutral2_700, R.color.system_neutral2_200))
+        }
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(4), dp(8), dp(4), dp(8))
+            setBackgroundResource(attr(R.attr.selectableItemBackground))
+            contentDescription = favorite.title
+            setOnClickListener { open(favorite.url) }
+            setOnLongClickListener { tile ->
+                favoriteMenu(tile, favorite) { changed ->
+                    val list = loadFavorites()
+                    val i = list.indexOfFirst { it.url == favorite.url && it.title == favorite.title }
+                    if (i >= 0) {
+                        if (changed == null) list.removeAt(i) else list[i] = changed
+                        saveFavorites(list)
+                    }
+                }
+                true
+            }
+            addView(favoriteIcon(favorite), LinearLayout.LayoutParams(dp(48), dp(48)))
+            addView(name, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
+        }
+    }
+
+    // Barra in basso con quello che Kodi sta riproducendo: play/pausa, nome, tempo e una riga di avanzamento.
+    // Toccandola si apre il telecomando. Si vede solo quando Kodi ha un video aperto.
+    private fun miniPlayer(): View {
+        val onSurface = sys(R.color.system_neutral1_900, R.color.system_neutral1_100)
+        val onSurfaceVariant = sys(R.color.system_neutral2_700, R.color.system_neutral2_200)
+        miniPlay = ImageButton(this).apply {
+            contentDescription = "Play o pausa su Kodi"
+            tooltipText = contentDescription
+            background = rounded(sys(R.color.system_accent1_600, R.color.system_accent1_200), 20)
+            setOnClickListener {
+                val id = miniNow?.playerId ?: return@setOnClickListener
+                onKodi({ kodi -> kodi.playPause(id) }, { readMini() })
+            }
+        }
+        miniTitle = TextView(this).apply {
+            textSize = 14f
+            typeface = Typeface.DEFAULT_BOLD
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            setTextColor(onSurface)
+        }
+        miniStatus = TextView(this).apply {
+            textSize = 12f
+            maxLines = 1
+            setTextColor(onSurfaceVariant)
+        }
+        val remote = ImageButton(this).apply {
+            contentDescription = "Apri il telecomando"
+            tooltipText = contentDescription
+            setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_remote, onSurfaceVariant))
+            setBackgroundResource(attr(R.attr.selectableItemBackgroundBorderless))
+            setOnClickListener { showRemote() }
+        }
+        miniProgress = ProgressBar(this, null, R.attr.progressBarStyleHorizontal).apply {
+            max = 1000
+            progressTintList = ColorStateList.valueOf(sys(R.color.system_accent1_600, R.color.system_accent1_200))
+            progressBackgroundTintList = ColorStateList.valueOf(sys(R.color.system_neutral2_300, R.color.system_neutral2_600))
+        }
+        val row = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), dp(8), dp(4), 0)
+            addView(miniPlay, LinearLayout.LayoutParams(dp(40), dp(40)))
+            addView(section(miniTitle, miniStatus), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(12) })
+            addView(remote, LinearLayout.LayoutParams(dp(44), dp(44)))
+        }
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = rounded(sys(R.color.system_neutral1_50, R.color.system_neutral1_800), 16)
+            clipToOutline = true
+            isClickable = true
+            contentDescription = "Video su Kodi: tocca per il telecomando"
+            setOnClickListener { showRemote() }
+            addView(row)
+            addView(miniProgress, LinearLayout.LayoutParams(-1, dp(4)).apply { setMargins(dp(12), dp(6), dp(12), dp(4)) })
+            visibility = View.GONE
+        }
+    }
+
+    // Rilegge Kodi ogni 3 secondi finché l'app è in primo piano. In silenzio: se Kodi non risponde la barra sparisce
+    // e basta, gli errori li mostrano l'invio e il telecomando.
+    private fun startMini() {
+        val mine = ++miniGeneration
+        thread {
+            while (mine == miniGeneration) {
+                val playing = quietNowPlaying()
+                runOnUiThread { if (mine == miniGeneration) showMini(playing) }
+                Thread.sleep(3000)
+            }
+        }
+    }
+
+    // Una lettura subito, dopo un invio o un comando, per non aspettare il giro successivo
+    private fun readMini() {
+        thread { quietNowPlaying().let { runOnUiThread { showMini(it) } } }
+    }
+
+    private fun quietNowPlaying(): NowPlaying? {
+        val host = prefs.getString("host", "").orEmpty()
+        if (host.isBlank()) return null
+        val login = savedLogin(host, currentNetwork())
+        return try {
+            Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty()).nowPlaying()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun showMini(playing: NowPlaying?) {
+        miniNow = playing
+        kodiReachable = playing != null
+        refreshKodiCard()
+        if (playing?.playerId == null) {
+            mini.visibility = View.GONE
+            return
+        }
+        miniTitle.text = queueLabel(playing.file, playing.title, loadTitles())
+        miniStatus.text = miniPlayerStatus(playing.paused, playing.time, playing.total)
+        miniProgress.progress = if (playing.total > 0) (playing.time * 1000 / playing.total).toInt() else 0
+        miniPlay.setImageDrawable(icon(
+            if (playing.paused) it.franc.casttokodi.R.drawable.ic_play else it.franc.casttokodi.R.drawable.ic_pause,
+            sys(R.color.system_accent1_0, R.color.system_accent1_800),
+        ))
+        miniPlay.contentDescription = if (playing.paused) "Riprendi su Kodi" else "Metti in pausa su Kodi"
+        mini.visibility = View.VISIBLE
+    }
+
+    // Pulsante del telecomando con un'icona al centro, del colore del testo (come ⏻)
+    private fun remoteIcon(icon: Int, description: String, primary: Boolean = false, onClick: () -> Unit) = Button(this).apply {
+        text = " "
+        contentDescription = description
+        tooltipText = description
+        paint(this, active = true, primary = primary)
+        setRemoteIcon(this, icon)
+        foregroundGravity = Gravity.CENTER
+        setOnClickListener { onClick() }
+    }
+
+    private fun setRemoteIcon(button: Button, icon: Int) {
+        button.foreground = getDrawable(icon)!!.mutate().apply { setTint(button.currentTextColor) }
+    }
+
+    private fun remoteText(text: String, onClick: () -> Unit) = Button(this).apply {
+        this.text = text
+        paint(this, active = true, primary = false)
+        setOnClickListener { onClick() }
+    }
+
+    // Pulsanti in fila, larghi uguali
+    private fun remoteRow(buttons: List<View>) = LinearLayout(this).apply {
+        buttons.forEach { addView(it, LinearLayout.LayoutParams(0, dp(56), 1f).apply { marginStart = dp(2); marginEnd = dp(2) }) }
+    }
+
+    // Una fila della croce: pulsanti quadrati al centro
+    private fun padRow(vararg buttons: View) = LinearLayout(this).apply {
+        gravity = Gravity.CENTER
+        buttons.forEach { addView(it, LinearLayout.LayoutParams(dp(72), dp(64)).apply { marginStart = dp(4); marginEnd = dp(4) }) }
+    }
+
+    // "Vai al minuto": 12:30, 1:02:30 o solo i minuti
+    private fun askSeek(playing: NowPlaying, done: (Long) -> Unit) {
+        if (playing.playerId == null) return toast("Kodi non sta riproducendo niente")
+        val field = EditText(this).apply {
+            hint = "es. 12:30"
+            isSingleLine = true
+            inputType = InputType.TYPE_CLASS_DATETIME or InputType.TYPE_DATETIME_VARIATION_TIME
+            imeOptions = EditorInfo.IME_ACTION_GO
+        }
+        lateinit var dialog: AlertDialog
+        val go = {
+            val seconds = parseClock(field.text.toString())
+            if (seconds == null) toast("Scrivi il tempo come 12:30 (minuti:secondi) o 1:02:30")
+            else {
+                done(seconds)
+                dialog.dismiss()
+            }
+        }
+        dialog = AlertDialog.Builder(this)
+            .setTitle("Vai al minuto")
+            .setMessage(if (playing.total > 0) "Il video dura ${clockLabel(playing.total)}." else null)
+            .setView(section(field).apply { setPadding(dp(24), dp(8), dp(24), 0) })
+            .setPositiveButton("Vai", null)
+            .setNegativeButton("Annulla", null)
+            .create()
+        field.setOnEditorActionListener { _, _, _ -> go(); true }
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        dialog.show()
+        // Con un tempo sbagliato il dialogo resta aperto
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { go() }
+        field.requestFocus()
+    }
+
+    private fun chooseTempo(done: (Double) -> Unit) {
+        val tempos = listOf(1.0, 1.25, 1.5)
+        AlertDialog.Builder(this)
+            .setTitle("Velocità")
+            .setItems(arrayOf("Normale", "1,25x", "1,5x")) { _, i -> done(tempos[i]) }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+
+    // Kodi rifiuta la velocità con alcuni video: lo si spiega invece del messaggio tecnico
+    private fun tempoAt(tempo: Double, id: Int) {
+        onKodi({ kodi ->
+            try {
+                kodi.setTempo(id, tempo)
+                null
+            } catch (e: KodiError) {
+                e.message
+            }
+        }, { problem ->
+            if (problem == null) toast(if (tempo == 1.0) "Velocità normale" else "Velocità ${tempo.toString().replace('.', ',')}x")
+            else notice("Velocità non cambiata", "Kodi non cambia la velocità di questo video ($problem). Serve Kodi 19 o più recente, e con alcuni video o impostazioni audio Kodi non lo permette.")
+        })
+    }
+
+    private fun chooseAudio(playing: NowPlaying, done: (Track) -> Unit) {
+        val labels = playing.audio.mapIndexed { i, t -> trackLabel(t.language, t.name, i + 1) }
+        if (labels.size < 2) {
+            return notice("Audio", if (labels.isEmpty()) "Kodi non vede tracce audio in questo video." else "Questo video ha una sola traccia audio: ${labels[0]}.")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Lingua dell'audio")
+            .setSingleChoiceItems(labels.toTypedArray(), playing.currentAudio) { dialog, i ->
+                dialog.dismiss()
+                done(playing.audio[i])
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+
+    // done(null): sottotitoli spenti
+    private fun chooseSubtitle(playing: NowPlaying, done: (Track?) -> Unit) {
+        if (playing.subtitles.isEmpty()) return notice("Sottotitoli", "Questo video non ha sottotitoli.")
+        val labels = listOf("Spenti") + playing.subtitles.mapIndexed { i, t -> trackLabel(t.language, t.name, i + 1) }
+        AlertDialog.Builder(this)
+            .setTitle("Sottotitoli")
+            .setSingleChoiceItems(labels.toTypedArray(), if (playing.subtitlesOn) playing.currentSubtitle + 1 else 0) { dialog, i ->
+                dialog.dismiss()
+                done(if (i == 0) null else playing.subtitles[i - 1])
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+
+    // Testo per il campo che Kodi ha aperto (la ricerca, un nome): si scrive con la tastiera del telefono
+    private fun askText(done: (String) -> Unit) {
+        val field = EditText(this).apply {
+            isSingleLine = true
+            inputType = InputType.TYPE_CLASS_TEXT
+            imeOptions = EditorInfo.IME_ACTION_SEND
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Scrivi su Kodi")
+            .setMessage("Prima apri in Kodi il campo dove scrivere, per esempio la ricerca.")
+            .setView(section(field).apply { setPadding(dp(24), dp(8), dp(24), 0) })
+            .setPositiveButton("Manda") { _, _ -> done(field.text.toString()) }
+            .setNegativeButton("Annulla", null)
+            .create()
+        field.setOnEditorActionListener { _, _, _ ->
+            done(field.text.toString())
+            dialog.dismiss()
+            true
+        }
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        dialog.show()
+        field.requestFocus()
     }
 
     // Toglie tutto tranne il video in corso (vedi Kodi.clearQueue)
@@ -1327,6 +2087,8 @@ class MainActivity : Activity() {
     private fun saveFavorites(list: List<Favorite>) {
         val array = JSONArray(list.map { JSONObject().put("title", it.title).put("url", it.url).putOpt("icon", it.icon) })
         prefs.edit().putString("favorites", array.toString()).apply()
+        refreshStar()
+        if (home.visibility == View.VISIBLE) refreshHome()
     }
 
     private fun encodeIcon(icon: Bitmap): String {
@@ -1349,12 +2111,12 @@ class MainActivity : Activity() {
     // Tocco apre, ⋮ (o pressione lunga) per rinominare o togliere
     private fun showFavorites() {
         val list = loadFavorites()
-        val current = web.url?.takeIf { it.startsWith("http") }
+        val current = web.url?.takeIf { it.startsWith("http") && home.visibility != View.VISIBLE }
         val canAdd = current != null && list.none { it.url == current }
         if (list.isEmpty() && !canAdd) return toast("Apri un sito per aggiungerlo ai preferiti")
 
-        lateinit var dialog: AlertDialog
-        val content = section().apply { setPadding(dp(16), dp(8), dp(8), 0) }
+        lateinit var dialog: Dialog
+        val content = section().apply { setPadding(dp(24), 0, dp(16), dp(8)) }
         if (canAdd) {
             val add = Button(this).apply {
                 text = "＋ Aggiungi questa pagina"
@@ -1374,11 +2136,7 @@ class MainActivity : Activity() {
                 }
             })
         }
-        dialog = AlertDialog.Builder(this)
-            .setTitle("Preferiti")
-            .setView(ScrollView(this).apply { addView(content) })
-            .setNegativeButton("Chiudi", null)
-            .show()
+        dialog = sheet("Preferiti", content)
     }
 
     private fun addFavorite(url: String) {
@@ -1390,12 +2148,13 @@ class MainActivity : Activity() {
     }
 
     // Riga di un preferito: icona del sito (o iniziale su un cerchio), nome, dominio più tenue e ⋮
-    private fun favoriteRow(favorite: Favorite, onOpen: () -> Unit, onMenu: (View) -> Unit): View {
+    // Icona di un preferito: quella del sito, o l'iniziale su un cerchio
+    private fun favoriteIcon(favorite: Favorite): View {
         val host = Uri.parse(favorite.url).host
         val bitmap = favorite.icon
             ?.let { runCatching { Base64.decode(it, Base64.DEFAULT) }.getOrNull() }
             ?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
-        val icon: View = if (bitmap != null) {
+        return if (bitmap != null) {
             ImageView(this).apply {
                 setImageBitmap(bitmap)
                 scaleType = ImageView.ScaleType.FIT_CENTER
@@ -1413,6 +2172,11 @@ class MainActivity : Activity() {
                 background = circle(sys(R.color.system_accent1_100, R.color.system_accent1_700))
             }
         }
+    }
+
+    private fun favoriteRow(favorite: Favorite, onOpen: () -> Unit, onMenu: (View) -> Unit): View {
+        val host = Uri.parse(favorite.url).host
+        val icon = favoriteIcon(favorite)
         val name = TextView(this).apply {
             text = favorite.title
             textSize = 16f
@@ -1495,6 +2259,71 @@ class MainActivity : Activity() {
         field.requestFocus()
     }
 
+    // Pannello che sale dal basso al posto di un dialogo al centro: maniglia, titolo, contenuto che scorre e, in fondo,
+    // i pulsanti vicino al pollice. Si chiude toccando fuori o con indietro.
+    private fun sheet(title: String, content: View, vararg actions: Pair<String, () -> Unit>): Dialog {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val radius = dp(28).toFloat()
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadii = floatArrayOf(radius, radius, radius, radius, 0f, 0f, 0f, 0f)
+                setColor(sys(R.color.system_neutral1_10, R.color.system_neutral1_900))
+            }
+            val handle = View(context).apply {
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(2).toFloat()
+                    setColor(sys(R.color.system_neutral2_400, R.color.system_neutral2_600))
+                }
+            }
+            addView(handle, LinearLayout.LayoutParams(dp(32), dp(4)).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                topMargin = dp(16)
+            })
+            addView(TextView(context).apply {
+                text = title
+                textSize = 20f
+                setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_100))
+                setPadding(dp(24), dp(16), dp(24), dp(12))
+            })
+            // Altezza 0 con peso: se il contenuto è più alto dello schermo è lo ScrollView a restringersi, non i pulsanti
+            addView(ScrollView(context).apply { addView(content) }, LinearLayout.LayoutParams(-1, 0, 1f))
+            if (actions.isNotEmpty()) {
+                val bar = LinearLayout(context).apply {
+                    gravity = Gravity.END
+                    setPadding(dp(16), dp(8), dp(16), dp(8))
+                }
+                actions.forEach { (label, action) ->
+                    bar.addView(Button(context).apply {
+                        text = label
+                        isAllCaps = false
+                        stateListAnimator = null
+                        background = rounded(sys(R.color.system_accent2_100, R.color.system_accent2_700), 20)
+                        setTextColor(sys(R.color.system_accent2_900, R.color.system_accent2_100))
+                        setPadding(dp(20), 0, dp(20), 0)
+                        setOnClickListener { dialog.dismiss(); action() }
+                    }, LinearLayout.LayoutParams(-2, dp(40)).apply { marginStart = dp(8) })
+                }
+                addView(bar)
+            }
+            // Sotto la barra dei gesti: il pannello arriva al bordo, il contenuto resta sopra
+            setOnApplyWindowInsetsListener { v, insets ->
+                v.setPadding(0, 0, 0, insets.getInsets(WindowInsets.Type.navigationBars()).bottom)
+                insets
+            }
+        }
+        dialog.setContentView(panel)
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
+            setGravity(Gravity.BOTTOM)
+            setWindowAnimations(R.style.Animation_InputMethod)
+        }
+        dialog.show()
+        return dialog
+    }
+
     private fun circle(color: Int) = GradientDrawable().apply {
         shape = GradientDrawable.OVAL
         setColor(color)
@@ -1511,17 +2340,38 @@ class MainActivity : Activity() {
             .show()
     }
 
-    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    // Avviso in fondo allo schermo, sopra il sito: resta più di un toast se il testo è lungo
+    private val hideSnack = Runnable { snack.visibility = View.GONE }
+
+    private fun toast(msg: String) = runOnUiThread {
+        snack.text = msg
+        snack.visibility = View.VISIBLE
+        snack.removeCallbacks(hideSnack)
+        snack.postDelayed(hideSnack, (2500L + 40L * msg.length).coerceAtMost(6000L))
+    }
 
     // Il WebView salva i cookie su disco ogni tanto: se l'app viene chiusa prima si perde la scelta sulla pagina
     // dei cookie di Google (e i login dei siti), che si ripresenterebbe a ogni avvio
     override fun onPause() {
         super.onPause()
+        resumed = false
+        miniGeneration++
         CookieManager.getInstance().flush()
     }
 
+    override fun onResume() {
+        super.onResume()
+        resumed = true
+        startMini()
+    }
+
+    // Indietro: la pagina precedente del sito; dalla prima pagina si torna alla pagina iniziale, e da lì si esce
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (web.canGoBack()) web.goBack() else super.onBackPressed()
+        when {
+            home.visibility == View.VISIBLE -> super.onBackPressed()
+            web.canGoBack() -> web.goBack()
+            else -> showHome()
+        }
     }
 }

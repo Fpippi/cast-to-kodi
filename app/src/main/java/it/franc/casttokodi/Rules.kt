@@ -7,6 +7,7 @@ import it.franc.casttokodi.sites.isVixCloudPart
 import it.franc.casttokodi.sites.isVixCloudPlaylist
 import java.net.URI
 import java.net.URLEncoder
+import java.util.Locale
 
 // Regole dell'app scritte senza API Android (niente Uri, WebView, Context): così le provano i test
 // in app/src/test, che girano sulla JVM a ogni PR. Quello che vale per un solo sito o player sta in sites/.
@@ -322,4 +323,39 @@ fun queueLabel(file: String, kodiTitle: String, titles: Map<String, String>): St
     val host = Regex("^\\w+://([^/:?|]+)").find(file)?.groupValues?.get(1)
     if (kodiTitle.isNotBlank() && (host == null || ('?' !in kodiTitle && '/' !in kodiTitle))) return kodiTitle
     return if (host != null) "Video da ${shortHost(host)}" else file
+}
+
+// Telecomando: tempo scritto a mano per "Vai al minuto". "12:30" = 12 min 30 s, "1:02:30", "45" = 45 minuti.
+// null se non è un tempo
+fun parseClock(input: String): Long? {
+    val parts = input.trim().replace('.', ':').replace(',', ':').split(':')
+    if (parts.size > 3 || parts.any { it.isEmpty() || !it.all(Char::isDigit) || it.length > 4 }) return null
+    val n = parts.map { it.toLong() }
+    return when (n.size) {
+        1 -> n[0] * 60
+        2 -> if (n[1] < 60) n[0] * 60 + n[1] else null
+        else -> if (n[1] < 60 && n[2] < 60) n[0] * 3600 + n[1] * 60 + n[2] else null
+    }
+}
+
+// "4:05", "1:02:03": il tempo accanto alla barra del telecomando
+fun clockLabel(seconds: Long): String {
+    val s = seconds.coerceAtLeast(0)
+    return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, s / 60 % 60, s % 60) else "%d:%02d".format(s / 60, s % 60)
+}
+
+// Seconda riga del mini-player: "Su Kodi · 12:40 di 23:50", "In pausa · …"; senza durata (una diretta) solo il tempo
+fun miniPlayerStatus(paused: Boolean, time: Long, total: Long): String {
+    val state = if (paused) "In pausa" else "Su Kodi"
+    return if (total > 0) "$state · ${clockLabel(time)} di ${clockLabel(total)}" else "$state · ${clockLabel(time)}"
+}
+
+// Nome di una traccia audio o di sottotitoli: la lingua in italiano ("ita" -> "Italiano"), più il nome se dice altro
+// ("Inglese · Commento"); "Traccia N" se Kodi non sa niente
+fun trackLabel(language: String, name: String, number: Int): String {
+    val lang = language.trim().takeIf { it.isNotEmpty() && it != "und" }
+        ?.let { Locale.forLanguageTag(it).getDisplayLanguage(Locale.ITALIAN).takeIf { d -> d.isNotBlank() && d != it } ?: it }
+        ?.replaceFirstChar { it.titlecase(Locale.ITALIAN) }
+    val extra = name.trim().takeIf { it.isNotEmpty() && !it.equals(lang, ignoreCase = true) && !it.equals(language, ignoreCase = true) }
+    return listOfNotNull(lang, extra).joinToString(" · ").ifEmpty { "Traccia $number" }
 }
