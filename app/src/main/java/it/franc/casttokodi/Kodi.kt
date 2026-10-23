@@ -165,7 +165,7 @@ class Kodi(val host: String, val auth: String) {
         } catch (e: KodiError) {
             throw Refused("Kodi non accetta questo video in coda (${e.message}).")
         }
-        return Sent("Aggiunto alla coda (la vedi in Kodi → Coda di Kodi)", position)
+        return Sent("Aggiunto alla coda (la vedi in ⋮ → Coda di Kodi)", position)
     }
 
     // Episodio successivo messo in coda da solo, in posizione position. Il motivo se non si può, altrimenti null
