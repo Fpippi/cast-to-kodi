@@ -130,6 +130,15 @@ class MainActivity : Activity() {
     private lateinit var siteIcon: ImageView
     private lateinit var shield: TextView
     private lateinit var snack: TextView
+    private lateinit var mini: View
+    private lateinit var miniTitle: TextView
+    private lateinit var miniStatus: TextView
+    private lateinit var miniPlay: ImageButton
+    private lateinit var miniProgress: ProgressBar
+    // Video che Kodi sta riproducendo, letto dal mini-player; null = Kodi fermo o non raggiungibile
+    private var miniNow: NowPlaying? = null
+    // Ogni avvio del ciclo di lettura del mini-player ha il suo numero: in onPause si cambia e il ciclo vecchio si ferma
+    @Volatile private var miniGeneration = 0
     private lateinit var progress: ProgressBar
     private val prefs by lazy { getSharedPreferences("kodi", MODE_PRIVATE) }
 
@@ -271,12 +280,14 @@ class MainActivity : Activity() {
             addView(web, FrameLayout.LayoutParams(-1, -1))
             addView(overlay, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
         }
+        mini = miniPlayer()
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(sys(R.color.system_neutral1_10, R.color.system_neutral1_900))
             addView(topBar)
             addView(progress, LinearLayout.LayoutParams(-1, -2))
             addView(page, LinearLayout.LayoutParams(-1, 0, 1f))
+            addView(mini, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(8), dp(6), dp(8), dp(6)) })
             // targetSdk 35 forza l'edge-to-edge: senza padding la barra finisce sotto la status bar
             setOnApplyWindowInsetsListener { v, insets ->
                 val i = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.ime())
@@ -667,6 +678,7 @@ class MainActivity : Activity() {
                 // Hanno funzionato: valgono per questo Kodi su questa rete (anche le vecchie senza rete, o dopo un cambio di IP)
                 if (login != null && network != null) storeLogin(host, network, login)
                 toast(sent.message)
+                readMini()
                 sent.position?.let { queueNextEpisodes(kodi, page, it, userAgent, title) }
             }
         }
@@ -1441,6 +1453,110 @@ class MainActivity : Activity() {
         }
     }
 
+    // Barra in basso con quello che Kodi sta riproducendo: play/pausa, nome, tempo e una riga di avanzamento.
+    // Toccandola si apre il telecomando. Si vede solo quando Kodi ha un video aperto.
+    private fun miniPlayer(): View {
+        val onSurface = sys(R.color.system_neutral1_900, R.color.system_neutral1_100)
+        val onSurfaceVariant = sys(R.color.system_neutral2_700, R.color.system_neutral2_200)
+        miniPlay = ImageButton(this).apply {
+            contentDescription = "Play o pausa su Kodi"
+            tooltipText = contentDescription
+            background = rounded(sys(R.color.system_accent1_600, R.color.system_accent1_200), 20)
+            setOnClickListener {
+                val id = miniNow?.playerId ?: return@setOnClickListener
+                onKodi({ kodi -> kodi.playPause(id) }, { readMini() })
+            }
+        }
+        miniTitle = TextView(this).apply {
+            textSize = 14f
+            typeface = Typeface.DEFAULT_BOLD
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            setTextColor(onSurface)
+        }
+        miniStatus = TextView(this).apply {
+            textSize = 12f
+            maxLines = 1
+            setTextColor(onSurfaceVariant)
+        }
+        val remote = ImageButton(this).apply {
+            contentDescription = "Apri il telecomando"
+            tooltipText = contentDescription
+            setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_remote, onSurfaceVariant))
+            setBackgroundResource(attr(R.attr.selectableItemBackgroundBorderless))
+            setOnClickListener { showRemote() }
+        }
+        miniProgress = ProgressBar(this, null, R.attr.progressBarStyleHorizontal).apply {
+            max = 1000
+            progressTintList = ColorStateList.valueOf(sys(R.color.system_accent1_600, R.color.system_accent1_200))
+            progressBackgroundTintList = ColorStateList.valueOf(sys(R.color.system_neutral2_300, R.color.system_neutral2_600))
+        }
+        val row = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), dp(8), dp(4), 0)
+            addView(miniPlay, LinearLayout.LayoutParams(dp(40), dp(40)))
+            addView(section(miniTitle, miniStatus), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(12) })
+            addView(remote, LinearLayout.LayoutParams(dp(44), dp(44)))
+        }
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = rounded(sys(R.color.system_neutral1_50, R.color.system_neutral1_800), 16)
+            clipToOutline = true
+            isClickable = true
+            contentDescription = "Video su Kodi: tocca per il telecomando"
+            setOnClickListener { showRemote() }
+            addView(row)
+            addView(miniProgress, LinearLayout.LayoutParams(-1, dp(4)).apply { setMargins(dp(12), dp(6), dp(12), dp(4)) })
+            visibility = View.GONE
+        }
+    }
+
+    // Rilegge Kodi ogni 3 secondi finché l'app è in primo piano. In silenzio: se Kodi non risponde la barra sparisce
+    // e basta, gli errori li mostrano l'invio e il telecomando.
+    private fun startMini() {
+        val mine = ++miniGeneration
+        thread {
+            while (mine == miniGeneration) {
+                val playing = quietNowPlaying()
+                runOnUiThread { if (mine == miniGeneration) showMini(playing) }
+                Thread.sleep(3000)
+            }
+        }
+    }
+
+    // Una lettura subito, dopo un invio o un comando, per non aspettare il giro successivo
+    private fun readMini() {
+        thread { quietNowPlaying().let { runOnUiThread { showMini(it) } } }
+    }
+
+    private fun quietNowPlaying(): NowPlaying? {
+        val host = prefs.getString("host", "").orEmpty()
+        if (host.isBlank()) return null
+        val login = savedLogin(host, currentNetwork())
+        return try {
+            Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty()).nowPlaying()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun showMini(playing: NowPlaying?) {
+        miniNow = playing
+        if (playing?.playerId == null) {
+            mini.visibility = View.GONE
+            return
+        }
+        miniTitle.text = queueLabel(playing.file, playing.title, loadTitles())
+        miniStatus.text = miniPlayerStatus(playing.paused, playing.time, playing.total)
+        miniProgress.progress = if (playing.total > 0) (playing.time * 1000 / playing.total).toInt() else 0
+        miniPlay.setImageDrawable(icon(
+            if (playing.paused) it.franc.casttokodi.R.drawable.ic_play else it.franc.casttokodi.R.drawable.ic_pause,
+            sys(R.color.system_accent1_0, R.color.system_accent1_800),
+        ))
+        miniPlay.contentDescription = if (playing.paused) "Riprendi su Kodi" else "Metti in pausa su Kodi"
+        mini.visibility = View.VISIBLE
+    }
+
     // Pulsante del telecomando con un'icona al centro, del colore del testo (come ⏻)
     private fun remoteIcon(icon: Int, description: String, primary: Boolean = false, onClick: () -> Unit) = Button(this).apply {
         text = " "
@@ -2052,12 +2168,14 @@ class MainActivity : Activity() {
     override fun onPause() {
         super.onPause()
         resumed = false
+        miniGeneration++
         CookieManager.getInstance().flush()
     }
 
     override fun onResume() {
         super.onResume()
         resumed = true
+        startMini()
     }
 
     @Deprecated("Deprecated in Java")

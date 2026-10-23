@@ -344,6 +344,12 @@ fun clockLabel(seconds: Long): String {
     return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, s / 60 % 60, s % 60) else "%d:%02d".format(s / 60, s % 60)
 }
 
+// Seconda riga del mini-player: "Su Kodi · 12:40 di 23:50", "In pausa · …"; senza durata (una diretta) solo il tempo
+fun miniPlayerStatus(paused: Boolean, time: Long, total: Long): String {
+    val state = if (paused) "In pausa" else "Su Kodi"
+    return if (total > 0) "$state · ${clockLabel(time)} di ${clockLabel(total)}" else "$state · ${clockLabel(time)}"
+}
+
 // Nome di una traccia audio o di sottotitoli: la lingua in italiano ("ita" -> "Italiano"), più il nome se dice altro
 // ("Inglese · Commento"); "Traccia N" se Kodi non sa niente
 fun trackLabel(language: String, name: String, number: Int): String {

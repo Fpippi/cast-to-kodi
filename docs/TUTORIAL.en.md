@@ -54,6 +54,8 @@ on the phone, start the video, press a button and the video plays on the TV. The
 | **Manda a Kodi** (Send to Kodi) | Plays the page's video on the TV right away. It shows up at the bottom right, over the site, only when a video starts on the page. |
 | **+ Coda** (+ Queue: the round icon with lines and a +, next to *Manda a Kodi*) | Puts the video at the end of Kodi's queue, without interrupting what you are watching. Long-press it to open the queue. |
 
+When Kodi is playing a video, a **Kodi bar** shows at the bottom with the video name, the time and the play/pause button: tap it to open the remote.
+
 Short messages ("Aggiunto alla coda", "Kodi è pronto"…) appear at the bottom of the screen, over the site.
 
 ---
