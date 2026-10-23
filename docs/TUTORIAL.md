@@ -51,6 +51,8 @@ _Le animazioni di questa guida sono disegni che mostrano i passaggi, non registr
 | **Manda a Kodi** | Fa partire subito sulla TV il video della pagina. Compare in basso a destra, sopra il sito, solo quando sulla pagina parte un video. |
 | **+ Coda** (l'icona tonda con le righe e il +, accanto a *Manda a Kodi*) | Mette il video in fondo alla coda di Kodi, senza interrompere quello che stai guardando. Tenendola premuta si apre la coda. |
 
+Quando Kodi sta riproducendo un video, in fondo compare una **barra di Kodi** con il nome del video, il tempo e il pulsante play/pausa: toccala per aprire il telecomando.
+
 Gli avvisi brevi ("Aggiunto alla coda", "Kodi è pronto"…) compaiono in fondo allo schermo, sopra il sito.
 
 ---

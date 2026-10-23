@@ -340,4 +340,11 @@ s2.ts
         assertEquals("Forced", trackLabel("und", "Forced", 4))
         assertEquals("Traccia 5", trackLabel("", "", 5))
     }
+
+    @Test
+    fun miniPlayerStatusShowsStateAndTimes() {
+        assertEquals("Su Kodi · 12:40 di 23:50", miniPlayerStatus(paused = false, time = 760, total = 1430))
+        assertEquals("In pausa · 0:05 di 1:02:03", miniPlayerStatus(paused = true, time = 5, total = 3723))
+        assertEquals("Su Kodi · 4:05", miniPlayerStatus(paused = false, time = 245, total = 0))
+    }
 }
