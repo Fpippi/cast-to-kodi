@@ -24,6 +24,17 @@ class FakeKodi(private val login: String? = null) : AutoCloseable {
     var rejectInPlaylist = false
     // I metodi chiamati, in ordine
     val calls = mutableListOf<String>()
+    // Telecomando: pausa, volume, tracce del video in corso (indici di Kodi) e testo scritto
+    var paused = false
+    var volume = 50
+    var muted = false
+    var tempo = 1.0
+    var audio = listOf("ita", "jpn")
+    var currentAudio = 0
+    var subtitles = listOf("ita")
+    var currentSubtitle = 0
+    var subtitlesOn = false
+    var text: String? = null
 
     private val server = TinyHttp { serve(it) }
 
@@ -72,15 +83,85 @@ class FakeKodi(private val login: String? = null) : AutoCloseable {
         "Player.GetActivePlayers" ->
             if (playing == null) JSONArray() else JSONArray().put(JSONObject().put("playerid", 1).put("type", "video"))
         "Player.GetProperties" -> {
-            if (playing == null || params.optInt("playerid") != 1) throw Refusal(-32100, "Failed to execute method.")
+            player(params)
             JSONObject()
                 .put("playlistid", if (position >= 0) VIDEO_PLAYLIST else -1)
                 .put("position", position)
                 .put("time", clock(time))
                 .put("totaltime", clock(totaltime))
+                .put("speed", if (paused) 0 else 1)
+                .put("audiostreams", streams(audio))
+                .put("currentaudiostream", streams(audio).optJSONObject(currentAudio) ?: JSONObject())
+                .put("subtitles", streams(subtitles))
+                .put("currentsubtitle", streams(subtitles).optJSONObject(currentSubtitle) ?: JSONObject())
+                .put("subtitleenabled", subtitlesOn)
         }
+        "Player.PlayPause" -> {
+            player(params)
+            paused = !paused
+            JSONObject().put("speed", if (paused) 0 else 1)
+        }
+        "Player.Stop" -> {
+            player(params)
+            playing = null
+            position = -1
+            "OK"
+        }
+        // Come Kodi 19+: value {time} va al punto preciso, value {seconds} salta da dove si è; mai fuori dal video
+        "Player.Seek" -> {
+            player(params)
+            val value = params.getJSONObject("value")
+            val to = value.optJSONObject("time")?.let { it.getLong("hours") * 3600 + it.getLong("minutes") * 60 + it.getLong("seconds") }
+                ?: (time + value.getLong("seconds"))
+            time = to.coerceIn(0, totaltime)
+            JSONObject().put("time", clock(time)).put("totaltime", clock(totaltime))
+        }
+        "Player.SetTempo" -> {
+            player(params)
+            val wanted = params.getDouble("tempo")
+            if (wanted < 0.8 || wanted > 1.5) throw Refusal(-32602, "Invalid params.")
+            tempo = wanted
+            "OK"
+        }
+        "Player.SetAudioStream" -> {
+            player(params)
+            currentAudio = params.getInt("stream").also { if (it !in audio.indices) throw Refusal(-32602, "Invalid params.") }
+            "OK"
+        }
+        "Player.SetSubtitle" -> {
+            player(params)
+            when (val wanted = params.get("subtitle")) {
+                "off" -> subtitlesOn = false
+                "on" -> subtitlesOn = true
+                is Int -> {
+                    if (wanted !in subtitles.indices) throw Refusal(-32602, "Invalid params.")
+                    currentSubtitle = wanted
+                    if (params.optBoolean("enable")) subtitlesOn = true
+                }
+            }
+            "OK"
+        }
+        "Application.GetProperties" -> JSONObject().put("volume", volume).put("muted", muted)
+        "Application.SetVolume" -> {
+            volume = when (val wanted = params.get("volume")) {
+                "increment" -> volume + 10
+                "decrement" -> volume - 10
+                else -> (wanted as Int)
+            }.coerceIn(0, 100)
+            volume
+        }
+        "Application.SetMute" -> {
+            muted = if (params.get("mute") == "toggle") !muted else params.getBoolean("mute")
+            muted
+        }
+        "Input.SendText" -> {
+            text = params.getString("text")
+            "OK"
+        }
+        "Input.Up", "Input.Down", "Input.Left", "Input.Right", "Input.Select", "Input.Back", "Input.Home",
+        "Input.ContextMenu", "Input.Info" -> "OK"
         "Player.GetItem" -> {
-            if (playing == null || params.optInt("playerid") != 1) throw Refusal(-32100, "Failed to execute method.")
+            player(params)
             JSONObject().put("item", JSONObject().put("file", playing).put("label", playing!!.substringAfterLast('/')).put("title", ""))
         }
         "Playlist.GetItems" -> {
@@ -116,7 +197,11 @@ class FakeKodi(private val login: String? = null) : AutoCloseable {
         }
         "Player.GoTo" -> {
             if (playing == null || position < 0) throw Refusal(-32100, "Failed to execute method.")
-            start(params.getInt("to"))
+            start(when (val to = params.get("to")) {
+                "next" -> position + 1
+                "previous" -> position - 1
+                else -> to as Int
+            })
             "OK"
         }
         "Player.Open" -> {
@@ -133,6 +218,14 @@ class FakeKodi(private val login: String? = null) : AutoCloseable {
         else -> throw Refusal(-32601, "Method not found.")
     }
 
+    // Le chiamate sul video in corso: con Kodi fermo (o un altro player) Kodi risponde con un errore
+    private fun player(params: JSONObject) {
+        if (playing == null || params.optInt("playerid") != 1) throw Refusal(-32100, "Failed to execute method.")
+    }
+
+    private fun streams(languages: List<String>) =
+        JSONArray(languages.mapIndexed { i, lang -> JSONObject().put("index", i).put("language", lang).put("name", "") })
+
     private fun videoPlaylist(params: JSONObject) {
         if (params.optInt("playlistid", -1) != VIDEO_PLAYLIST) throw Refusal(-32602, "Invalid params.")
     }
@@ -145,6 +238,7 @@ class FakeKodi(private val login: String? = null) : AutoCloseable {
     private fun start(index: Int) {
         if (index < 0 || index >= playlist.size) throw Refusal(-32602, "Invalid params.")
         playingFromQueue(index)
+        paused = false
     }
 
     private fun clock(seconds: Long) =

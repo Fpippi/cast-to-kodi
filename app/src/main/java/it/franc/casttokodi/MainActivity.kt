@@ -48,6 +48,7 @@ import android.widget.ProgressBar
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.TextView
 import org.json.JSONArray
 import org.json.JSONObject
@@ -149,6 +150,8 @@ class MainActivity : Activity() {
     private var searchingKodi = false
     // Un invio alla volta: i tocchi ripetuti su "Manda a Kodi" mentre Kodi risponde non mandano altri video
     private var sending = false
+    // App in primo piano: con il telefono bloccato il telecomando smette di chiedere a Kodi a che punto è
+    @Volatile private var resumed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -1105,13 +1108,15 @@ class MainActivity : Activity() {
     // Il pulsante Kodi apre un menu: la coda si guarda spesso, le impostazioni e il log ogni tanto
     private fun kodiMenu(anchor: View) {
         PopupMenu(this, anchor).apply {
-            menu.add(0, 1, 0, "Coda di Kodi")
-            menu.add(0, 2, 1, "Dov'è Kodi?")
-            menu.add(0, 3, 2, "Log di Kodi")
+            menu.add(0, 4, 0, "Telecomando")
+            menu.add(0, 1, 1, "Coda di Kodi")
+            menu.add(0, 2, 2, "Dov'è Kodi?")
+            menu.add(0, 3, 3, "Log di Kodi")
             setOnMenuItemClickListener { item ->
                 when (item.itemId) {
                     1 -> showQueue()
                     2 -> askKodiAddress()
+                    4 -> showRemote()
                     else -> showKodiLog()
                 }
                 true
@@ -1260,6 +1265,330 @@ class MainActivity : Activity() {
             }
             show()
         }
+    }
+
+    // Telecomando di Kodi in un dialogo (Kodi → Telecomando)
+    private fun showRemote() {
+        if (prefs.getString("host", "").isNullOrBlank()) return askKodiAddress()
+        AlertDialog.Builder(this)
+            .setTitle("Telecomando")
+            .setView(ScrollView(this).apply { addView(remoteView()) })
+            .setNegativeButton("Chiudi", null)
+            .show()
+    }
+
+    // Il telecomando, da solo: chi lo mostra (il dialogo qui sopra o un pannello) mette solo la View.
+    // Finché la View è attaccata alla finestra e l'app è in primo piano, rilegge da Kodi il video in corso ogni secondo.
+    // Il telecomando della TV salta dei passi di Kodi (su/giù 10 minuti): qui i salti sono quelli scritti sul pulsante.
+    private fun remoteView(): View {
+        var now: NowPlaying? = null
+        var dragging = false
+        var generation = 0
+        val title = TextView(this).apply {
+            textSize = 18f
+            typeface = Typeface.DEFAULT_BOLD
+            maxLines = 2
+            ellipsize = TextUtils.TruncateAt.END
+            setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50))
+        }
+        val status = TextView(this).apply {
+            textSize = 13f
+            text = "Chiedo a Kodi…"
+            setTextColor(sys(R.color.system_neutral2_600, R.color.system_neutral2_400))
+        }
+        val elapsed = TextView(this).apply { textSize = 13f }
+        val total = TextView(this).apply { textSize = 13f; gravity = Gravity.END }
+        val volume = TextView(this).apply { textSize = 13f; gravity = Gravity.CENTER }
+
+        // Comando sul video in corso; poi si rilegge subito, così il telecomando non resta indietro di un secondo
+        lateinit var refresh: () -> Unit
+        fun video(action: (Kodi, Int) -> Unit) {
+            val id = now?.playerId ?: return toast("Kodi non sta riproducendo niente")
+            onKodi({ action(it, id) }, { refresh() })
+        }
+        fun kodi(action: (Kodi) -> Unit) = onKodi({ action(it) }, { refresh() })
+
+        val bar = SeekBar(this).apply {
+            isEnabled = false
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
+                    if (fromUser) elapsed.text = clockLabel(progress.toLong())
+                }
+                override fun onStartTrackingTouch(bar: SeekBar) {
+                    dragging = true
+                }
+                override fun onStopTrackingTouch(bar: SeekBar) {
+                    dragging = false
+                    video { kodi, id -> kodi.seekTo(id, bar.progress.toLong()) }
+                }
+            })
+        }
+        val playPause = remoteIcon(it.franc.casttokodi.R.drawable.ic_pause, "Play o pausa", primary = true) {
+            video { kodi, id -> kodi.playPause(id) }
+        }
+        val mute = remoteIcon(it.franc.casttokodi.R.drawable.ic_volume_off, "Muto") { kodi { it.toggleMute() } }
+
+        fun show(playing: NowPlaying?, problem: String?) {
+            now = playing
+            if (playing == null) {
+                status.text = problem
+                return
+            }
+            volume.text = if (playing.muted) "Muto" else "Volume ${playing.volume}%"
+            mute.alpha = if (playing.muted) 1f else 0.6f
+            if (playing.playerId == null) {
+                title.text = "Niente in riproduzione"
+                status.text = "Kodi è fermo"
+                bar.isEnabled = false
+                bar.progress = 0
+                elapsed.text = clockLabel(0)
+                total.text = clockLabel(0)
+                return
+            }
+            title.text = queueLabel(playing.file, playing.title, loadTitles())
+            status.text = if (playing.paused) "In pausa" else "In riproduzione"
+            setRemoteIcon(playPause, if (playing.paused) it.franc.casttokodi.R.drawable.ic_play else it.franc.casttokodi.R.drawable.ic_pause)
+            bar.isEnabled = playing.total > 0
+            bar.max = playing.total.toInt().coerceAtLeast(1)
+            if (!dragging) {
+                bar.progress = playing.time.toInt()
+                elapsed.text = clockLabel(playing.time)
+            }
+            total.text = clockLabel(playing.total)
+        }
+
+        // In background: il video in corso, o perché non si sa
+        fun read(): Pair<NowPlaying?, String?> {
+            val host = prefs.getString("host", "").orEmpty()
+            val login = savedLogin(host, currentNetwork())
+            return try {
+                Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty()).nowPlaying() to null
+            } catch (e: Unauthorized) {
+                null to "Kodi chiede utente e password: premi un pulsante per inserirli"
+            } catch (e: Exception) {
+                null to "Kodi non risponde. Se la TV è spenta, accendila con ⏻ qui sotto"
+            }
+        }
+        refresh = { thread { read().let { (playing, problem) -> runOnUiThread { show(playing, problem) } } } }
+
+        val skips = listOf(-30, -10, 10, 30).map { seconds ->
+            remoteText(if (seconds < 0) "−${-seconds} s" else "+$seconds s") { video { kodi, id -> kodi.skip(id, seconds) } }
+        }
+        val transport = listOf(
+            remoteIcon(it.franc.casttokodi.R.drawable.ic_skip_previous, "Video precedente della coda") { video { kodi, id -> kodi.previous(id) } },
+            playPause,
+            remoteIcon(it.franc.casttokodi.R.drawable.ic_stop, "Ferma il video") {
+                if (now?.playerId == null) return@remoteIcon toast("Kodi non sta riproducendo niente")
+                AlertDialog.Builder(this)
+                    .setMessage("Fermare il video su Kodi? La coda resta.")
+                    .setPositiveButton("Ferma") { _, _ -> video { kodi, id -> kodi.stop(id) } }
+                    .setNegativeButton("Annulla", null)
+                    .show()
+            },
+            remoteIcon(it.franc.casttokodi.R.drawable.ic_skip_next, "Video successivo della coda") { video { kodi, id -> kodi.next(id) } },
+        )
+        val options = listOf(
+            remoteText("Vai al minuto") { now?.let { askSeek(it) { seconds -> video { kodi, id -> kodi.seekTo(id, seconds) } } } },
+            remoteText("Velocità") {
+                val id = now?.playerId ?: return@remoteText toast("Kodi non sta riproducendo niente")
+                chooseTempo { tempo -> tempoAt(tempo, id) }
+            },
+        )
+        val tracks = listOf(
+            remoteText("Audio") { now?.takeIf { it.playerId != null }?.let { chooseAudio(it) { track -> video { kodi, id -> kodi.setAudio(id, track) } } } },
+            remoteText("Sottotitoli") { now?.takeIf { it.playerId != null }?.let { chooseSubtitle(it) { track -> video { kodi, id -> kodi.setSubtitle(id, track) } } } },
+        )
+        fun key(icon: Int, description: String, name: String) = remoteIcon(icon, description) { kodi { it.press(name) } }
+        val ok = remoteText("OK") { kodi { it.press("Select") } }
+        val pad = section(
+            padRow(key(it.franc.casttokodi.R.drawable.ic_arrow_up, "Su", "Up")),
+            padRow(key(it.franc.casttokodi.R.drawable.ic_arrow_left, "Sinistra", "Left"), ok, key(it.franc.casttokodi.R.drawable.ic_arrow_right, "Destra", "Right")),
+            padRow(key(it.franc.casttokodi.R.drawable.ic_arrow_down, "Giù", "Down")),
+        )
+        val menus = listOf(
+            remoteText("Indietro") { kodi { it.press("Back") } },
+            remoteText("Home") { kodi { it.press("Home") } },
+            remoteText("Menu") { kodi { it.press("ContextMenu") } },
+            remoteText("Scrivi") { askText { text -> kodi { it.sendText(text) } } },
+        )
+        val sound = listOf(
+            remoteIcon(it.franc.casttokodi.R.drawable.ic_volume_down, "Volume giù") { kodi { it.volume(up = false) } },
+            mute,
+            remoteIcon(it.franc.casttokodi.R.drawable.ic_volume_up, "Volume su") { kodi { it.volume(up = true) } },
+        )
+        val power = remoteText("Accendi la TV e Kodi") { wakeKodi() }
+
+        val times = LinearLayout(this).apply {
+            addView(elapsed, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(total, LinearLayout.LayoutParams(0, -2, 1f))
+        }
+        val hint = label("Durante il video le frecce di Kodi saltano avanti e indietro (su e giù di 10 minuti): per spostarti usa la barra o i salti.").apply {
+            textSize = 12f
+            setTextColor(sys(R.color.system_neutral2_600, R.color.system_neutral2_400))
+        }
+        return section(
+            title, status, bar, times,
+            remoteRow(skips), remoteRow(transport), remoteRow(options), remoteRow(tracks),
+            pad, hint, remoteRow(menus), remoteRow(sound), volume, remoteRow(listOf(power)),
+        ).apply {
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+            addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) {
+                    val mine = ++generation
+                    thread {
+                        while (mine == generation) {
+                            if (resumed) read().let { (playing, problem) -> runOnUiThread { if (mine == generation) show(playing, problem) } }
+                            Thread.sleep(1000)
+                        }
+                    }
+                }
+                override fun onViewDetachedFromWindow(v: View) {
+                    generation++
+                }
+            })
+        }
+    }
+
+    // Pulsante del telecomando con un'icona al centro, del colore del testo (come ⏻)
+    private fun remoteIcon(icon: Int, description: String, primary: Boolean = false, onClick: () -> Unit) = Button(this).apply {
+        text = " "
+        contentDescription = description
+        tooltipText = description
+        paint(this, active = true, primary = primary)
+        setRemoteIcon(this, icon)
+        foregroundGravity = Gravity.CENTER
+        setOnClickListener { onClick() }
+    }
+
+    private fun setRemoteIcon(button: Button, icon: Int) {
+        button.foreground = getDrawable(icon)!!.mutate().apply { setTint(button.currentTextColor) }
+    }
+
+    private fun remoteText(text: String, onClick: () -> Unit) = Button(this).apply {
+        this.text = text
+        paint(this, active = true, primary = false)
+        setOnClickListener { onClick() }
+    }
+
+    // Pulsanti in fila, larghi uguali
+    private fun remoteRow(buttons: List<View>) = LinearLayout(this).apply {
+        buttons.forEach { addView(it, LinearLayout.LayoutParams(0, dp(56), 1f).apply { marginStart = dp(2); marginEnd = dp(2) }) }
+    }
+
+    // Una fila della croce: pulsanti quadrati al centro
+    private fun padRow(vararg buttons: View) = LinearLayout(this).apply {
+        gravity = Gravity.CENTER
+        buttons.forEach { addView(it, LinearLayout.LayoutParams(dp(72), dp(64)).apply { marginStart = dp(4); marginEnd = dp(4) }) }
+    }
+
+    // "Vai al minuto": 12:30, 1:02:30 o solo i minuti
+    private fun askSeek(playing: NowPlaying, done: (Long) -> Unit) {
+        if (playing.playerId == null) return toast("Kodi non sta riproducendo niente")
+        val field = EditText(this).apply {
+            hint = "es. 12:30"
+            isSingleLine = true
+            inputType = InputType.TYPE_CLASS_DATETIME or InputType.TYPE_DATETIME_VARIATION_TIME
+            imeOptions = EditorInfo.IME_ACTION_GO
+        }
+        lateinit var dialog: AlertDialog
+        val go = {
+            val seconds = parseClock(field.text.toString())
+            if (seconds == null) toast("Scrivi il tempo come 12:30 (minuti:secondi) o 1:02:30")
+            else {
+                done(seconds)
+                dialog.dismiss()
+            }
+        }
+        dialog = AlertDialog.Builder(this)
+            .setTitle("Vai al minuto")
+            .setMessage(if (playing.total > 0) "Il video dura ${clockLabel(playing.total)}." else null)
+            .setView(section(field).apply { setPadding(dp(24), dp(8), dp(24), 0) })
+            .setPositiveButton("Vai", null)
+            .setNegativeButton("Annulla", null)
+            .create()
+        field.setOnEditorActionListener { _, _, _ -> go(); true }
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        dialog.show()
+        // Con un tempo sbagliato il dialogo resta aperto
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { go() }
+        field.requestFocus()
+    }
+
+    private fun chooseTempo(done: (Double) -> Unit) {
+        val tempos = listOf(1.0, 1.25, 1.5)
+        AlertDialog.Builder(this)
+            .setTitle("Velocità")
+            .setItems(arrayOf("Normale", "1,25x", "1,5x")) { _, i -> done(tempos[i]) }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+
+    // Kodi rifiuta la velocità con alcuni video: lo si spiega invece del messaggio tecnico
+    private fun tempoAt(tempo: Double, id: Int) {
+        onKodi({ kodi ->
+            try {
+                kodi.setTempo(id, tempo)
+                null
+            } catch (e: KodiError) {
+                e.message
+            }
+        }, { problem ->
+            if (problem == null) toast(if (tempo == 1.0) "Velocità normale" else "Velocità ${tempo.toString().replace('.', ',')}x")
+            else notice("Velocità non cambiata", "Kodi non cambia la velocità di questo video ($problem). Serve Kodi 19 o più recente, e con alcuni video o impostazioni audio Kodi non lo permette.")
+        })
+    }
+
+    private fun chooseAudio(playing: NowPlaying, done: (Track) -> Unit) {
+        val labels = playing.audio.mapIndexed { i, t -> trackLabel(t.language, t.name, i + 1) }
+        if (labels.size < 2) {
+            return notice("Audio", if (labels.isEmpty()) "Kodi non vede tracce audio in questo video." else "Questo video ha una sola traccia audio: ${labels[0]}.")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Lingua dell'audio")
+            .setSingleChoiceItems(labels.toTypedArray(), playing.currentAudio) { dialog, i ->
+                dialog.dismiss()
+                done(playing.audio[i])
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+
+    // done(null): sottotitoli spenti
+    private fun chooseSubtitle(playing: NowPlaying, done: (Track?) -> Unit) {
+        if (playing.subtitles.isEmpty()) return notice("Sottotitoli", "Questo video non ha sottotitoli.")
+        val labels = listOf("Spenti") + playing.subtitles.mapIndexed { i, t -> trackLabel(t.language, t.name, i + 1) }
+        AlertDialog.Builder(this)
+            .setTitle("Sottotitoli")
+            .setSingleChoiceItems(labels.toTypedArray(), if (playing.subtitlesOn) playing.currentSubtitle + 1 else 0) { dialog, i ->
+                dialog.dismiss()
+                done(if (i == 0) null else playing.subtitles[i - 1])
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+
+    // Testo per il campo che Kodi ha aperto (la ricerca, un nome): si scrive con la tastiera del telefono
+    private fun askText(done: (String) -> Unit) {
+        val field = EditText(this).apply {
+            isSingleLine = true
+            inputType = InputType.TYPE_CLASS_TEXT
+            imeOptions = EditorInfo.IME_ACTION_SEND
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Scrivi su Kodi")
+            .setMessage("Prima apri in Kodi il campo dove scrivere, per esempio la ricerca.")
+            .setView(section(field).apply { setPadding(dp(24), dp(8), dp(24), 0) })
+            .setPositiveButton("Manda") { _, _ -> done(field.text.toString()) }
+            .setNegativeButton("Annulla", null)
+            .create()
+        field.setOnEditorActionListener { _, _, _ ->
+            done(field.text.toString())
+            dialog.dismiss()
+            true
+        }
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        dialog.show()
+        field.requestFocus()
     }
 
     // Toglie tutto tranne il video in corso (vedi Kodi.clearQueue)
@@ -1669,7 +1998,13 @@ class MainActivity : Activity() {
     // dei cookie di Google (e i login dei siti), che si ripresenterebbe a ogni avvio
     override fun onPause() {
         super.onPause()
+        resumed = false
         CookieManager.getInstance().flush()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        resumed = true
     }
 
     @Deprecated("Deprecated in Java")
