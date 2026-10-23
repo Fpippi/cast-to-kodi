@@ -1266,11 +1266,7 @@ class MainActivity : Activity() {
     // Telecomando di Kodi in un dialogo (Kodi → Telecomando)
     private fun showRemote() {
         if (prefs.getString("host", "").isNullOrBlank()) return askKodiAddress()
-        AlertDialog.Builder(this)
-            .setTitle("Telecomando")
-            .setView(ScrollView(this).apply { addView(remoteView()) })
-            .setNegativeButton("Chiudi", null)
-            .show()
+        sheet("Telecomando", section(remoteView()).apply { setPadding(dp(16), 0, dp(16), dp(8)) })
     }
 
     // Il telecomando, da solo: chi lo mostra (il dialogo qui sopra o un pannello) mette solo la View.
