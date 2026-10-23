@@ -50,7 +50,7 @@ on the phone, start the video, press a button and the video plays on the TV. The
 | **🛡 with a number** | Shows up when the app blocked popups or jumps to other sites on this page. Tap it to see which ones and open one, if you needed it. |
 | **★** | Your favourite sites. Filled if the open page is already a favourite. |
 | **⏻** | Turns the TV on and opens Kodi. |
-| **⋮** | A small menu: *Coda di Kodi* (Kodi queue), *Dov'è Kodi?* (Where is Kodi?), *Log di Kodi* (Kodi log). |
+| **⋮** | A small menu: *Telecomando* (Remote), *Coda di Kodi* (Kodi queue), *Dov'è Kodi?* (Where is Kodi?), *Log di Kodi* (Kodi log). |
 | **Manda a Kodi** (Send to Kodi) | Plays the page's video on the TV right away. It shows up at the bottom right, over the site, only when a video starts on the page. |
 | **+ Coda** (+ Queue: the round icon with lines and a +, next to *Manda a Kodi*) | Puts the video at the end of Kodi's queue, without interrupting what you are watching. Long-press it to open the queue. |
 
@@ -150,7 +150,22 @@ Press **Manda a Kodi** (Send to Kodi).
 - From here on the phone **is no longer needed**: you can lock it or use it for something else. The video reaches the
   TV directly from the site.
 
-To pause, skip or change the volume use the Fire TV remote (or a Kodi remote app).
+### The remote in the app: ⋮ → Telecomando
+
+To control Kodi without the TV remote press **⋮ → Telecomando** (Remote). At the top there is the video playing,
+which updates by itself:
+
+- **Bar**: drag it to the point you want; next to it are the time watched and the length.
+- **−30 s, −10 s, +10 s, +30 s**: always skip by what they say. The TV remote uses Kodi's steps instead, and with the
+  up and down arrows it jumps 10 minutes.
+- **⏮ ⏯ ⏹ ⏭**: previous video in the queue, play/pause, stop (asks first, the queue stays), next video.
+- **Vai al minuto** (Go to minute): type e.g. `12:30` (12 minutes 30 seconds) or `1:02:30`.
+- **Velocità** (Speed): normal, 1.25x or 1.5x. With some videos Kodi won't change it, and the app says so.
+- **Audio** and **Sottotitoli** (Subtitles): pick the language among the video's own, or turn subtitles off.
+- **Arrows and OK**, **Indietro** (Back), **Home**, **Menu**: to move around Kodi's menus.
+- **Scrivi** (Type): first open a text field in Kodi (e.g. search), then type with the phone keyboard.
+- **Volume** down, mute and up: Kodi's volume, not the TV's.
+- **Accendi la TV e Kodi** (Turn on the TV and Kodi): like the ⏻ button.
 
 ---
 

@@ -47,7 +47,7 @@ _Le animazioni di questa guida sono disegni che mostrano i passaggi, non registr
 | **🛡 con un numero** | Compare quando l'app ha bloccato popup o salti verso altri siti su questa pagina. Toccalo per vedere quali e aprirne uno, se serviva. |
 | **★** | I tuoi siti preferiti. Piena se la pagina aperta è già tra i preferiti. |
 | **⏻** | Accende la TV e apre Kodi. |
-| **⋮** | Un piccolo menu: *Coda di Kodi*, *Dov'è Kodi?*, *Log di Kodi*. |
+| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Dov'è Kodi?*, *Log di Kodi*. |
 | **Manda a Kodi** | Fa partire subito sulla TV il video della pagina. Compare in basso a destra, sopra il sito, solo quando sulla pagina parte un video. |
 | **+ Coda** (l'icona tonda con le righe e il +, accanto a *Manda a Kodi*) | Mette il video in fondo alla coda di Kodi, senza interrompere quello che stai guardando. Tenendola premuta si apre la coda. |
 
@@ -145,7 +145,22 @@ Premi **Manda a Kodi**.
   durata (o la scritta *Anteprima non disponibile*): puoi scegliere lo stesso.
 - Da qui il telefono **non serve più**: puoi bloccarlo o usarlo per altro. Il video arriva alla TV direttamente dal sito.
 
-Per mettere in pausa, andare avanti o regolare il volume usa il telecomando della Fire TV (o un'app telecomando per Kodi).
+### Il telecomando nell'app: ⋮ → Telecomando
+
+Per comandare Kodi senza il telecomando della TV premi **⋮ → Telecomando**. In alto c'è il video in corso, che si
+aggiorna da solo:
+
+- **Barra**: trascinala fino al punto che vuoi; accanto ci sono il tempo passato e la durata.
+- **−30 s, −10 s, +10 s, +30 s**: saltano sempre di quanto c'è scritto. Il telecomando della TV invece usa i passi di
+  Kodi, e con le frecce su e giù salta di 10 minuti.
+- **⏮ ⏯ ⏹ ⏭**: video precedente della coda, play/pausa, stop (chiede conferma, la coda resta), video successivo.
+- **Vai al minuto**: scrivi per esempio `12:30` (12 minuti e 30 secondi) o `1:02:30`.
+- **Velocità**: normale, 1,25x o 1,5x. Con alcuni video Kodi non la cambia, e l'app lo dice.
+- **Audio** e **Sottotitoli**: scegli la lingua tra quelle del video, o spegni i sottotitoli.
+- **Frecce e OK**, **Indietro**, **Home**, **Menu**: per muoverti nei menu di Kodi.
+- **Scrivi**: apri prima in Kodi un campo di testo (per esempio la ricerca), poi scrivi con la tastiera del telefono.
+- **Volume** giù, muto e su: è il volume di Kodi, non quello della TV.
+- **Accendi la TV e Kodi**: come il pulsante ⏻.
 
 ---
 
