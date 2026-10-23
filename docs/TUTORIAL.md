@@ -47,9 +47,11 @@ _Le animazioni di questa guida sono disegni che mostrano i passaggi, non registr
 | **🛡 con un numero** | Compare quando l'app ha bloccato popup o salti verso altri siti su questa pagina. Toccalo per vedere quali e aprirne uno, se serviva. |
 | **★** | I tuoi siti preferiti. Piena se la pagina aperta è già tra i preferiti. |
 | **⏻** | Accende la TV e apre Kodi. |
-| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Dov'è Kodi?*, *Log di Kodi*. |
+| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Dov'è Kodi?*, *Log di Kodi*, *Pagina iniziale*. |
 | **Manda a Kodi** | Fa partire subito sulla TV il video della pagina. Compare in basso a destra, sopra il sito, solo quando sulla pagina parte un video. |
 | **+ Coda** (l'icona tonda con le righe e il +, accanto a *Manda a Kodi*) | Mette il video in fondo alla coda di Kodi, senza interrompere quello che stai guardando. Tenendola premuta si apre la coda. |
+
+All'avvio si apre la **pagina iniziale**: in cima Kodi (acceso, spento o cosa sta riproducendo, con il pulsante *Accendi* o *Telecomando*), poi **Riprendi** con l'ultima pagina guardata e i tuoi preferiti come icone. Ci torni con indietro dalla prima pagina di un sito o con **⋮ → Pagina iniziale**.
 
 Quando Kodi sta riproducendo un video, in fondo compare una **barra di Kodi** con il nome del video, il tempo e il pulsante play/pausa: toccala per aprire il telecomando.
 

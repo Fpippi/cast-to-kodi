@@ -50,9 +50,11 @@ on the phone, start the video, press a button and the video plays on the TV. The
 | **🛡 with a number** | Shows up when the app blocked popups or jumps to other sites on this page. Tap it to see which ones and open one, if you needed it. |
 | **★** | Your favourite sites. Filled if the open page is already a favourite. |
 | **⏻** | Turns the TV on and opens Kodi. |
-| **⋮** | A small menu: *Telecomando* (Remote), *Coda di Kodi* (Kodi queue), *Dov'è Kodi?* (Where is Kodi?), *Log di Kodi* (Kodi log). |
+| **⋮** | A small menu: *Telecomando* (Remote), *Coda di Kodi* (Kodi queue), *Dov'è Kodi?* (Where is Kodi?), *Log di Kodi* (Kodi log), *Pagina iniziale* (Home page). |
 | **Manda a Kodi** (Send to Kodi) | Plays the page's video on the TV right away. It shows up at the bottom right, over the site, only when a video starts on the page. |
 | **+ Coda** (+ Queue: the round icon with lines and a +, next to *Manda a Kodi*) | Puts the video at the end of Kodi's queue, without interrupting what you are watching. Long-press it to open the queue. |
+
+On launch the **home page** opens: Kodi at the top (on, off or what it is playing, with an *Accendi* (Turn on) or *Telecomando* (Remote) button), then **Riprendi** (Resume) with the last page you watched and your favourites as icons. You get back to it with Back from a site's first page or with **⋮ → Pagina iniziale** (Home page).
 
 When Kodi is playing a video, a **Kodi bar** shows at the bottom with the video name, the time and the play/pause button: tap it to open the remote.
 

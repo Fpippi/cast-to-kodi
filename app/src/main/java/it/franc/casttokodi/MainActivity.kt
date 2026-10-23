@@ -76,7 +76,6 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
-import it.franc.casttokodi.sites.GOOGLE
 import it.franc.casttokodi.sites.MASTER_PLAYLIST_JS
 import it.franc.casttokodi.sites.DEFAULT_AUTO_NEXT
 import it.franc.casttokodi.sites.MAX_AUTO_NEXT
@@ -131,6 +130,13 @@ class MainActivity : Activity() {
     private lateinit var shield: TextView
     private lateinit var snack: TextView
     private lateinit var mini: View
+    private lateinit var home: ScrollView
+    private lateinit var homeContent: LinearLayout
+    private lateinit var homeKodiTitle: TextView
+    private lateinit var homeKodiStatus: TextView
+    private lateinit var homeKodiButton: Button
+    // Kodi ha risposto all'ultima lettura del mini-player? null = non ancora chiesto
+    private var kodiReachable: Boolean? = null
     private lateinit var miniTitle: TextView
     private lateinit var miniStatus: TextView
     private lateinit var miniPlay: ImageButton
@@ -276,8 +282,15 @@ class MainActivity : Activity() {
             addView(castBar, LinearLayout.LayoutParams(-2, -2))
             addView(snack, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
         }
+        homeContent = section().apply { setPadding(dp(16), dp(8), dp(16), dp(24)) }
+        home = ScrollView(this).apply {
+            setBackgroundColor(sys(R.color.system_neutral1_10, R.color.system_neutral1_900))
+            addView(homeContent)
+            visibility = View.GONE
+        }
         val page = FrameLayout(this).apply {
             addView(web, FrameLayout.LayoutParams(-1, -1))
+            addView(home, FrameLayout.LayoutParams(-1, -1))
             addView(overlay, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
         }
         mini = miniPlayer()
@@ -301,7 +314,7 @@ class MainActivity : Activity() {
 
         migrateAuth()
         migrateAutoNext()
-        open(prefs.getString("last", null) ?: GOOGLE)
+        showHome()
         if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress()
         checkUpdate()
     }
@@ -386,6 +399,7 @@ class MainActivity : Activity() {
                 pageUrl = url
                 pageIcon = favicon
                 showSiteIcon(favicon)
+                home.visibility = View.GONE
                 allowedDomain = domainOf(Uri.parse(url))
                 if (!address.hasFocus()) address.setText(url)
                 videos.clear()
@@ -396,7 +410,7 @@ class MainActivity : Activity() {
             }
 
             override fun onPageFinished(view: WebView, url: String) {
-                if (!isGoogleConsent(Uri.parse(url).host)) prefs.edit().putString("last", url).apply()
+                if (!isGoogleConsent(Uri.parse(url).host)) prefs.edit().putString("last", url).putString("lastTitle", view.title).apply()
             }
 
             // Chiamato su un thread di background per ogni risorsa, anche dentro gli iframe e per le XHR dei player
@@ -480,7 +494,7 @@ class MainActivity : Activity() {
         val count = playable().size
         val busy = searchingKodi || sending
         val ready = count > 0 && !busy
-        castBar.visibility = if (count > 0 || busy) View.VISIBLE else View.GONE
+        castBar.visibility = if ((count > 0 && home.visibility != View.VISIBLE) || busy) View.VISIBLE else View.GONE
         cast.isEnabled = ready
         queue.isEnabled = ready
         queue.visibility = if (busy) View.GONE else View.VISIBLE
@@ -1125,11 +1139,13 @@ class MainActivity : Activity() {
             menu.add(0, 1, 1, "Coda di Kodi")
             menu.add(0, 2, 2, "Dov'è Kodi?")
             menu.add(0, 3, 3, "Log di Kodi")
+            menu.add(0, 5, 4, "Pagina iniziale")
             setOnMenuItemClickListener { item ->
                 when (item.itemId) {
                     1 -> showQueue()
                     2 -> askKodiAddress()
                     4 -> showRemote()
+                    5 -> showHome()
                     else -> showKodiLog()
                 }
                 true
@@ -1453,6 +1469,168 @@ class MainActivity : Activity() {
         }
     }
 
+    // Pagina iniziale al posto del sito: Kodi (stato e accensione), l'ultima pagina guardata e i preferiti come icone
+    private fun showHome() {
+        home.visibility = View.VISIBLE
+        if (!address.hasFocus()) address.setText("")
+        showSiteIcon(null)
+        blocked.clear()
+        refreshShield()
+        refreshHome()
+        refreshCastButton()
+    }
+
+    private fun refreshHome() {
+        homeContent.removeAllViews()
+        homeContent.addView(kodiCard())
+        refreshKodiCard()
+
+        val last = prefs.getString("last", null)
+        if (last != null) {
+            homeContent.addView(homeHeading("Riprendi"))
+            val host = Uri.parse(last).host
+            val title = prefs.getString("lastTitle", null)?.takeIf { it.isNotBlank() } ?: shortHost(host)
+            val saved = loadFavorites().firstOrNull { Uri.parse(it.url).host == host }
+            val icon = saved?.let { favoriteIcon(it) } ?: ImageView(this).apply {
+                setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_public, sys(R.color.system_neutral2_700, R.color.system_neutral2_200)))
+                scaleType = ImageView.ScaleType.CENTER
+            }
+            homeContent.addView(homeCard().apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setOnClickListener { open(last) }
+                addView(icon, LinearLayout.LayoutParams(dp(40), dp(40)))
+                addView(section(
+                    homeText(title, 15f, bold = true),
+                    homeText(shortHost(host), 13f, bold = false),
+                ), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(16) })
+            })
+        }
+
+        homeContent.addView(homeHeading("Preferiti"))
+        val favorites = loadFavorites()
+        if (favorites.isEmpty()) {
+            homeContent.addView(label("Apri un sito e premi ★ in alto: lo ritrovi qui."))
+        }
+        favorites.chunked(4).forEach { row ->
+            homeContent.addView(LinearLayout(this).apply {
+                row.forEach { favorite -> addView(favoriteTile(favorite), LinearLayout.LayoutParams(0, -2, 1f)) }
+                repeat(4 - row.size) { addView(View(context), LinearLayout.LayoutParams(0, 0, 1f)) }
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+        }
+
+        homeContent.addView(label("Per mandare un video: apri l'episodio e avvia il player sul sito. \"Manda a Kodi\" compare da solo in basso.").apply {
+            textSize = 13f
+            setTextColor(sys(R.color.system_neutral2_600, R.color.system_neutral2_400))
+            setPadding(dp(4), dp(24), dp(4), 0)
+        })
+    }
+
+    // Riquadro di Kodi in cima alla pagina iniziale. Il testo lo aggiorna refreshKodiCard a ogni lettura del mini-player.
+    private fun kodiCard(): View {
+        homeKodiTitle = homeText("", 15f, bold = true)
+        homeKodiStatus = homeText("", 13f, bold = false).apply { maxLines = 2 }
+        homeKodiButton = Button(this).apply {
+            isAllCaps = false
+            stateListAnimator = null
+            background = rounded(sys(R.color.system_accent1_600, R.color.system_accent1_200), 18)
+            setTextColor(sys(R.color.system_accent1_0, R.color.system_accent1_800))
+            setPadding(dp(16), 0, dp(16), 0)
+        }
+        val badge = ImageView(this).apply {
+            setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_remote, sys(R.color.system_accent2_900, R.color.system_accent2_100)))
+            scaleType = ImageView.ScaleType.CENTER
+            background = circle(sys(R.color.system_accent2_100, R.color.system_accent2_700))
+        }
+        return homeCard().apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(badge, LinearLayout.LayoutParams(dp(40), dp(40)))
+            addView(section(homeKodiTitle, homeKodiStatus), LinearLayout.LayoutParams(0, -2, 1f).apply {
+                marginStart = dp(16)
+                marginEnd = dp(8)
+            })
+            addView(homeKodiButton, LinearLayout.LayoutParams(-2, dp(36)))
+        }
+    }
+
+    private fun refreshKodiCard() {
+        if (!::homeKodiTitle.isInitialized) return
+        val host = prefs.getString("host", "").orEmpty()
+        val name = prefs.getString("name", "").orEmpty().ifBlank { "Kodi" }
+        val playing = miniNow?.takeIf { it.playerId != null }
+        homeKodiTitle.text = if (host.isBlank()) "Kodi non ancora scelto" else name
+        homeKodiStatus.text = when {
+            host.isBlank() -> "Scegli la Fire TV con Kodi per mandarle i video"
+            playing != null -> "Sta riproducendo: ${queueLabel(playing.file, playing.title, loadTitles())}"
+            kodiReachable == true -> "Acceso, nessun video in corso"
+            kodiReachable == false -> "Spento o non raggiungibile"
+            else -> "Controllo…"
+        }
+        val (label, action) = when {
+            host.isBlank() -> "Scegli" to { askKodiAddress() }
+            kodiReachable == true -> "Telecomando" to { showRemote() }
+            else -> "Accendi" to { wakeKodi() }
+        }
+        homeKodiButton.text = label
+        homeKodiButton.setOnClickListener { action() }
+    }
+
+    private fun homeCard() = LinearLayout(this).apply {
+        setPadding(dp(16), dp(12), dp(12), dp(12))
+        background = rounded(sys(R.color.system_neutral1_50, R.color.system_neutral1_800), 16)
+        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) }
+    }
+
+    private fun homeHeading(text: String) = TextView(this).apply {
+        this.text = text.uppercase()
+        textSize = 12f
+        typeface = Typeface.DEFAULT_BOLD
+        letterSpacing = 0.08f
+        setTextColor(sys(R.color.system_accent1_600, R.color.system_accent1_200))
+        setPadding(dp(4), dp(24), 0, dp(4))
+    }
+
+    private fun homeText(text: String, size: Float, bold: Boolean) = TextView(this).apply {
+        this.text = text
+        textSize = size
+        maxLines = 1
+        ellipsize = TextUtils.TruncateAt.END
+        if (bold) typeface = Typeface.DEFAULT_BOLD
+        setTextColor(if (bold) sys(R.color.system_neutral1_900, R.color.system_neutral1_50) else sys(R.color.system_neutral2_600, R.color.system_neutral2_400))
+    }
+
+    // Preferito come icona con il nome sotto; pressione lunga per rinominarlo o toglierlo
+    private fun favoriteTile(favorite: Favorite): View {
+        val name = TextView(this).apply {
+            text = favorite.title
+            textSize = 12f
+            gravity = Gravity.CENTER
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            setTextColor(sys(R.color.system_neutral2_700, R.color.system_neutral2_200))
+        }
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(4), dp(8), dp(4), dp(8))
+            setBackgroundResource(attr(R.attr.selectableItemBackground))
+            contentDescription = favorite.title
+            setOnClickListener { open(favorite.url) }
+            setOnLongClickListener { tile ->
+                favoriteMenu(tile, favorite) { changed ->
+                    val list = loadFavorites()
+                    val i = list.indexOfFirst { it.url == favorite.url && it.title == favorite.title }
+                    if (i >= 0) {
+                        if (changed == null) list.removeAt(i) else list[i] = changed
+                        saveFavorites(list)
+                    }
+                }
+                true
+            }
+            addView(favoriteIcon(favorite), LinearLayout.LayoutParams(dp(48), dp(48)))
+            addView(name, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
+        }
+    }
+
     // Barra in basso con quello che Kodi sta riproducendo: play/pausa, nome, tempo e una riga di avanzamento.
     // Toccandola si apre il telecomando. Si vede solo quando Kodi ha un video aperto.
     private fun miniPlayer(): View {
@@ -1542,6 +1720,8 @@ class MainActivity : Activity() {
 
     private fun showMini(playing: NowPlaying?) {
         miniNow = playing
+        kodiReachable = playing != null
+        refreshKodiCard()
         if (playing?.playerId == null) {
             mini.visibility = View.GONE
             return
@@ -1908,6 +2088,7 @@ class MainActivity : Activity() {
         val array = JSONArray(list.map { JSONObject().put("title", it.title).put("url", it.url).putOpt("icon", it.icon) })
         prefs.edit().putString("favorites", array.toString()).apply()
         refreshStar()
+        if (home.visibility == View.VISIBLE) refreshHome()
     }
 
     private fun encodeIcon(icon: Bitmap): String {
@@ -1930,7 +2111,7 @@ class MainActivity : Activity() {
     // Tocco apre, ⋮ (o pressione lunga) per rinominare o togliere
     private fun showFavorites() {
         val list = loadFavorites()
-        val current = web.url?.takeIf { it.startsWith("http") }
+        val current = web.url?.takeIf { it.startsWith("http") && home.visibility != View.VISIBLE }
         val canAdd = current != null && list.none { it.url == current }
         if (list.isEmpty() && !canAdd) return toast("Apri un sito per aggiungerlo ai preferiti")
 
@@ -1967,12 +2148,13 @@ class MainActivity : Activity() {
     }
 
     // Riga di un preferito: icona del sito (o iniziale su un cerchio), nome, dominio più tenue e ⋮
-    private fun favoriteRow(favorite: Favorite, onOpen: () -> Unit, onMenu: (View) -> Unit): View {
+    // Icona di un preferito: quella del sito, o l'iniziale su un cerchio
+    private fun favoriteIcon(favorite: Favorite): View {
         val host = Uri.parse(favorite.url).host
         val bitmap = favorite.icon
             ?.let { runCatching { Base64.decode(it, Base64.DEFAULT) }.getOrNull() }
             ?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
-        val icon: View = if (bitmap != null) {
+        return if (bitmap != null) {
             ImageView(this).apply {
                 setImageBitmap(bitmap)
                 scaleType = ImageView.ScaleType.FIT_CENTER
@@ -1990,6 +2172,11 @@ class MainActivity : Activity() {
                 background = circle(sys(R.color.system_accent1_100, R.color.system_accent1_700))
             }
         }
+    }
+
+    private fun favoriteRow(favorite: Favorite, onOpen: () -> Unit, onMenu: (View) -> Unit): View {
+        val host = Uri.parse(favorite.url).host
+        val icon = favoriteIcon(favorite)
         val name = TextView(this).apply {
             text = favorite.title
             textSize = 16f
@@ -2178,8 +2365,13 @@ class MainActivity : Activity() {
         startMini()
     }
 
+    // Indietro: la pagina precedente del sito; dalla prima pagina si torna alla pagina iniziale, e da lì si esce
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (web.canGoBack()) web.goBack() else super.onBackPressed()
+        when {
+            home.visibility == View.VISIBLE -> super.onBackPressed()
+            web.canGoBack() -> web.goBack()
+            else -> showHome()
+        }
     }
 }
