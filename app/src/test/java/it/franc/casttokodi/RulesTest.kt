@@ -312,4 +312,32 @@ s2.ts
         // senza un video completo restano tutti
         assertEquals(listOf(part, other), videoChoices(listOf(part, other)))
     }
+
+    @Test
+    fun tempoScrittoAMano() {
+        assertEquals(12 * 60 + 30L, parseClock("12:30"))
+        assertEquals(12 * 60 + 30L, parseClock(" 12.30 "))
+        assertEquals(3600 + 2 * 60 + 30L, parseClock("1:02:30"))
+        assertEquals(45 * 60L, parseClock("45"))
+        assertNull(parseClock("12:75"))
+        assertNull(parseClock("dieci"))
+        assertNull(parseClock(""))
+        assertNull(parseClock("1:2:3:4"))
+    }
+
+    @Test
+    fun tempoAccantoAllaBarra() {
+        assertEquals("0:00", clockLabel(0))
+        assertEquals("4:05", clockLabel(245))
+        assertEquals("1:02:03", clockLabel(3723))
+    }
+
+    @Test
+    fun nomiDelleTracce() {
+        assertEquals("Italiano", trackLabel("ita", "", 1))
+        assertEquals("Giapponese", trackLabel("jpn", "jpn", 2))
+        assertEquals("Inglese · Commento", trackLabel("eng", "Commento", 3))
+        assertEquals("Forced", trackLabel("und", "Forced", 4))
+        assertEquals("Traccia 5", trackLabel("", "", 5))
+    }
 }
