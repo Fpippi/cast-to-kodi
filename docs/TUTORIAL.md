@@ -47,7 +47,7 @@ _Le animazioni di questa guida sono disegni che mostrano i passaggi, non registr
 | **🛡 con un numero** | Compare quando l'app ha bloccato popup o salti verso altri siti su questa pagina. Toccalo per vedere quali e aprirne uno, se serviva. |
 | **★** | I tuoi siti preferiti. Piena se la pagina aperta è già tra i preferiti. |
 | **⏻** | Accende la TV e apre Kodi. |
-| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Dov'è Kodi?*, *Log di Kodi*, *Pagina iniziale*. |
+| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Pagina iniziale*, *Impostazioni* (dov'è Kodi, accensione, AnimeUnity, log di Kodi, guida, versione). |
 | **Manda a Kodi** | Fa partire subito sulla TV il video della pagina. Compare in basso a destra, sopra il sito, solo quando sulla pagina parte un video. |
 | **+ Coda** (l'icona tonda con le righe e il +, accanto a *Manda a Kodi*) | Mette il video in fondo alla coda di Kodi, senza interrompere quello che stai guardando. Tenendola premuta si apre la coda. |
 
@@ -92,7 +92,7 @@ Da fare **una volta sola**, con il telecomando della Fire TV. I passaggi dettagl
 5. **Accesso, se impostato in Kodi**: se in Kodi hai messo utente e password scrivili qui. Se li salti, l'app li chiede
    da sola (finestra *Accesso a Kodi*) la prima volta che mandi un video.
 
-Fatto. Per cambiare queste scelte in futuro: pulsante **⋮ → Dov'è Kodi?**.
+Fatto. Per cambiare queste scelte in futuro: **⋮ → Impostazioni → Kodi**.
 
 > [!TIP]
 > - Se la Fire TV cambia indirizzo (succede dopo un riavvio del router), all'invio l'app la ritrova da sola.
@@ -192,8 +192,7 @@ al successivo. L'app non la cancella mai.
 ### Su AnimeUnity può fare da sola (se la accendi)
 
 Su AnimeUnity l'app può mettere in coda da sola gli episodi successivi, così non devi premere **+ Coda** per ognuno.
-**Di default è spenta.** Per accenderla: **⋮ → Dov'è Kodi?**, nell'ultima casella in fondo
-(*"AnimeUnity: episodi successivi…"*) scrivi quanti episodi accodare (massimo 3, `0` = spenta) e premi **Salva**.
+**Di default è spenta.** Per accenderla: **⋮ → Impostazioni → AnimeUnity: episodi successivi** e scegli quanti episodi accodare (massimo 3).
 
 Da quel momento, dopo **Manda a Kodi** (o **+ Coda**) l'app accoda gli episodi dopo e scrive
 *"In coda anche: episodio …"*. Se il sito cambia e l'app non ci riesce, te lo dice: in quel caso usa **+ Coda** a mano.
@@ -237,7 +236,7 @@ L'app riapre anche da sola l'ultima pagina che avevi aperto.
 
 Se sulla TV compare **Playback failed** o il video non parte:
 
-1. Premi **⋮ → Log di Kodi**. L'app legge dalla Fire TV le ultime righe del registro di Kodi
+1. Premi **⋮ → Impostazioni → Log di Kodi**. L'app legge dalla Fire TV le ultime righe del registro di Kodi
    (serve il *Debug ADB* del [passo 2](#2-prima-volta-preparare-la-fire-tv); la prima volta la TV chiede di confermare,
    come per ⏻).
 2. Premi **Condividi** e mandalo dove ti serve (WhatsApp, email, una issue su GitHub…), insieme al nome del sito e
@@ -257,9 +256,9 @@ quello vecchio (non serve disinstallare). Per aggiornare con un tocco si può us
 | Cosa vedi | Cosa fare |
 |---|---|
 | **Manda a Kodi** non compare | Premi play sul video della pagina e aspetta che parta davvero. Se c'è una pubblicità prima del video, aspetta che finisca. |
-| **"Kodi non risponde"** / **"Nessun Kodi trovato"** | Kodi deve essere **aperto** sulla TV, con *Annuncia servizi ad altri sistemi* attivo, e telefono e TV sullo stesso Wi-Fi. Altrimenti **⋮ → Dov'è Kodi? → Manuale** e scrivi `IP:porta`. |
+| **"Kodi non risponde"** / **"Nessun Kodi trovato"** | Kodi deve essere **aperto** sulla TV, con *Annuncia servizi ad altri sistemi* attivo, e telefono e TV sullo stesso Wi-Fi. Altrimenti **⋮ → Impostazioni → Kodi → Manuale** e scrivi `IP:porta`. |
 | Finestra **Accesso a Kodi** | Scrivi utente e password che hai impostato in Kodi (*Servizi → Controllo*). Se dice che non li accetta, ricontrollali in Kodi. |
-| Sulla TV **Playback failed** | Riprova una volta **Manda a Kodi**. Se ricapita, [⋮ → Log di Kodi → Condividi](#9-log-di-kodi-quando-qualcosa-non-parte). |
+| Sulla TV **Playback failed** | Riprova una volta **Manda a Kodi**. Se ricapita, [⋮ → Impostazioni → Log di Kodi → Condividi](#9-log-di-kodi-quando-qualcosa-non-parte). |
 | **"Kodi non ha accettato il video"** | Il sito ha dato un link che Kodi non sa aprire. Ricarica la pagina, riavvia il player e riprova; se ricapita, manda il log. |
 | **"Inviato a Kodi, ma senza coda"** | Il video parte, ma Kodi non lo vuole nella playlist: per quel video la coda non funziona. |
 | **"Non messo in coda"** | Leggi il motivo nel messaggio: vedi [Quando l'app non mette in coda](#quando-lapp-non-mette-in-coda-e-perché). |
