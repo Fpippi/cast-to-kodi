@@ -35,28 +35,27 @@ on the phone, start the video, press a button and the video plays on the TV. The
 
 ```
 ┌──────────────────────────────────────────────┐
-│ (🌐 Cerca o scrivi un indirizzo  🛡3)  ★ ⏻ ⋮  │  ← top bar
+│ (🌐 animeunity.so                🛡3)   ★  ⋮  │  ← top bar
 │▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬                            │  ← page loading
 │                                              │
 │                 site page                    │
 │                                              │
 │                 (+≡)  ( 📺 Manda a Kodi )     │  ← only when there's a video
+│ [ ||  Episodio 11 · Su Kodi · 12:40 di 23:50 ]│  ← Kodi bar, always
 └──────────────────────────────────────────────┘
 ```
 
 | Button | What it does |
 |---|---|
-| **Address bar** ("Cerca o scrivi un indirizzo") | Type a site (`animeunity.so`) or a search (`jojo animeunity`, goes to Google). The site's icon is on the left. |
+| **Address bar** ("Cerca o scrivi un indirizzo") | Type a site (`animeunity.so`) or a search (`jojo animeunity`, goes to Google). The site's icon is on the left. Until you tap it, it shows only the site's name; tapping it brings back the full address. |
 | **🛡 with a number** | Shows up when the app blocked popups or jumps to other sites on this page. Tap it to see which ones and open one, if you needed it. |
 | **★** | Your favourite sites. Filled if the open page is already a favourite. |
-| **⏻** | Turns the TV on and opens Kodi. |
+| **Kodi bar** (at the bottom) | What Kodi is playing, with play/pause. If Kodi is on but idle it says *niente in riproduzione* (nothing playing); if it is off or not answering there is the **⏻** button to turn the TV on. Tap it to open the remote with the queue. |
 | **⋮** | A small menu: *Telecomando* (Remote), *Coda di Kodi* (Kodi queue), *Pagina iniziale* (Home page), *Impostazioni* (Settings: where Kodi is, power on, AnimeUnity, Kodi log, guide, version). |
 | **Manda a Kodi** (Send to Kodi) | Plays the page's video on the TV right away. It shows up at the bottom right, over the site, only when a video starts on the page. |
 | **+ Coda** (+ Queue: the round icon with lines and a +, next to *Manda a Kodi*) | Puts the video at the end of Kodi's queue, without interrupting what you are watching. Long-press it to open the queue. |
 
 On launch the **home page** opens: Kodi at the top (on, off or what it is playing, with an *Accendi* (Turn on) or *Telecomando* (Remote) button), then **Riprendi** (Resume) with the last page you watched and your favourites as icons. You get back to it with Back from a site's first page or with **⋮ → Pagina iniziale** (Home page).
-
-When Kodi is playing a video, a **Kodi bar** shows at the bottom with the video name, the time and the play/pause button: tap it to open the remote.
 
 Short messages ("Aggiunto alla coda", "Kodi è pronto"…) appear at the bottom of the screen, over the site.
 
@@ -107,7 +106,7 @@ Done. To change these choices later: **⋮ → Impostazioni → Kodi**.
 
 <p align="center"><img src="img/accendi.gif" width="640" alt="Animation: with the TV off you press the power button, the TV turns on and opens Kodi"></p>
 
-With the TV off (in standby) press **⏻**, at the top next to ★.
+With the TV off (in standby) press **⏻** in the Kodi bar at the bottom (or *Accendi* on the home page).
 
 1. The app looks for the Fire TV on the network (*"Cerco la Fire TV in rete…"*), even if Kodi is closed.
 2. **Only the first time**: the TV asks whether to allow debugging from this phone.
@@ -144,32 +143,36 @@ Press **Manda a Kodi** (Send to Kodi).
 
 - The button says *"Invio a Kodi…"* ("Sending to Kodi…") until Kodi answers: no need to press again.
 - When done, **"Inviato a Kodi"** ("Sent to Kodi") appears and the video starts on the TV after a few seconds.
-- If the page has more than one video the button says e.g. **Manda a Kodi (2)** and lets you choose. Each entry says
-  what it is and which site it comes from: *Video completo, tutte le qualità (consigliato)* ("Full video, all qualities,
-  recommended") is almost always the right one and comes first. The others are usually a trailer, an ad that slipped
-  past the filter or another player on the page.
-- Next to each entry, after a couple of seconds, a **frame taken from the video** and its **length** appear: an episode
-  lasts about twenty minutes, a trailer one or two. On some protected videos the frame does not arrive and only the
-  length is shown (or *Anteprima non disponibile*, "Preview not available"): you can still pick it.
+- If the page has more than one video the button says e.g. **Manda a Kodi · 2** and a panel opens with all the
+  videos, each with a **frame taken from the video** and its **length** on top (after a couple of seconds). The first,
+  *Video completo* (Full video), is almost always the right one: it is already picked, marked *Consigliato*
+  (Recommended), with the **Manda** (Send) and **In coda** (Queue) buttons under it. Tap another video to move the
+  buttons there. Videos under a minute are faded (*Probabile pubblicità*, "Probably an ad"). On some protected videos
+  the frame does not arrive and only the length is shown: you can still pick it.
 - From here on the phone **is no longer needed**: you can lock it or use it for something else. The video reaches the
   TV directly from the site.
 
-### The remote in the app: ⋮ → Telecomando
+### The remote in the app
 
-To control Kodi without the TV remote press **⋮ → Telecomando** (Remote). At the top there is the video playing,
-which updates by itself:
+To control Kodi without the TV remote tap the **Kodi bar** at the bottom (or **⋮ → Telecomando**). It opens full
+screen with two tabs, **Telecomando** (Remote) and **Coda** (Queue); close it with ⌄ at the top, with Back or by
+dragging down. At the top right there is Kodi's name with a lit dot if it answers. In the Remote tab, from the top:
 
-- **Bar**: drag it to the point you want; next to it are the time watched and the length.
-- **−30 s, −10 s, +10 s, +30 s**: always skip by what they say. The TV remote uses Kodi's steps instead, and with the
-  up and down arrows it jumps 10 minutes.
-- **⏮ ⏯ ⏹ ⏭**: previous video in the queue, play/pause, stop (asks first, the queue stays), next video.
+- **The video playing** with the time it ends (*fino alle 21:52*, "until 21:52"), and the **bar**: drag it to the
+  point you want; below are the time watched and the length.
+- **⏮ −10 ⏯ +10 ⏭**: previous video in the queue, back 10 seconds, play/pause (the big button), forward 10 seconds,
+  next video. Skips are always what they say: the TV remote uses Kodi's steps instead, and with the up and down arrows
+  it jumps 10 minutes.
+- **The round D-pad with OK** and below it **Back**, **Home**, **volume down** and **volume up** (Kodi's volume, not
+  the TV's): to move around Kodi's menus.
+- In a row that scrolls sideways: **Accendi la TV** (Turn on the TV), **−30 s**, **+30 s**, **Vai al minuto**,
+  **Audio**, **Sottotitoli**, **Velocità**, **Muto** (Mute), **Menu**, **Scrivi** and **Ferma** (Stop: asks first, the
+  queue stays).
 - **Vai al minuto** (Go to minute): type e.g. `12:30` (12 minutes 30 seconds) or `1:02:30`.
 - **Velocità** (Speed): normal, 1.25x or 1.5x. With some videos Kodi won't change it, and the app says so.
 - **Audio** and **Sottotitoli** (Subtitles): pick the language among the video's own, or turn subtitles off.
-- **Arrows and OK**, **Indietro** (Back), **Home**, **Menu**: to move around Kodi's menus.
 - **Scrivi** (Type): first open a text field in Kodi (e.g. search), then type with the phone keyboard.
-- **Volume** down, mute and up: Kodi's volume, not the TV's.
-- **Accendi la TV e Kodi** (Turn on the TV and Kodi): like the ⏻ button.
+- **Accendi la TV** (Turn on the TV): like the ⏻ button.
 
 ---
 
@@ -215,17 +218,19 @@ wouldn't play:
 - *"Il link di questo episodio scade alle …"* ("This episode's link expires at …"): some sites give links that last a
   few hours. If the episode would come after the expiry, queue it later.
 
-### Look at and tidy the queue: ⋮ → Coda di Kodi
+### Look at and tidy the queue: the Coda tab
 
-Press **⋮ → Coda di Kodi** (Kodi queue). You see the list of videos:
+Open the remote and tap the **Coda** (Queue) tab (the number next to it says how many videos are waiting), or
+long-press **+ Coda**. You see the list of videos:
 
-- **▶ In riproduzione** (Playing): the one playing now.
-- **Già visto** (Already watched): the finished ones.
-- **Parte tra circa N min** (Starts in about N min): the waiting ones, with the estimated time.
-- **Link scaduto** (Link expired): must be sent again from the episode page.
+- **▶ In riproduzione · finisce alle 21:52** (Playing · ends at 21:52): the one playing now.
+- **Già visto** (Already watched): the finished ones, lighter.
+- **Parte alle 22:16** (Starts at 22:16): the waiting ones, with the estimated time (episodes as long as the current one).
+- In red, with a clock, **Il link scade prima del suo turno** (The link expires before its turn) or **Link scaduto**
+  (Link expired): must be sent again from the episode page.
 
-Tap a video for **Riproduci ora** (Play now) or **Togli dalla coda** (Remove from queue). **Svuota** (Clear) removes
-everything except the one playing. **Aggiorna** (Refresh) reloads the queue from Kodi.
+With the **⋮** next to a video pick **Riproduci ora** (Play now) or **Togli dalla coda** (Remove from queue).
+**Svuota la coda** (Clear the queue) removes everything except the one playing, **↻** reloads the queue from Kodi.
 
 ---
 

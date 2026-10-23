@@ -19,6 +19,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
+import android.os.Build
 import android.os.Bundle
 import android.os.Message
 import android.security.keystore.KeyGenParameterSpec
@@ -29,6 +30,7 @@ import android.text.format.DateFormat
 import android.util.Base64
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsets
 import android.view.Window
@@ -44,6 +46,7 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -131,6 +134,8 @@ class MainActivity : Activity() {
     private lateinit var siteIcon: ImageView
     private lateinit var shield: TextView
     private lateinit var snack: TextView
+    // L'avviso del telecomando a schermo intero, mentre è aperto
+    private var playerSnack: TextView? = null
     private lateinit var mini: View
     private lateinit var home: ScrollView
     private lateinit var homeContent: LinearLayout
@@ -191,6 +196,12 @@ class MainActivity : Activity() {
             setPadding(0, 0, 0, 0)
             setSelectAllOnFocus(true)
             setOnEditorActionListener { _, _, _ -> open(text.toString()); true }
+            // Come Chrome: si vede solo il sito, toccando torna l'indirizzo intero da modificare
+            setOnFocusChangeListener { _, focused ->
+                if (home.visibility == View.VISIBLE || pageUrl.isEmpty()) return@setOnFocusChangeListener
+                setText(if (focused) pageUrl else addressLabel(pageUrl))
+                if (focused) post { selectAll() }
+            }
         }
         siteIcon = ImageView(this).apply {
             scaleType = ImageView.ScaleType.FIT_CENTER
@@ -224,7 +235,6 @@ class MainActivity : Activity() {
             addView(shield, LinearLayout.LayoutParams(-2, dp(28)).apply { marginStart = dp(4) })
         }
         favorites = iconButton(it.franc.casttokodi.R.drawable.ic_star, "Preferiti") { showFavorites() }
-        val power = iconButton(it.franc.casttokodi.R.drawable.ic_power, "Accendi la TV e apri Kodi") { wakeKodi() }
         val settings = iconButton(it.franc.casttokodi.R.drawable.ic_more, "Kodi: coda, impostazioni e log") { kodiMenu(it) }
 
         // "Manda a Kodi" e "+ Coda" galleggiano sul sito e compaiono solo quando c'è un video da mandare
@@ -244,24 +254,14 @@ class MainActivity : Activity() {
             elevation = dp(6).toFloat()
             setOnClickListener { pickVideo(queued = true) }
             // Pressione lunga: apre la coda di Kodi
-            setOnLongClickListener { showQueue(); true }
+            setOnLongClickListener { showPlayer(tab = 1); true }
         }
         castBar = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL or Gravity.END
             addView(queue, LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginEnd = dp(12) })
             addView(cast, LinearLayout.LayoutParams(-2, dp(56)))
         }
-        snack = TextView(this).apply {
-            textSize = 14f
-            setTextColor(sys(R.color.system_neutral1_50, R.color.system_neutral1_900))
-            setPadding(dp(16), dp(14), dp(16), dp(14))
-            elevation = dp(6).toFloat()
-            background = GradientDrawable().apply {
-                cornerRadius = dp(8).toFloat()
-                setColor(sys(R.color.system_neutral1_800, R.color.system_neutral1_100))
-            }
-            visibility = View.GONE
-        }
+        snack = snackView()
         progress = ProgressBar(this, null, R.attr.progressBarStyleHorizontal).apply {
             max = 100
             progressTintList = ColorStateList.valueOf(sys(R.color.system_accent1_600, R.color.system_accent1_200))
@@ -274,7 +274,6 @@ class MainActivity : Activity() {
             setPadding(dp(8), dp(6), dp(4), dp(6))
             addView(pill, LinearLayout.LayoutParams(0, dp(48), 1f))
             addView(favorites, LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginStart = dp(4) })
-            addView(power, LinearLayout.LayoutParams(dp(44), dp(44)))
             addView(settings, LinearLayout.LayoutParams(dp(44), dp(44)))
         }
         val overlay = LinearLayout(this).apply {
@@ -410,7 +409,7 @@ class MainActivity : Activity() {
                 showSiteIcon(favicon)
                 home.visibility = View.GONE
                 allowedDomain = domainOf(Uri.parse(url))
-                if (!address.hasFocus()) address.setText(url)
+                if (!address.hasFocus()) address.setText(addressLabel(url))
                 videos.clear()
                 blocked.clear()
                 refreshShield()
@@ -571,55 +570,125 @@ class MainActivity : Activity() {
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
+    // Più video sulla pagina: immagini grandi con la durata sopra, come su YouTube. Il primo (di solito l'episodio) è
+    // già scelto con "Manda" e "In coda" sotto; toccandone un altro i pulsanti passano lì. Sotto il minuto: sbiaditi.
     private fun pickVideo(queued: Boolean) {
         val list = playable()
         if (list.isEmpty()) return
         if (list.size == 1) return sendToKodi(list[0], queued)
         lateinit var dialog: Dialog
-        val content = section().apply { setPadding(dp(24), 0, dp(24), dp(8)) }
-        content.addView(label("Di solito è il primo, il video completo."))
+        val onSurface = sys(R.color.system_neutral1_900, R.color.system_neutral1_50)
+        val onSurfaceVariant = sys(R.color.system_neutral2_700, R.color.system_neutral2_200)
+        val selected = sys(R.color.system_neutral2_100, R.color.system_neutral2_800)
+        val content = section().apply { setPadding(dp(16), 0, dp(16), dp(16)) }
+        var chosen = list[0]
+        fun action(text: String, iconId: Int, primary: Boolean, queue: Boolean) = Button(this).apply {
+            val (bg, fg) = if (primary) sys(R.color.system_accent1_600, R.color.system_accent1_200) to sys(R.color.system_accent1_0, R.color.system_accent1_800)
+                else sys(R.color.system_accent2_100, R.color.system_accent2_700) to sys(R.color.system_accent2_900, R.color.system_accent2_100)
+            this.text = text
+            textSize = 15f
+            isAllCaps = false
+            stateListAnimator = null
+            background = rounded(bg, 24)
+            setTextColor(fg)
+            setCompoundDrawablesRelativeWithIntrinsicBounds(icon(iconId, fg, 20), null, null, null)
+            compoundDrawablePadding = dp(8)
+            setPadding(dp(20), 0, dp(20), 0)
+            gravity = Gravity.CENTER
+            setOnClickListener { dialog.dismiss(); sendToKodi(chosen, queue) }
+        }
+        val actions = LinearLayout(this).apply {
+            setPadding(0, dp(8), 0, dp(8))
+            addView(action("Manda", it.franc.casttokodi.R.drawable.ic_cast, primary = !queued, queue = false), LinearLayout.LayoutParams(0, dp(48), 1f))
+            addView(action("In coda", it.franc.casttokodi.R.drawable.ic_queue, primary = queued, queue = true),
+                LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginStart = dp(8) })
+        }
         val userAgent = web.settings.userAgentString
-        list.forEach { video ->
+        val cards = mutableListOf<View>()
+        list.forEachIndexed { i, video ->
             val image = ImageView(this).apply {
                 scaleType = ImageView.ScaleType.CENTER_CROP
+                setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_play, onSurfaceVariant, 28))
                 background = GradientDrawable().apply {
-                    cornerRadius = dp(6).toFloat()
-                    setColor(sys(R.color.system_neutral1_100, R.color.system_neutral1_800))
+                    cornerRadius = dp(10).toFloat()
+                    setColor(sys(R.color.system_neutral2_200, R.color.system_neutral2_700))
                 }
                 clipToOutline = true
             }
-            val detail = TextView(this).apply {
-                text = "Anteprima in caricamento…"
+            val duration = TextView(this).apply {
                 textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(sys(R.color.system_neutral1_10, R.color.system_neutral1_10))
+                setPadding(dp(6), dp(1), dp(6), dp(1))
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(4).toFloat()
+                    setColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_1000))
+                    alpha = 210
+                }
+                visibility = View.GONE
             }
-            val text = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(TextView(context).apply { text = video.label; textSize = 15f })
-                addView(detail)
+            val frame = FrameLayout(this).apply {
+                addView(image, FrameLayout.LayoutParams(-1, -1))
+                addView(duration, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, dp(6), dp(6)) })
             }
-            val row = LinearLayout(this).apply {
+            val host = "da ${shortHost(Uri.parse(video.url).host)}"
+            val detail = TextView(this).apply {
+                text = host
+                textSize = 13f
+                setTextColor(onSurfaceVariant)
+            }
+            val text = section(TextView(this).apply {
+                this.text = video.label
+                textSize = 15f
+                typeface = Typeface.DEFAULT_BOLD
+                maxLines = 2
+                ellipsize = TextUtils.TruncateAt.END
+                setTextColor(onSurface)
+            }, detail)
+            if (i == 0) text.addView(TextView(this).apply {
+                this.text = "Consigliato"
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(sys(R.color.system_accent2_900, R.color.system_accent2_100))
+                setPadding(dp(10), dp(3), dp(10), dp(3))
+                background = rounded(sys(R.color.system_accent2_100, R.color.system_accent2_700), 8)
+            }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(6) })
+            val card = LinearLayout(this).apply {
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, dp(8), 0, dp(8))
-                isClickable = true
-                setOnClickListener { dialog.dismiss(); sendToKodi(video, queued) }
-                addView(image, LinearLayout.LayoutParams(dp(112), dp(63)).apply { marginEnd = dp(12) })
-                addView(text, LinearLayout.LayoutParams(0, -2, 1f))
+                setPadding(dp(8), dp(8), dp(8), dp(8))
+                addView(frame, LinearLayout.LayoutParams(dp(144), dp(81)))
+                addView(text, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(14) })
             }
-            content.addView(row)
+            card.setOnClickListener {
+                chosen = video
+                cards.forEach { other -> other.background = if (other === card) rounded(selected, 16) else null }
+                content.removeView(actions)
+                content.addView(actions, content.indexOfChild(card) + 1)
+            }
+            cards += card
+            content.addView(card, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+            if (i == 0) content.addView(actions)
             thread {
-                val (seconds, frame) = videoPreview(video, userAgent)
+                val (seconds, picture) = videoPreview(video, userAgent)
                 runOnUiThread {
-                    frame?.let { image.setImageBitmap(it) }
-                    detail.text = when {
-                        seconds != null && frame == null -> "Durata ${durationLabel(seconds)}, nessuna immagine"
-                        seconds != null -> "Durata ${durationLabel(seconds)}"
-                        frame != null -> "Durata sconosciuta"
-                        else -> "Anteprima non disponibile"
+                    picture?.let { image.setImageBitmap(it) }
+                    seconds?.let {
+                        duration.text = clockLabel(it)
+                        duration.visibility = View.VISIBLE
+                    }
+                    when {
+                        seconds != null && seconds < 60 -> {
+                            detail.text = "Probabile pubblicità, $seconds s"
+                            if (chosen !== video) card.alpha = 0.55f
+                        }
+                        seconds != null && picture == null -> detail.text = "$host · nessuna immagine"
+                        seconds == null && picture == null -> detail.text = "$host · anteprima non disponibile"
                     }
                 }
             }
         }
-        dialog = sheet(if (queued) "Quale video mettere in coda?" else "Quale video mandare a Kodi?", content)
+        cards[0].background = rounded(selected, 16)
+        dialog = sheet("${list.size} video su questa pagina", content)
     }
 
     // Durata in secondi e un fotogramma piccolo, per riconoscere l'episodio da un trailer o da una pubblicità.
@@ -1141,8 +1210,8 @@ class MainActivity : Activity() {
             menu.add(0, 6, 3, "Impostazioni")
             setOnMenuItemClickListener { item ->
                 when (item.itemId) {
-                    1 -> showQueue()
-                    4 -> showRemote()
+                    1 -> showPlayer(tab = 1)
+                    4 -> showPlayer()
                     5 -> showHome()
                     else -> showSettings()
                 }
@@ -1180,108 +1249,292 @@ class MainActivity : Activity() {
         }
     }
 
-    // La playlist video di Kodi, cioè la coda: cosa c'è, cosa sta andando e quando parte il resto.
-    // Tocco su un video: riproduci ora o togli. Quello in corso non si tocca (Kodi non lo toglie).
-    private fun showQueue() {
-        onKodi({ kodi ->
+    // Telecomando e coda a schermo intero, con le due schede in alto: si apre dalla barra di Kodi in fondo, dalla pagina
+    // iniziale o da ⋮, e si chiude con ⌄, con indietro o trascinando giù l'intestazione.
+    private fun showPlayer(tab: Int = 0) {
+        if (prefs.getString("host", "").isNullOrBlank()) return askKodiAddress()
+        val dialog = Dialog(this, R.style.Theme_DeviceDefault_DayNight)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val surface = sys(R.color.system_neutral1_10, R.color.system_neutral1_900)
+        val onSurfaceVariant = sys(R.color.system_neutral2_700, R.color.system_neutral2_200)
+        val tonal = sys(R.color.system_accent2_100, R.color.system_accent2_700)
+        val onTonal = sys(R.color.system_accent2_900, R.color.system_accent2_100)
+
+        val close = iconButton(it.franc.casttokodi.R.drawable.ic_arrow_down, "Chiudi") { dialog.dismiss() }
+        val chip = TextView(this).apply {
+            text = prefs.getString("name", "").orEmpty().ifBlank { "Kodi" }
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            gravity = Gravity.CENTER_VERTICAL
+            setTextColor(onTonal)
+            compoundDrawablePadding = dp(8)
+            setPadding(dp(12), 0, dp(14), 0)
+            background = rounded(tonal, 16)
+        }
+        // Pallino acceso se Kodi risponde, spento se no
+        fun showReachable(reachable: Boolean) {
+            val color = if (reachable) sys(R.color.system_accent1_500, R.color.system_accent1_200) else sys(R.color.system_neutral2_400, R.color.system_neutral2_500)
+            chip.setCompoundDrawablesRelativeWithIntrinsicBounds(circle(color).apply { setSize(dp(8), dp(8)) }, null, null, null)
+        }
+        showReachable(kodiReachable == true)
+        val header = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(close, LinearLayout.LayoutParams(dp(44), dp(44)))
+            addView(View(context), LinearLayout.LayoutParams(0, 1, 1f))
+            addView(chip, LinearLayout.LayoutParams(-2, dp(32)))
+        }
+
+        val tabs = listOf("Telecomando", "Coda").map { name ->
+            TextView(this).apply {
+                text = name
+                textSize = 14f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+            }
+        }
+        val segmented = LinearLayout(this).apply {
+            background = GradientDrawable().apply {
+                cornerRadius = dp(22).toFloat()
+                setStroke(dp(1), sys(R.color.system_neutral2_400, R.color.system_neutral2_600))
+            }
+            tabs.forEach { addView(it, LinearLayout.LayoutParams(0, -1, 1f)) }
+        }
+        val remote = ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
+            addView(remoteView { playing -> showReachable(playing != null) })
+        }
+        val (queuePage, reloadQueue) = queueView { waiting -> tabs[1].text = if (waiting > 0) "Coda · $waiting" else "Coda" }
+        fun select(index: Int) {
+            remote.visibility = if (index == 0) View.VISIBLE else View.GONE
+            queuePage.visibility = if (index == 1) View.VISIBLE else View.GONE
+            tabs.forEachIndexed { i, view ->
+                view.background = if (i == index) rounded(tonal, 22) else null
+                view.setTextColor(if (i == index) onTonal else onSurfaceVariant)
+            }
+            if (index == 1) reloadQueue()
+        }
+        tabs.forEachIndexed { i, view -> view.setOnClickListener { select(i) } }
+
+        val pages = FrameLayout(this).apply {
+            addView(remote, FrameLayout.LayoutParams(-1, -1))
+            addView(queuePage, FrameLayout.LayoutParams(-1, -1))
+        }
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(4), dp(16), 0)
+            addView(header, LinearLayout.LayoutParams(-1, dp(52)))
+            addView(segmented, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(4) })
+            addView(pages, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(16) })
+        }
+        val note = snackView()
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(surface)
+            addView(body, FrameLayout.LayoutParams(-1, -1))
+            addView(note, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply { setMargins(dp(16), 0, dp(16), dp(16)) })
+            setOnApplyWindowInsetsListener { v, insets ->
+                val i = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.ime())
+                v.setPadding(i.left, i.top, i.right, i.bottom)
+                WindowInsets.CONSUMED
+            }
+        }
+        // Trascinando giù l'intestazione il telecomando scende con il dito; oltre un certo punto si chiude
+        var startY = 0f
+        header.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> startY = event.rawY
+                MotionEvent.ACTION_MOVE -> root.translationY = (event.rawY - startY).coerceAtLeast(0f)
+                else -> if (root.translationY > dp(96)) dialog.dismiss() else root.animate().translationY(0f)
+            }
+            true
+        }
+        select(tab)
+        if (tab == 0) reloadQueue()
+        dialog.setContentView(root)
+        dialog.window?.apply {
+            setDecorFitsSystemWindows(false)
+            setBackgroundDrawable(ColorDrawable(surface))
+            setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT)
+            setWindowAnimations(R.style.Animation_InputMethod)
+        }
+        playerSnack = note
+        dialog.setOnDismissListener {
+            if (playerSnack === note) playerSnack = null
+            readMini()
+        }
+        dialog.show()
+    }
+
+    // Scheda Coda: la playlist video di Kodi, cosa sta andando e a che ora parte il resto. Restituisce la View e la
+    // funzione che la rilegge; waiting riceve quanti video aspettano dopo quello in corso (il numero sulla scheda).
+    // La lettura è in silenzio, se Kodi non risponde lo dice qui; ↻ la rifà chiedendo, se serve, utente e password.
+    private fun queueView(waiting: (Int) -> Unit): Pair<View, () -> Unit> {
+        val tonal = sys(R.color.system_accent2_100, R.color.system_accent2_700)
+        val onTonal = sys(R.color.system_accent2_900, R.color.system_accent2_100)
+        val list = section()
+        val info = label("").apply {
+            textSize = 13f
+            setTextColor(sys(R.color.system_neutral2_700, R.color.system_neutral2_200))
+            setPadding(dp(4), 0, dp(4), dp(12))
+        }
+        val clear = Button(this).apply {
+            text = "Svuota la coda"
+            isAllCaps = false
+            stateListAnimator = null
+            background = rounded(tonal, 24)
+            setTextColor(onTonal)
+        }
+        val refresh = ImageButton(this).apply {
+            contentDescription = "Aggiorna la coda"
+            tooltipText = contentDescription
+            setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_refresh, onTonal))
+            background = RippleDrawable(ColorStateList.valueOf(0x33808080), circle(tonal), null)
+        }
+        lateinit var load: (Boolean) -> Unit
+        val fetch = { kodi: Kodi ->
             val (state, items) = kodi.queue()
             Triple(state, items, kodi.playingOutside(state))
-        }, { (state, items, outside) ->
+        }
+        fun show(state: KodiState, items: List<JSONObject>, outside: JSONObject?) {
             val titles = loadTitles()
             val current = if (state.fromQueue) state.position else -1
-            lateinit var dialog: Dialog
-            val content = section().apply { setPadding(dp(24), 0, dp(16), dp(8)) }
-            content.addView(label(when {
+            val now = System.currentTimeMillis() / 1000
+            list.removeAllViews()
+            info.text = when {
                 outside != null && items.isEmpty() ->
                     "Kodi sta riproducendo un video partito fuori dalla coda, e la coda è vuota. \"+ Coda\" non può accodare dopo " +
                         "questo video: usa \"Manda a Kodi\" sull'episodio e da lì accoda gli altri."
-                outside != null -> "Kodi sta riproducendo un video partito fuori dalla coda: quando finisce non passa a questi. Tocca un video per farlo partire."
+                outside != null -> "Kodi sta riproducendo un video partito fuori dalla coda: quando finisce non passa a questi."
                 items.isEmpty() -> "La coda è vuota. \"Manda a Kodi\" fa partire un video, \"+ Coda\" lo mette in fondo."
-                state.playerId == null -> "Kodi è fermo: tocca un video per farlo partire da lì."
-                else -> "Quando un video finisce Kodi passa al successivo."
-            }).apply { setPadding(0, 0, dp(8), dp(8)) })
+                state.playerId == null -> "Kodi è fermo: con ⋮ fai partire un video da lì."
+                else -> ""
+            }
+            info.visibility = if (info.text.isEmpty()) View.GONE else View.VISIBLE
             outside?.let { item ->
                 val name = queueLabel(item.optString("file"), item.optString("title").ifBlank { item.optString("label") }, titles)
-                content.addView(queueRow(0, name, "▶ In riproduzione, fuori dalla coda", playing = true, done = false) {})
+                list.addView(queueRow(0, name, QueueNote("In riproduzione, fuori dalla coda"), playing = true, done = false, menu = null))
             }
             items.forEachIndexed { i, item ->
                 val file = item.optString("file")
                 val name = queueLabel(file, item.optString("title").ifBlank { item.optString("label") }, titles)
+                val note = queueNote(state, i, linkExpiry(Uri.parse(queueKey(file)).encodedQuery), now)
                 val playing = i == current
-                content.addView(queueRow(i + 1, name, queueNote(state, i, file), playing, done = current >= 0 && i < current) { anchor ->
-                    queueMenu(anchor, name, state, i) { dialog.dismiss() }
-                })
+                list.addView(queueRow(i + 1, name, note, playing, done = current >= 0 && i < current,
+                    menu = if (playing) null else { anchor -> queueMenu(anchor, name, state, i) { load(false) } }))
             }
-            val clear = if (items.size > (if (current >= 0) 1 else 0)) listOf("Svuota" to { clearQueue(current) }) else emptyList()
-            dialog = sheet("Coda di Kodi", content, *(clear + ("Aggiorna" to { showQueue() })).toTypedArray())
-        })
-    }
-
-    // Sotto il nome: a che punto è, quando parte (stima con episodi lunghi come quello in corso) o se il link è scaduto
-    private fun queueNote(state: KodiState, index: Int, file: String): String {
-        val now = System.currentTimeMillis() / 1000
-        val expires = linkExpiry(Uri.parse(queueKey(file)).encodedQuery)
-        val playing = state.fromQueue && index == state.position
-        return when {
-            playing && state.playerId != null -> "▶ In riproduzione"
-            state.fromQueue && index < state.position -> "Già visto"
-            expires != null && expires < now -> "Link scaduto: rimandalo dalla pagina dell'episodio"
-            !state.fromQueue -> "In coda"
-            else -> {
-                val minutes = (state.secondsUntil(index) + 59) / 60
-                val warning = if (expires != null && now + state.secondsUntil(index) + EXPIRY_MARGIN >= expires) " · il link scade prima" else ""
-                "Parte tra circa $minutes min$warning"
+            clear.visibility = if (items.size > (if (current >= 0) 1 else 0)) View.VISIBLE else View.INVISIBLE
+            clear.setOnClickListener { clearQueue(current) { load(false) } }
+            waiting(if (current >= 0) items.size - current - 1 else items.size)
+        }
+        load = { loud ->
+            if (loud) {
+                onKodi(fetch, { (state, items, outside) -> show(state, items, outside) })
+            } else {
+                thread {
+                    val (result, problem) = try {
+                        quietKodi()?.let(fetch) to null
+                    } catch (e: Unauthorized) {
+                        null to "Kodi chiede utente e password: tocca ↻ per inserirli."
+                    } catch (e: Exception) {
+                        null to "Kodi non risponde. Se la TV è spenta accendila dal telecomando, poi tocca ↻."
+                    }
+                    runOnUiThread {
+                        if (result != null) return@runOnUiThread show(result.first, result.second, result.third)
+                        list.removeAllViews()
+                        info.text = problem ?: "Kodi non ancora scelto."
+                        info.visibility = View.VISIBLE
+                        clear.visibility = View.INVISIBLE
+                        waiting(0)
+                    }
+                }
             }
         }
+        refresh.setOnClickListener { load(true) }
+        val bar = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(8), 0, dp(16))
+            addView(clear, LinearLayout.LayoutParams(0, dp(48), 1f))
+            addView(refresh, LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginStart = dp(8) })
+        }
+        val page = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(ScrollView(context).apply { addView(section(info, list)) }, LinearLayout.LayoutParams(-1, 0, 1f))
+            addView(bar)
+        }
+        return page to { load(false) }
     }
 
-    // Riga della coda: numero (▶ per quello in corso), nome e nota; i già visti più tenui
-    private fun queueRow(number: Int, name: String, note: String, playing: Boolean, done: Boolean, onTap: (View) -> Unit): View {
-        val badge = TextView(this).apply {
-            text = if (playing) "▶" else number.toString()
-            gravity = Gravity.CENTER
-            textSize = 15f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(if (playing) sys(R.color.system_accent1_0, R.color.system_accent1_800) else sys(R.color.system_accent1_900, R.color.system_accent1_100))
-            background = circle(if (playing) sys(R.color.system_accent1_600, R.color.system_accent1_200) else sys(R.color.system_accent1_100, R.color.system_accent1_700))
+    // Riga della coda: tondino con il numero (▶ pieno per quello in corso), nome, quando parte e ⋮; i già visti più tenui
+    private fun queueRow(number: Int, name: String, note: QueueNote, playing: Boolean, done: Boolean, menu: ((View) -> Unit)?): View {
+        val onSurface = sys(R.color.system_neutral1_900, R.color.system_neutral1_50)
+        val onSurfaceVariant = sys(R.color.system_neutral2_700, R.color.system_neutral2_200)
+        val badge = if (playing) {
+            ImageView(this).apply {
+                setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_play, sys(R.color.system_accent1_0, R.color.system_accent1_800), 18))
+                scaleType = ImageView.ScaleType.CENTER
+                background = circle(sys(R.color.system_accent1_600, R.color.system_accent1_200))
+            }
+        } else {
+            TextView(this).apply {
+                text = number.toString()
+                gravity = Gravity.CENTER
+                textSize = 14f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(onSurfaceVariant)
+                background = circle(sys(R.color.system_neutral2_100, R.color.system_neutral2_800))
+            }
         }
         val title = TextView(this).apply {
             text = name
-            textSize = 16f
+            textSize = 15f
             maxLines = 2
             ellipsize = TextUtils.TruncateAt.END
             if (playing) typeface = Typeface.DEFAULT_BOLD
-            setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50))
+            setTextColor(onSurface)
         }
         val detail = TextView(this).apply {
-            text = note
+            text = note.text
             textSize = 13f
-            setTextColor(sys(R.color.system_neutral2_600, R.color.system_neutral2_400))
+            if (note.warning) {
+                val red = errorColor()
+                setTextColor(red)
+                compoundDrawablePadding = dp(4)
+                setCompoundDrawablesRelativeWithIntrinsicBounds(icon(it.franc.casttokodi.R.drawable.ic_schedule, red, 14), null, null, null)
+            } else {
+                setTextColor(if (playing) sys(R.color.system_accent1_700, R.color.system_accent1_200) else onSurfaceVariant)
+            }
         }
         return LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             minimumHeight = dp(64)
-            setPadding(dp(4), dp(4), dp(8), dp(4))
-            if (done) alpha = 0.6f
-            if (!playing) {
-                setBackgroundResource(attr(R.attr.selectableItemBackground))
-                setOnClickListener { onTap(this) }
-            }
+            setPadding(dp(4), dp(6), 0, dp(6))
+            if (done) alpha = 0.55f
             addView(badge, LinearLayout.LayoutParams(dp(36), dp(36)))
             addView(section(title, detail), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(16) })
+            if (menu != null) {
+                val more = iconButton(it.franc.casttokodi.R.drawable.ic_more, "Riproduci o togli $name") { menu(it) }
+                addView(more, LinearLayout.LayoutParams(dp(44), dp(44)))
+                setBackgroundResource(attr(R.attr.selectableItemBackground))
+                setOnClickListener { menu(more) }
+            }
         }
     }
 
-    private fun queueMenu(anchor: View, name: String, state: KodiState, index: Int, close: () -> Unit) {
+    // Rosso per i link che scadono: quello di sistema da Android 14, prima il terzo accento di Material You
+    private fun errorColor() =
+        if (Build.VERSION.SDK_INT >= 34) sys(R.color.system_error_600, R.color.system_error_200)
+        else sys(R.color.system_accent3_600, R.color.system_accent3_200)
+
+    private fun queueMenu(anchor: View, name: String, state: KodiState, index: Int, changed: () -> Unit) {
         PopupMenu(this, anchor).apply {
             menu.add(0, 1, 0, "Riproduci ora")
             menu.add(0, 2, 1, "Togli dalla coda")
             setOnMenuItemClickListener { item ->
-                close()
                 if (item.itemId == 1) {
-                    onKodi({ kodi -> kodi.playFrom(state, index) }, { toast("Parte: $name") })
+                    onKodi({ kodi -> kodi.playFrom(state, index) }, { toast("Parte: $name"); changed() })
                 } else {
-                    onKodi({ kodi -> kodi.remove(index) }, { showQueue() })
+                    onKodi({ kodi -> kodi.remove(index) }, { changed() })
                 }
                 true
             }
@@ -1289,34 +1542,52 @@ class MainActivity : Activity() {
         }
     }
 
-    // Telecomando di Kodi nel pannello dal basso (⋮ → Telecomando o mini-player)
-    private fun showRemote() {
-        if (prefs.getString("host", "").isNullOrBlank()) return askKodiAddress()
-        sheet("Telecomando", section(remoteView()).apply { setPadding(dp(16), 0, dp(16), dp(8)) })
+    // Kodi con le credenziali salvate per questa rete, per le letture in silenzio; null se Kodi non è ancora scelto
+    private fun quietKodi(): Kodi? {
+        val host = prefs.getString("host", "").orEmpty()
+        if (host.isBlank()) return null
+        val login = savedLogin(host, currentNetwork())
+        return Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty())
     }
 
-    // Il telecomando, da solo: chi lo mostra (il dialogo qui sopra o un pannello) mette solo la View.
-    // Finché la View è attaccata alla finestra e l'app è in primo piano, rilegge da Kodi il video in corso ogni secondo.
-    // Il telecomando della TV salta dei passi di Kodi (su/giù 10 minuti): qui i salti sono quelli scritti sul pulsante.
-    private fun remoteView(): View {
+    // Il telecomando, da solo (la scheda di showPlayer). Finché la View è attaccata alla finestra e l'app è in primo
+    // piano, rilegge da Kodi il video in corso ogni secondo; onRead riceve ogni lettura (null se Kodi non risponde).
+    // In alto il video con la barra, poi play grande, la croce tonda con OK, i tasti tondi e, in una fila che scorre,
+    // il resto. Il telecomando della TV salta dei passi di Kodi (su/giù 10 minuti): qui i salti sono quelli scritti.
+    private fun remoteView(onRead: (NowPlaying?) -> Unit = {}): View {
         var now: NowPlaying? = null
         var dragging = false
         var generation = 0
+        val onSurface = sys(R.color.system_neutral1_900, R.color.system_neutral1_50)
+        val onSurfaceVariant = sys(R.color.system_neutral2_700, R.color.system_neutral2_200)
+        val accent = sys(R.color.system_accent1_600, R.color.system_accent1_200)
+        val onAccent = sys(R.color.system_accent1_0, R.color.system_accent1_800)
+        val pad = sys(R.color.system_neutral2_100, R.color.system_neutral2_800)
+
+        val thumb = ImageView(this).apply {
+            setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_play, sys(R.color.system_accent1_50, R.color.system_accent1_100)))
+            scaleType = ImageView.ScaleType.CENTER
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(
+                sys(R.color.system_accent1_400, R.color.system_accent1_600),
+                sys(R.color.system_accent2_700, R.color.system_accent2_900),
+            )).apply { cornerRadius = dp(10).toFloat() }
+        }
         val title = TextView(this).apply {
-            textSize = 18f
+            textSize = 17f
             typeface = Typeface.DEFAULT_BOLD
             maxLines = 2
             ellipsize = TextUtils.TruncateAt.END
-            setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50))
+            text = "Kodi"
+            setTextColor(onSurface)
         }
         val status = TextView(this).apply {
             textSize = 13f
             text = "Chiedo a Kodi…"
-            setTextColor(sys(R.color.system_neutral2_600, R.color.system_neutral2_400))
+            setTextColor(onSurfaceVariant)
         }
-        val elapsed = TextView(this).apply { textSize = 13f }
-        val total = TextView(this).apply { textSize = 13f; gravity = Gravity.END }
-        val volume = TextView(this).apply { textSize = 13f; gravity = Gravity.CENTER }
+        val elapsed = TextView(this).apply { textSize = 13f; setTextColor(onSurfaceVariant) }
+        val total = TextView(this).apply { textSize = 13f; gravity = Gravity.END; setTextColor(onSurfaceVariant) }
+        val volume = TextView(this).apply { textSize = 12f; gravity = Gravity.CENTER; setTextColor(onSurfaceVariant) }
 
         // Comando sul video in corso; poi si rilegge subito, così il telecomando non resta indietro di un secondo
         lateinit var refresh: () -> Unit
@@ -1328,6 +1599,10 @@ class MainActivity : Activity() {
 
         val bar = SeekBar(this).apply {
             isEnabled = false
+            progressTintList = ColorStateList.valueOf(accent)
+            thumbTintList = ColorStateList.valueOf(accent)
+            progressBackgroundTintList = ColorStateList.valueOf(sys(R.color.system_neutral2_300, R.color.system_neutral2_600))
+            setPadding(dp(4), 0, dp(4), 0)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
                     if (fromUser) elapsed.text = clockLabel(progress.toLong())
@@ -1341,22 +1616,27 @@ class MainActivity : Activity() {
                 }
             })
         }
-        val playPause = remoteIcon(it.franc.casttokodi.R.drawable.ic_pause, "Play o pausa", primary = true) {
-            video { kodi, id -> kodi.playPause(id) }
+        val playPause = ImageButton(this).apply {
+            contentDescription = "Play o pausa"
+            tooltipText = contentDescription
+            background = rounded(accent, 24)
+            setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_pause, onAccent, 32))
+            setOnClickListener { video { kodi, id -> kodi.playPause(id) } }
         }
-        val mute = remoteIcon(it.franc.casttokodi.R.drawable.ic_volume_off, "Muto") { kodi { it.toggleMute() } }
 
         fun show(playing: NowPlaying?, problem: String?) {
             now = playing
+            onRead(playing)
             if (playing == null) {
+                title.text = "Kodi non risponde"
                 status.text = problem
+                bar.isEnabled = false
                 return
             }
-            volume.text = if (playing.muted) "Muto" else "Volume ${playing.volume}%"
-            mute.alpha = if (playing.muted) 1f else 0.6f
+            volume.text = if (playing.muted) "Audio muto" else "Volume ${playing.volume}%"
             if (playing.playerId == null) {
                 title.text = "Niente in riproduzione"
-                status.text = "Kodi è fermo"
+                status.text = "Kodi è acceso e fermo"
                 bar.isEnabled = false
                 bar.progress = 0
                 elapsed.text = clockLabel(0)
@@ -1364,8 +1644,10 @@ class MainActivity : Activity() {
                 return
             }
             title.text = queueLabel(playing.file, playing.title, loadTitles())
-            status.text = if (playing.paused) "In pausa" else "In riproduzione"
-            setRemoteIcon(playPause, if (playing.paused) it.franc.casttokodi.R.drawable.ic_play else it.franc.casttokodi.R.drawable.ic_pause)
+            val end = if (playing.total > 0) "fino alle ${clockAt(System.currentTimeMillis() / 1000 + playing.total - playing.time)}" else "in diretta"
+            status.text = if (playing.paused) "In pausa · $end" else end
+            playPause.setImageDrawable(icon(
+                if (playing.paused) it.franc.casttokodi.R.drawable.ic_play else it.franc.casttokodi.R.drawable.ic_pause, onAccent, 32))
             bar.isEnabled = playing.total > 0
             bar.max = playing.total.toInt().coerceAtLeast(1)
             if (!dragging) {
@@ -1376,80 +1658,163 @@ class MainActivity : Activity() {
         }
 
         // In background: il video in corso, o perché non si sa
-        fun read(): Pair<NowPlaying?, String?> {
-            val host = prefs.getString("host", "").orEmpty()
-            val login = savedLogin(host, currentNetwork())
-            return try {
-                Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty()).nowPlaying() to null
-            } catch (e: Unauthorized) {
-                null to "Kodi chiede utente e password: premi un pulsante per inserirli"
-            } catch (e: Exception) {
-                null to "Kodi non risponde. Se la TV è spenta, accendila con ⏻ qui sotto"
-            }
+        fun read(): Pair<NowPlaying?, String?> = try {
+            quietKodi()?.nowPlaying() to "Kodi non ancora scelto"
+        } catch (e: Unauthorized) {
+            null to "Kodi chiede utente e password: premi un tasto per inserirli"
+        } catch (e: Exception) {
+            null to "Se la TV è spenta premi \"Accendi la TV\" qui sotto"
         }
         refresh = { thread { read().let { (playing, problem) -> runOnUiThread { show(playing, problem) } } } }
 
-        val skips = listOf(-30, -10, 10, 30).map { seconds ->
-            remoteText(if (seconds < 0) "−${-seconds} s" else "+$seconds s") { video { kodi, id -> kodi.skip(id, seconds) } }
+        // Tasti tondi: con lo sfondo della croce, o senza per quelli accanto al play
+        fun round(iconId: Int?, text: String?, description: String, filled: Boolean, onClick: () -> Unit): View {
+            val shape = RippleDrawable(ColorStateList.valueOf(0x33808080), circle(if (filled) pad else Color.TRANSPARENT), circle(Color.BLACK))
+            return if (iconId != null) ImageButton(this).apply {
+                setImageDrawable(icon(iconId, onSurface))
+                background = shape
+                contentDescription = description
+                tooltipText = description
+                setOnClickListener { onClick() }
+            } else TextView(this).apply {
+                this.text = text
+                textSize = 14f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                setTextColor(onSurface)
+                background = shape
+                contentDescription = description
+                setOnClickListener { onClick() }
+            }
         }
-        val transport = listOf(
-            remoteIcon(it.franc.casttokodi.R.drawable.ic_skip_previous, "Video precedente della coda") { video { kodi, id -> kodi.previous(id) } },
-            playPause,
-            remoteIcon(it.franc.casttokodi.R.drawable.ic_stop, "Ferma il video") {
-                if (now?.playerId == null) return@remoteIcon toast("Kodi non sta riproducendo niente")
-                AlertDialog.Builder(this)
-                    .setMessage("Fermare il video su Kodi? La coda resta.")
-                    .setPositiveButton("Ferma") { _, _ -> video { kodi, id -> kodi.stop(id) } }
-                    .setNegativeButton("Annulla", null)
-                    .show()
-            },
-            remoteIcon(it.franc.casttokodi.R.drawable.ic_skip_next, "Video successivo della coda") { video { kodi, id -> kodi.next(id) } },
-        )
-        val options = listOf(
-            remoteText("Vai al minuto") { now?.let { askSeek(it) { seconds -> video { kodi, id -> kodi.seekTo(id, seconds) } } } },
-            remoteText("Velocità") {
-                val id = now?.playerId ?: return@remoteText toast("Kodi non sta riproducendo niente")
-                chooseTempo { tempo -> tempoAt(tempo, id) }
-            },
-        )
-        val tracks = listOf(
-            remoteText("Audio") { now?.takeIf { it.playerId != null }?.let { chooseAudio(it) { track -> video { kodi, id -> kodi.setAudio(id, track) } } } },
-            remoteText("Sottotitoli") { now?.takeIf { it.playerId != null }?.let { chooseSubtitle(it) { track -> video { kodi, id -> kodi.setSubtitle(id, track) } } } },
-        )
-        fun key(icon: Int, description: String, name: String) = remoteIcon(icon, description) { kodi { it.press(name) } }
-        val ok = remoteText("OK") { kodi { it.press("Select") } }
-        val pad = section(
-            padRow(key(it.franc.casttokodi.R.drawable.ic_arrow_up, "Su", "Up")),
-            padRow(key(it.franc.casttokodi.R.drawable.ic_arrow_left, "Sinistra", "Left"), ok, key(it.franc.casttokodi.R.drawable.ic_arrow_right, "Destra", "Right")),
-            padRow(key(it.franc.casttokodi.R.drawable.ic_arrow_down, "Giù", "Down")),
-        )
-        val menus = listOf(
-            remoteText("Indietro") { kodi { it.press("Back") } },
-            remoteText("Home") { kodi { it.press("Home") } },
-            remoteText("Menu") { kodi { it.press("ContextMenu") } },
-            remoteText("Scrivi") { askText { text -> kodi { it.sendText(text) } } },
-        )
-        val sound = listOf(
-            remoteIcon(it.franc.casttokodi.R.drawable.ic_volume_down, "Volume giù") { kodi { it.volume(up = false) } },
-            mute,
-            remoteIcon(it.franc.casttokodi.R.drawable.ic_volume_up, "Volume su") { kodi { it.volume(up = true) } },
-        )
-        val power = remoteText("Accendi la TV e Kodi") { wakeKodi() }
+        val transport = LinearLayout(this).apply {
+            gravity = Gravity.CENTER
+            fun add(view: View, size: Int, height: Int = size) = addView(view, LinearLayout.LayoutParams(dp(size), dp(height)).apply {
+                marginStart = dp(6)
+                marginEnd = dp(6)
+            })
+            add(round(it.franc.casttokodi.R.drawable.ic_skip_previous, null, "Video precedente della coda", false) { video { kodi, id -> kodi.previous(id) } }, 48)
+            add(round(null, "−10", "Indietro di 10 secondi", true) { video { kodi, id -> kodi.skip(id, -10) } }, 48)
+            add(playPause, 80, 64)
+            add(round(null, "+10", "Avanti di 10 secondi", true) { video { kodi, id -> kodi.skip(id, 10) } }, 48)
+            add(round(it.franc.casttokodi.R.drawable.ic_skip_next, null, "Video successivo della coda", false) { video { kodi, id -> kodi.next(id) } }, 48)
+        }
 
+        // Croce tonda: un cerchio con le frecce sui quattro lati e OK al centro, come il telecomando della Fire TV
+        fun arrow(iconId: Int, description: String, key: String) = ImageButton(this).apply {
+            setImageDrawable(icon(iconId, onSurface, 28))
+            setBackgroundResource(attr(R.attr.selectableItemBackgroundBorderless))
+            contentDescription = description
+            tooltipText = description
+            setOnClickListener { kodi { it.press(key) } }
+        }
+        val ok = TextView(this).apply {
+            text = "OK"
+            textSize = 18f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setTextColor(onAccent)
+            background = RippleDrawable(ColorStateList.valueOf(0x33808080), circle(accent), null)
+            setOnClickListener { kodi { it.press("Select") } }
+        }
+        val dpad = FrameLayout(this).apply {
+            background = circle(pad)
+            fun put(view: View, size: Int, gravity: Int) = addView(view, FrameLayout.LayoutParams(dp(size), dp(size), gravity))
+            put(ok, 92, Gravity.CENTER)
+            put(arrow(it.franc.casttokodi.R.drawable.ic_arrow_up, "Su", "Up"), 64, Gravity.TOP or Gravity.CENTER_HORIZONTAL)
+            put(arrow(it.franc.casttokodi.R.drawable.ic_arrow_down, "Giù", "Down"), 64, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
+            put(arrow(it.franc.casttokodi.R.drawable.ic_arrow_left, "Sinistra", "Left"), 64, Gravity.START or Gravity.CENTER_VERTICAL)
+            put(arrow(it.franc.casttokodi.R.drawable.ic_arrow_right, "Destra", "Right"), 64, Gravity.END or Gravity.CENTER_VERTICAL)
+        }
+        val keys = LinearLayout(this).apply {
+            listOf(
+                round(it.franc.casttokodi.R.drawable.ic_back, null, "Indietro", true) { kodi { it.press("Back") } },
+                round(it.franc.casttokodi.R.drawable.ic_home, null, "Home di Kodi", true) { kodi { it.press("Home") } },
+                round(it.franc.casttokodi.R.drawable.ic_volume_down, null, "Volume giù", true) { kodi { it.volume(up = false) } },
+                round(it.franc.casttokodi.R.drawable.ic_volume_up, null, "Volume su", true) { kodi { it.volume(up = true) } },
+            ).forEach { button ->
+                addView(FrameLayout(context).apply {
+                    addView(button, FrameLayout.LayoutParams(dp(52), dp(52), Gravity.CENTER))
+                }, LinearLayout.LayoutParams(0, dp(56), 1f))
+            }
+        }
+
+        // Il resto, meno usato: pillole in una fila che scorre di lato
+        fun pill(text: String, onClick: () -> Unit) = TextView(this).apply {
+            this.text = text
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setTextColor(onSurfaceVariant)
+            setPadding(dp(16), 0, dp(16), 0)
+            background = RippleDrawable(ColorStateList.valueOf(0x33808080), GradientDrawable().apply {
+                cornerRadius = dp(18).toFloat()
+                setStroke(dp(1), sys(R.color.system_neutral2_400, R.color.system_neutral2_600))
+            }, null)
+            setOnClickListener { onClick() }
+        }
+        val more = LinearLayout(this).apply {
+            listOf(
+                pill("Accendi la TV") { wakeKodi() },
+                pill("−30 s") { video { kodi, id -> kodi.skip(id, -30) } },
+                pill("+30 s") { video { kodi, id -> kodi.skip(id, 30) } },
+                pill("Vai al minuto") { now?.let { askSeek(it) { seconds -> video { kodi, id -> kodi.seekTo(id, seconds) } } } },
+                pill("Audio") { now?.takeIf { it.playerId != null }?.let { chooseAudio(it) { track -> video { kodi, id -> kodi.setAudio(id, track) } } } },
+                pill("Sottotitoli") { now?.takeIf { it.playerId != null }?.let { chooseSubtitle(it) { track -> video { kodi, id -> kodi.setSubtitle(id, track) } } } },
+                pill("Velocità") {
+                    val id = now?.playerId ?: return@pill toast("Kodi non sta riproducendo niente")
+                    chooseTempo { tempo -> tempoAt(tempo, id) }
+                },
+                pill("Muto") { kodi { it.toggleMute() } },
+                pill("Menu") { kodi { it.press("ContextMenu") } },
+                pill("Scrivi") { askText { text -> kodi { it.sendText(text) } } },
+                pill("Ferma") {
+                    if (now?.playerId == null) return@pill toast("Kodi non sta riproducendo niente")
+                    AlertDialog.Builder(this@MainActivity)
+                        .setMessage("Fermare il video su Kodi? La coda resta.")
+                        .setPositiveButton("Ferma") { _, _ -> video { kodi, id -> kodi.stop(id) } }
+                        .setNegativeButton("Annulla", null)
+                        .show()
+                },
+            ).forEach { addView(it, LinearLayout.LayoutParams(-2, dp(36)).apply { marginEnd = dp(8) }) }
+        }
+        val hint = label("Durante il video su e giù di Kodi saltano di 10 minuti: per spostarti usa la barra o −10 e +10.").apply {
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setTextColor(onSurfaceVariant)
+        }
+
+        val nowRow = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(thumb, LinearLayout.LayoutParams(dp(80), dp(48)))
+            addView(section(title, status), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(14) })
+        }
         val times = LinearLayout(this).apply {
+            setPadding(dp(4), 0, dp(4), 0)
             addView(elapsed, LinearLayout.LayoutParams(0, -2, 1f))
             addView(total, LinearLayout.LayoutParams(0, -2, 1f))
         }
-        val hint = label("Durante il video le frecce di Kodi saltano avanti e indietro (su e giù di 10 minuti): per spostarti usa la barra o i salti.").apply {
-            textSize = 12f
-            setTextColor(sys(R.color.system_neutral2_600, R.color.system_neutral2_400))
-        }
-        return section(
-            title, status, bar, times,
-            remoteRow(skips), remoteRow(transport), remoteRow(options), remoteRow(tracks),
-            pad, hint, remoteRow(menus), remoteRow(sound), volume, remoteRow(listOf(power)),
-        ).apply {
-            setPadding(dp(16), dp(8), dp(16), dp(8))
+        fun gap(view: View, top: Int, width: Int = -1, height: Int = -2, gravity: Int = Gravity.NO_GRAVITY) =
+            view to LinearLayout.LayoutParams(if (width > 0) dp(width) else width, if (height > 0) dp(height) else height).apply {
+                topMargin = dp(top)
+                this.gravity = gravity
+            }
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 0, 0, dp(16))
+            listOf(
+                gap(nowRow, 0),
+                gap(bar, 16, height = 24),
+                gap(times, 2),
+                gap(transport, 16),
+                gap(dpad, 24, 216, 216, Gravity.CENTER_HORIZONTAL),
+                gap(keys, 24),
+                gap(volume, 4),
+                gap(HorizontalScrollView(context).apply {
+                    isHorizontalScrollBarEnabled = false
+                    addView(more)
+                }, 20),
+                gap(hint, 16),
+            ).forEach { (view, params) -> addView(view, params) }
             addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
                 override fun onViewAttachedToWindow(v: View) {
                     val mine = ++generation
@@ -1636,7 +2001,7 @@ class MainActivity : Activity() {
         }
         val (label, action) = when {
             host.isBlank() -> "Scegli" to { askKodiAddress() }
-            kodiReachable == true -> "Telecomando" to { showRemote() }
+            kodiReachable == true -> "Telecomando" to { showPlayer() }
             else -> "Accendi" to { wakeKodi() }
         }
         homeKodiButton.text = label
@@ -1700,8 +2065,9 @@ class MainActivity : Activity() {
         }
     }
 
-    // Barra in basso con quello che Kodi sta riproducendo: play/pausa, nome, tempo e una riga di avanzamento.
-    // Toccandola si apre il telecomando. Si vede solo quando Kodi ha un video aperto.
+    // Barra in basso con lo stato di Kodi: se riproduce, play/pausa, nome, tempo e una riga di avanzamento; se è fermo
+    // il suo nome; se non risponde, il pulsante per accenderlo. Toccandola si apre il telecomando. C'è sempre, appena
+    // Kodi è scelto: è la strada diretta al telecomando e alla coda.
     private fun miniPlayer(): View {
         val onSurface = sys(R.color.system_neutral1_900, R.color.system_neutral1_100)
         val onSurfaceVariant = sys(R.color.system_neutral2_700, R.color.system_neutral2_200)
@@ -1710,7 +2076,8 @@ class MainActivity : Activity() {
             tooltipText = contentDescription
             background = rounded(sys(R.color.system_accent1_600, R.color.system_accent1_200), 20)
             setOnClickListener {
-                val id = miniNow?.playerId ?: return@setOnClickListener
+                val playing = miniNow ?: return@setOnClickListener wakeKodi()
+                val id = playing.playerId ?: return@setOnClickListener
                 onKodi({ kodi -> kodi.playPause(id) }, { readMini() })
             }
         }
@@ -1731,7 +2098,7 @@ class MainActivity : Activity() {
             tooltipText = contentDescription
             setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_remote, onSurfaceVariant))
             setBackgroundResource(attr(R.attr.selectableItemBackgroundBorderless))
-            setOnClickListener { showRemote() }
+            setOnClickListener { showPlayer() }
         }
         miniProgress = ProgressBar(this, null, R.attr.progressBarStyleHorizontal).apply {
             max = 1000
@@ -1751,7 +2118,7 @@ class MainActivity : Activity() {
             clipToOutline = true
             isClickable = true
             contentDescription = "Video su Kodi: tocca per il telecomando"
-            setOnClickListener { showRemote() }
+            setOnClickListener { showPlayer() }
             addView(row)
             addView(miniProgress, LinearLayout.LayoutParams(-1, dp(4)).apply { setMargins(dp(12), dp(6), dp(12), dp(4)) })
             visibility = View.GONE
@@ -1791,10 +2158,22 @@ class MainActivity : Activity() {
         miniNow = playing
         kodiReachable = playing != null
         refreshKodiCard()
-        if (playing?.playerId == null) {
+        if (prefs.getString("host", "").isNullOrBlank()) {
             mini.visibility = View.GONE
             return
         }
+        mini.visibility = View.VISIBLE
+        if (playing?.playerId == null) {
+            miniTitle.text = prefs.getString("name", "").orEmpty().ifBlank { "Kodi" }
+            miniStatus.text = if (playing != null) "Acceso · niente in riproduzione · tocca per il telecomando" else "Spento o non raggiungibile"
+            miniProgress.visibility = View.GONE
+            miniPlay.visibility = if (playing == null) View.VISIBLE else View.GONE
+            miniPlay.setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_power, sys(R.color.system_accent1_0, R.color.system_accent1_800)))
+            miniPlay.contentDescription = "Accendi la TV e apri Kodi"
+            return
+        }
+        miniProgress.visibility = View.VISIBLE
+        miniPlay.visibility = View.VISIBLE
         miniTitle.text = queueLabel(playing.file, playing.title, loadTitles())
         miniStatus.text = miniPlayerStatus(playing.paused, playing.time, playing.total)
         miniProgress.progress = if (playing.total > 0) (playing.time * 1000 / playing.total).toInt() else 0
@@ -1803,39 +2182,6 @@ class MainActivity : Activity() {
             sys(R.color.system_accent1_0, R.color.system_accent1_800),
         ))
         miniPlay.contentDescription = if (playing.paused) "Riprendi su Kodi" else "Metti in pausa su Kodi"
-        mini.visibility = View.VISIBLE
-    }
-
-    // Pulsante del telecomando con un'icona al centro, del colore del testo (come ⏻)
-    private fun remoteIcon(icon: Int, description: String, primary: Boolean = false, onClick: () -> Unit) = Button(this).apply {
-        text = " "
-        contentDescription = description
-        tooltipText = description
-        paint(this, active = true, primary = primary)
-        setRemoteIcon(this, icon)
-        foregroundGravity = Gravity.CENTER
-        setOnClickListener { onClick() }
-    }
-
-    private fun setRemoteIcon(button: Button, icon: Int) {
-        button.foreground = getDrawable(icon)!!.mutate().apply { setTint(button.currentTextColor) }
-    }
-
-    private fun remoteText(text: String, onClick: () -> Unit) = Button(this).apply {
-        this.text = text
-        paint(this, active = true, primary = false)
-        setOnClickListener { onClick() }
-    }
-
-    // Pulsanti in fila, larghi uguali
-    private fun remoteRow(buttons: List<View>) = LinearLayout(this).apply {
-        buttons.forEach { addView(it, LinearLayout.LayoutParams(0, dp(56), 1f).apply { marginStart = dp(2); marginEnd = dp(2) }) }
-    }
-
-    // Una fila della croce: pulsanti quadrati al centro
-    private fun padRow(vararg buttons: View) = LinearLayout(this).apply {
-        gravity = Gravity.CENTER
-        buttons.forEach { addView(it, LinearLayout.LayoutParams(dp(72), dp(64)).apply { marginStart = dp(4); marginEnd = dp(4) }) }
     }
 
     // "Vai al minuto": 12:30, 1:02:30 o solo i minuti
@@ -1949,11 +2295,11 @@ class MainActivity : Activity() {
     }
 
     // Toglie tutto tranne il video in corso (vedi Kodi.clearQueue)
-    private fun clearQueue(current: Int) {
+    private fun clearQueue(current: Int, done: () -> Unit) {
         AlertDialog.Builder(this)
             .setMessage(if (current >= 0) "Togliere dalla coda tutti i video tranne quello in corso?" else "Togliere tutti i video dalla coda?")
             .setPositiveButton("Svuota") { _, _ ->
-                onKodi({ kodi -> kodi.clearQueue(current) }, { showQueue() })
+                onKodi({ kodi -> kodi.clearQueue(current) }, { done() })
             }
             .setNegativeButton("Annulla", null)
             .show()
@@ -2410,11 +2756,28 @@ class MainActivity : Activity() {
     }
 
     // Avviso in fondo allo schermo, sopra il sito: resta più di un toast se il testo è lungo
-    private val hideSnack = Runnable { snack.visibility = View.GONE }
+    // Con il telecomando aperto l'avviso va nel suo, perché quello dell'app resterebbe sotto
+    private val hideSnack = Runnable {
+        snack.visibility = View.GONE
+        playerSnack?.visibility = View.GONE
+    }
+
+    private fun snackView() = TextView(this).apply {
+        textSize = 14f
+        setTextColor(sys(R.color.system_neutral1_50, R.color.system_neutral1_900))
+        setPadding(dp(16), dp(14), dp(16), dp(14))
+        elevation = dp(6).toFloat()
+        background = GradientDrawable().apply {
+            cornerRadius = dp(8).toFloat()
+            setColor(sys(R.color.system_neutral1_800, R.color.system_neutral1_100))
+        }
+        visibility = View.GONE
+    }
 
     private fun toast(msg: String) = runOnUiThread {
-        snack.text = msg
-        snack.visibility = View.VISIBLE
+        val target = playerSnack ?: snack
+        target.text = msg
+        target.visibility = View.VISIBLE
         snack.removeCallbacks(hideSnack)
         snack.postDelayed(hideSnack, (2500L + 40L * msg.length).coerceAtMost(6000L))
     }
