@@ -133,6 +133,16 @@ Con la TV spenta (in standby) premi **⏻** nella barra di Kodi in fondo (o *Acc
 4. In basso a destra, sopra il sito, compaiono **Manda a Kodi** e il pulsante tondo **+ Coda**. Ora puoi anche mettere
    in pausa il video sul telefono.
 
+### Da Chrome o da un'altra app: Condividi → Couch Cast
+
+Hai trovato la pagina dell'episodio in Chrome, o qualcuno te l'ha mandata su WhatsApp? Tocca **Condividi** e scegli
+**Couch Cast**: la pagina si apre nell'app e da lì si continua dal punto 3 (avvia il player, poi Manda a Kodi).
+
+- Va bene anche un messaggio con il link in mezzo al testo: l'app prende il primo link.
+- Se condividi solo del testo, senza link, l'app lo cerca su Google.
+- Se il link è già il video (finisce con `.m3u8` o `.mp4`), si apre un pannello: **Manda a Kodi** lo fa partire subito
+  sulla TV, **Apri qui** lo apre nell'app.
+
 > [!TIP]
 > La pubblicità che apre finestre o ti porta su altri siti viene bloccata da sola, senza avvisi.
 > Se il sito ti sembra "non reagire" a un tocco, probabilmente era un link pubblicitario: tocca di nuovo il play vero.
