@@ -1291,7 +1291,7 @@ class MainActivity : Activity() {
         }
     }
 
-    // Telecomando di Kodi in un dialogo (Kodi → Telecomando)
+    // Telecomando di Kodi nel pannello dal basso (⋮ → Telecomando o mini-player)
     private fun showRemote() {
         if (prefs.getString("host", "").isNullOrBlank()) return askKodiAddress()
         sheet("Telecomando", section(remoteView()).apply { setPadding(dp(16), 0, dp(16), dp(8)) })
