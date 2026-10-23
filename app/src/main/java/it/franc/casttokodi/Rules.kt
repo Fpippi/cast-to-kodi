@@ -88,16 +88,26 @@ fun videoFor(url: String, referer: String, host: String?, path: String?, query: 
         else -> {
             val main = vixcloud || "master" in p
             val quality = Regex("\\b(\\d{3,4})p\\b").find(url)?.groupValues?.get(1)
+            // Parole semplici: chi sceglie non sa cos'è una playlist HLS
             val kind = when {
-                main -> "Playlist principale"
-                quality != null -> "Qualità ${quality}p"
-                p.endsWith(".mp4") -> "Video MP4"
-                else -> "Playlist"
+                main -> "Video completo, tutte le qualità (consigliato)"
+                quality != null -> "Solo la qualità ${quality}p"
+                p.endsWith(".mp4") -> "Video (file MP4)"
+                else -> "Altro video trovato nella pagina"
             }
-            Video(url, referer, "$kind\n${host.orEmpty()}", main)
+            Video(url, referer, "$kind\nda ${shortHost(host)}", main)
         }
     }
 }
+
+// Video da proporre, il completo per primo. Le singole qualità dello stesso sito del video completo sono pezzi di
+// quello (es. 720p e 1080p di una master): mostrarle a parte faceva sembrare che ci fossero due video diversi.
+fun videoChoices(found: List<Video>): List<Video> {
+    val mainHosts = found.filter { it.main }.map { hostOf(it.url) }.toSet()
+    return found.filter { it.main || hostOf(it.url) !in mainHosts }.sortedByDescending { it.main }
+}
+
+private fun hostOf(url: String): String? = try { URI(url).host } catch (e: Exception) { null }
 
 // Preferito salvato. icon è la favicon in PNG Base64, assente per quelli salvati prima di #25
 data class Favorite(val title: String, val url: String, val icon: String? = null)
@@ -126,21 +136,87 @@ fun initialOf(name: String, host: String?): String =
 // concede e il video non parte (VixCloud, 2026-10-21). null se non è una master o se l'audio è in una traccia a parte,
 // che con una sola qualità si perderebbe: lì si manda la master com'è.
 fun bestVariant(master: String, masterUrl: String): String? {
+    if (master.lines().any { it.trim().startsWith("#EXT-X-MEDIA:") && "TYPE=AUDIO" in it && "URI=" in it }) return null
+    return variants(master, masterUrl).maxByOrNull { it.first }?.second
+}
+
+// La qualità più leggera, per l'anteprima nell'elenco dei video: basta un'immagine piccola
+fun lowestVariant(master: String, masterUrl: String): String? = variants(master, masterUrl).minByOrNull { it.first }?.second
+
+// Le qualità di una master come (BANDWIDTH, URL assoluto), nell'ordine della playlist
+private fun variants(master: String, masterUrl: String): List<Pair<Long, String>> {
     val lines = master.lines().map { it.trim() }
-    if (lines.any { it.startsWith("#EXT-X-MEDIA:") && "TYPE=AUDIO" in it && "URI=" in it }) return null
-    var best: String? = null
-    var bestBandwidth = -1L
-    lines.forEachIndexed { i, line ->
-        if (!line.startsWith("#EXT-X-STREAM-INF:")) return@forEachIndexed
-        val uri = lines.drop(i + 1).firstOrNull { it.isNotEmpty() && !it.startsWith("#") } ?: return@forEachIndexed
+    return lines.mapIndexedNotNull { i, line ->
+        if (!line.startsWith("#EXT-X-STREAM-INF:")) return@mapIndexedNotNull null
+        val uri = lines.drop(i + 1).firstOrNull { it.isNotEmpty() && !it.startsWith("#") } ?: return@mapIndexedNotNull null
         val bandwidth = Regex("(?<![-A-Z])BANDWIDTH=(\\d+)").find(line)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
-        if (bandwidth > bestBandwidth) {
-            bestBandwidth = bandwidth
-            best = uri
+        bandwidth to URI(masterUrl).resolve(uri).toString()
+    }
+}
+
+// Durata in secondi di una playlist dei pezzi (somma dei #EXTINF); null se non ne ha (una master, una diretta vuota)
+fun playlistSeconds(media: String): Double? {
+    val parts = media.lines().map { it.trim() }.filter { it.startsWith("#EXTINF:") }
+    if (parts.isEmpty()) return null
+    return parts.sumOf { it.removePrefix("#EXTINF:").substringBefore(',').trim().toDoubleOrNull() ?: 0.0 }
+}
+
+// "24 min", "1 h 32 min", "45 s": la durata accanto a ogni video, per riconoscere l'episodio da un trailer
+fun durationLabel(seconds: Long): String = when {
+    seconds < 60 -> "$seconds s"
+    seconds < 3600 -> "${(seconds + 30) / 60} min"
+    else -> "${seconds / 3600} h ${(seconds % 3600 + 30) / 60} min"
+}
+
+// Il pezzo di una playlist da cui l'anteprima prende un fotogramma. key/iv solo se è cifrato AES-128;
+// init è il pezzo d'inizio dei video fMP4 (#EXT-X-MAP), da mettere davanti.
+class Segment(val url: String, val key: String?, val iv: ByteArray?, val init: String?)
+
+// Il pezzo che contiene il secondo `at` (l'ultimo se il video è più corto): l'inizio spesso è nero.
+// null se non si può decifrare (SAMPLE-AES, DRM) o se non ci sono pezzi.
+fun segmentAt(media: String, mediaUrl: String, at: Double): Segment? {
+    val base = URI(mediaUrl)
+    val uri = Regex("URI=\"([^\"]+)\"")
+    var key: String? = null
+    var iv: ByteArray? = null
+    var init: String? = null
+    var number = 0L
+    var start = 0.0
+    var length = 0.0
+    var found: Segment? = null
+    for (raw in media.lines()) {
+        val line = raw.trim()
+        when {
+            line.startsWith("#EXT-X-MEDIA-SEQUENCE:") -> number = line.substringAfter(':').trim().toLongOrNull() ?: 0L
+            line.startsWith("#EXT-X-KEY:") -> when (Regex("METHOD=([A-Z0-9-]+)").find(line)?.groupValues?.get(1)) {
+                "NONE" -> { key = null; iv = null }
+                "AES-128" -> {
+                    key = base.resolve(uri.find(line)?.groupValues?.get(1) ?: return null).toString()
+                    iv = Regex("IV=0[xX]([0-9a-fA-F]+)").find(line)?.groupValues?.get(1)?.let { hexIv(it) }
+                }
+                else -> return null
+            }
+            line.startsWith("#EXT-X-MAP:") -> init = uri.find(line)?.groupValues?.get(1)?.let { base.resolve(it).toString() }
+            line.startsWith("#EXTINF:") -> length = line.removePrefix("#EXTINF:").substringBefore(',').trim().toDoubleOrNull() ?: 0.0
+            line.isEmpty() || line.startsWith("#") -> Unit
+            else -> {
+                // Senza IV nella playlist vale il numero del pezzo (RFC 8216, 5.2)
+                found = Segment(base.resolve(line).toString(), key, if (key == null) null else iv ?: numberIv(number), init)
+                start += length
+                if (start > at) return found
+                number++
+            }
         }
     }
-    return best?.let { URI(masterUrl).resolve(it).toString() }
+    return found
 }
+
+private fun hexIv(hex: String): ByteArray {
+    val padded = hex.takeLast(32).padStart(32, '0')
+    return ByteArray(16) { padded.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
+}
+
+private fun numberIv(n: Long): ByteArray = ByteArray(16) { if (it < 8) 0 else (n shr (8 * (15 - it))).toByte() }
 
 // Playlist di una qualità da passare a Kodi dal telefono (vedi Relay): i pezzi diventano indirizzi assoluti del
 // sito, le chiavi AES (#EXT-X-KEY) passano da keyUrl, che le scarica e dà l'indirizzo locale. null se non è una

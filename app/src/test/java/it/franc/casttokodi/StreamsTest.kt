@@ -116,4 +116,39 @@ class StreamsTest {
             assertEquals(0, site.hits("/film.mp4"))
         }
     }
+
+    // Anteprima: durata e un pezzo decifrato della qualità più leggera, senza toccare quella buona
+    @Test
+    fun anteprimaDallaQualitaLeggera() = withRelay { streams ->
+        FakeSite().use { site ->
+            val preview = streams.preview("${site.base}/master.m3u8", headers)
+            assertEquals(8L, preview.seconds)
+            assertEquals("anteprima 0", String(preview.sample!!))
+            assertEquals(1, site.hits("/480p.m3u8"))
+            assertEquals(0, site.hits("/1080p.m3u8"))
+            assertEquals("https://animeunity.so/anime/1", site.referers["/480p/0000.ts"])
+        }
+    }
+
+    // Dopo l'anteprima la master monouso non si richiede: l'invio usa la copia
+    @Test
+    fun anteprimaNonConsumaLaPlaylistMonouso() = withRelay { streams ->
+        FakeSite(oneShot = true).use { site ->
+            val master = "${site.base}/master.m3u8"
+            streams.preview(master, headers)
+            val file = streams.kodiFile(master, headers, viaPhone = true)
+            assertEquals(1, site.hits("/master.m3u8"))
+            assertTrue(FakeKodi.fetch(file).contains("${site.base}/1080p/0001.ts"))
+        }
+    }
+
+    // Pezzi troppo grossi: niente immagine, la durata resta
+    @Test
+    fun anteprimaSenzaPezzoTroppoGrosso() = withRelay { streams ->
+        FakeSite().use { site ->
+            val preview = streams.preview("${site.base}/master.m3u8", headers, limit = 4)
+            assertEquals(8L, preview.seconds)
+            assertEquals(null, preview.sample)
+        }
+    }
 }
