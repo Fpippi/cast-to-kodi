@@ -7,6 +7,14 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 1.2.4
+
+- Elenco dei video più chiaro: ogni voce dice cos'è ("Video completo, tutte le qualità (consigliato)", "Solo la
+  qualità 720p", …) e da quale sito arriva; le singole qualità di un video non compaiono più a parte.
+- Accanto a ogni video dell'elenco un'immagine presa dal video e la durata, per distinguere l'episodio da un trailer
+  (sui video protetti può esserci solo la durata).
+- README e tutorial anche in inglese.
+
 ## 1.2.3
 
 - Coda di Kodi: se Kodi sta riproducendo un video partito fuori dalla coda, compare in cima con il motivo per cui la
