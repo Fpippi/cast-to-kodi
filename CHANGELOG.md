@@ -7,6 +7,22 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.1.0
+
+L'interfaccia come nel mockup scelto, meno piatta, e il telecomando a portata di dito.
+
+- **Barra di Kodi sempre in fondo**: cosa riproduce Kodi, "niente in riproduzione" o, se è spento, il pulsante per
+  accenderlo. Toccandola si apre il telecomando, senza passare dal menu.
+- **Telecomando a schermo intero** con le schede *Telecomando* e *Coda*: il video in corso con l'ora in cui finisce,
+  play/pausa grande tra −10 e +10 s, la croce tonda con OK, tasti tondi per Indietro, Home e volume, il resto in una
+  fila che scorre. Si chiude con ⌄, con indietro o trascinandolo giù.
+- **Coda** con l'ora in cui parte ogni episodio ("Parte alle 22:16"), i link che scadono in rosso e ⋮ accanto a ogni
+  video per farlo partire o toglierlo.
+- **Scelta del video** con immagini grandi e la durata sopra: il primo è già scelto, con *Manda* e *In coda* sotto; i
+  video sotto il minuto sono sbiaditi.
+- Barra in alto più pulita: solo il nome del sito (l'indirizzo intero torna toccandola) e niente ⏻, che ora sta nella
+  barra di Kodi.
+
 ## 2.0.0
 
 Nuova interfaccia: l'app cambia nel modo in cui si usa. Riassume anche la 1.3.0.

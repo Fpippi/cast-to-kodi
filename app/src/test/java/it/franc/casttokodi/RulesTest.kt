@@ -347,4 +347,35 @@ s2.ts
         assertEquals("In pausa · 0:05 di 1:02:03", miniPlayerStatus(paused = true, time = 5, total = 3723))
         assertEquals("Su Kodi · 4:05", miniPlayerStatus(paused = false, time = 245, total = 0))
     }
+
+    @Test
+    fun addressLabelShowsOnlyTheSite() {
+        assertEquals("animeunity.co", addressLabel("https://www.animeunity.co/anime/123-jojo/456"))
+        assertEquals("192.168.1.50", addressLabel("http://192.168.1.50:8080/jsonrpc"))
+        assertEquals("about:blank", addressLabel("about:blank"))
+    }
+
+    @Test
+    fun clockAtIsTheTimeOfDay() {
+        assertEquals("21:52", clockAt(21 * 3600 + 52 * 60 + 30L, java.time.ZoneOffset.UTC))
+    }
+
+    @Test
+    fun queueNoteGivesTimesAndWarnings() {
+        val utc = java.time.ZoneOffset.UTC
+        val now = 21 * 3600 + 30 * 60L // 21:30
+        // In corso il secondo (posizione 1): mancano 22 minuti, episodi da 24
+        val state = KodiState(playerId = 1, fromQueue = true, position = 1, remaining = 22 * 60, episode = 24 * 60, queueLength = 5)
+        assertEquals("Già visto", queueNote(state, 0, null, now, utc).text)
+        assertEquals("In riproduzione · finisce alle 21:52", queueNote(state, 1, null, now, utc).text)
+        assertEquals("Parte alle 21:52", queueNote(state, 2, null, now, utc).text)
+        assertEquals("Parte alle 22:16", queueNote(state, 3, null, now, utc).text)
+        val late = queueNote(state, 4, now + 3600, now, utc)
+        assertEquals("Il link scade prima del suo turno", late.text)
+        assertTrue(late.warning)
+        assertTrue(queueNote(state, 3, now - 1, now, utc).warning)
+        assertFalse(queueNote(state, 3, now + 6 * 3600, now, utc).warning)
+        val stopped = KodiState(playerId = null, fromQueue = true, position = 1, remaining = 0, episode = 0, queueLength = 5)
+        assertEquals("In coda", queueNote(stopped, 3, null, now, utc).text)
+    }
 }
