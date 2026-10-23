@@ -1,4 +1,4 @@
-@README.md
+@README.it.md
 
 ## Stato e contesto per riprendere il lavoro
 
@@ -18,6 +18,7 @@
 - Scartati **Web Video Caster** (pubblicità, il Premium è a pagamento: l'utente non vuole pagare) e **AirScreen** (duplica lo schermo: qualità più bassa e telefono sempre acceso).
 - Il Pixel trasmette solo con Google Cast e la Fire TV non lo supporta in modo nativo: per questo serve tutto questo giro.
 - Chiave di firma fissa nei secrets di GitHub, mai nel repo (l'utente la tiene in `D:\Progetti\casttokodi-firma`): così gli aggiornamenti si installano senza disinstallare. L'app avvisa delle build nuove leggendo `releases/latest` senza token.
+- README in due lingue (2026-10-23, scelta di Pippo): `README.md` in inglese (quello che GitHub mostra), `README.it.md` in italiano (importato qui sopra), tutorial `docs/TUTORIAL.md` + `docs/TUTORIAL.en.md`. Vanno tenuti allineati. L'interfaccia dell'app resta in italiano: nei testi inglesi i nomi dei pulsanti restano quelli dell'app, con la traduzione tra parentesi.
 - **Il repo è pubblico**: niente segreti, IP di casa, credenziali o dati personali nei file committati.
 - I commit portano solo l'utente come autore: niente `Co-Authored-By` né altre righe di attribuzione.
 - Nomi dei branch: `feature/<nome>` per cose nuove, `hotfix/<nome>` per bug esistenti, con nomi che dicono cosa fanno. Mai `claude/` o nomi generati.
@@ -41,3 +42,4 @@
 - Passaggio dal telefono (2026-10-21): anche con una sola qualità la Fire TV impiega 10-20 s per ogni richiesta a vixcloud.cc (il telefono no) e il limite di 30 s è fisso nel codice di Kodi (`m_timeout.Set(30s)` in `DVDDemuxFFmpeg.cpp`), non nelle impostazioni. Per "Manda a Kodi" (`kodiItem(viaPhone = true)`) il telefono scarica playlist della qualità e chiavi AES e le serve a Kodi da `Relay.kt` (server HTTP su porta casuale, IPv4 del Wi-Fi); i pezzi del video Kodi li prende dal sito (`relayPlaylist` li rende assoluti). Il telefono serve solo all'avvio; la coda e gli episodi automatici restano diretti. Pippo non vuole soluzioni che chiedano di riavviare TV o router. Con lo stream si mandano anche `Origin` (se il video è su un altro dominio) e i cookie del WebView: StreamingCommunity col player vidxgo dava 403 senza (ipotesi, non provata).
 - vidxgo (StreamingCommunity, 2026-10-21): 403 anche con Origin, in 1 s, a ogni tentativo. Ipotesi: token della `master.m3u8` valido una volta sola. Le `.m3u8` (non le `/playlist/` di VixCloud) le scarica l'app al posto del WebView (`capturePlaylist`, header e cookie del WebView, CORS aggiunto se manca) e ne tiene copia in `captured`: `download` usa la copia, così l'invio non rifà la richiesta. Kodi riceve la playlist dal telefono (Relay); i pezzi li chiede ancora al CDN, e se rispondono 403 anche loro servirà passare dal telefono anche i pezzi.
 - `targetSdk 35` forza l'edge-to-edge: il padding degli insets nella root serve.
+- Anteprima nell'elenco dei video (#37, 2026-10-23): MP4 con `MediaMetadataRetriever` dall'URL; HLS con `Streams.preview` (qualità più leggera, pezzo al 10% del video, max 90 s, AES-128 decifrato, max 8 MB) scritto in `cacheDir` e letto da `MediaMetadataRetriever`. Le playlist lette restano in `captured`, così l'anteprima non brucia il token monouso di vidxgo. SAMPLE-AES/DRM: solo la durata. Non ancora provato sui siti veri.

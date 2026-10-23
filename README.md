@@ -1,143 +1,149 @@
 <p align="center">
-  <img src="docs/icon.svg" width="112" alt="Icona di Couch Cast: un telefono davanti a una TV con il tasto play">
+  <img src="docs/icon.svg" width="112" alt="Couch Cast icon: a phone in front of a TV with a play button">
 </p>
 
 <h1 align="center">Couch Cast</h1>
 
+<p align="center"><a href="README.it.md">🇮🇹 Italiano</a> · 🇬🇧 English</p>
+
 <p align="center">
-  Dal telefono alla Fire TV, gratis e senza pubblicità.<br>
-  Apri il sito sul Pixel, il video parte su <b>Kodi</b>.
+  From your phone to the Fire TV, free and without ads.<br>
+  Open the site on your Pixel, the video plays on <b>Kodi</b>.
 </p>
 
 <p align="center">
-  <a href="https://github.com/Fpippi/cast-to-kodi/releases/latest"><img src="https://img.shields.io/github/v/release/Fpippi/cast-to-kodi?label=ultima%20build&color=0D5563" alt="Ultima build"></a>
+  <a href="https://github.com/Fpippi/cast-to-kodi/releases/latest"><img src="https://img.shields.io/github/v/release/Fpippi/cast-to-kodi?label=latest%20build&color=0D5563" alt="Latest build"></a>
   <a href="https://github.com/Fpippi/cast-to-kodi/actions/workflows/apk.yml"><img src="https://github.com/Fpippi/cast-to-kodi/actions/workflows/apk.yml/badge.svg?branch=main" alt="APK"></a>
-  <a href="https://github.com/Fpippi/cast-to-kodi/actions/workflows/test.yml"><img src="https://github.com/Fpippi/cast-to-kodi/actions/workflows/test.yml/badge.svg" alt="Test"></a>
+  <a href="https://github.com/Fpippi/cast-to-kodi/actions/workflows/test.yml"><img src="https://github.com/Fpippi/cast-to-kodi/actions/workflows/test.yml/badge.svg" alt="Tests"></a>
   <img src="https://img.shields.io/badge/Android-13%2B-3DDC84?logo=android&logoColor=white" alt="Android 13+">
-  <img src="https://img.shields.io/badge/Kotlin-senza%20dipendenze-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin">
+  <img src="https://img.shields.io/badge/Kotlin-no%20dependencies-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin">
 </p>
 
 <p align="center">
-  <a href="https://github.com/Fpippi/cast-to-kodi/releases/latest/download/CastToKodi.apk"><b>📥 Scarica l'APK</b></a> · <a href="docs/TUTORIAL.md"><b>📖 Come si usa</b></a>
+  <a href="https://github.com/Fpippi/cast-to-kodi/releases/latest/download/CastToKodi.apk"><b>📥 Download the APK</b></a> · <a href="docs/TUTORIAL.en.md"><b>📖 How to use it</b></a>
 </p>
 
 ---
 
-App Android personale (Pixel 9 Pro XL) per guardare i video dei siti di streaming sulla Fire TV. Sul telefono si chiama **Couch Cast**; repo, release e APK (`CastToKodi.apk`) mantengono il vecchio nome, così aggiornamenti e Obtainium continuano a funzionare.
+A personal Android app (Pixel 9 Pro XL) for watching videos from streaming sites on a Fire TV. On the phone it is called **Couch Cast**; the repo, releases and APK (`CastToKodi.apk`) keep the old name, so updates and Obtainium keep working.
 
-## ✨ Come funziona
+> [!NOTE]
+> The app's interface is in Italian. Below, button names are given as they appear in the app, with a translation in brackets.
+
+## ✨ How it works
 
 ```
-📱 Pixel (browser + telecomando)  ──link del video──▶  📺 Kodi sulla Fire TV  ──▶  🌐 sito di streaming
+📱 Pixel (browser + remote)  ──video link──▶  📺 Kodi on the Fire TV  ──▶  🌐 streaming site
 ```
 
-- 🔎 Il telefono fa da browser: apri il sito nell'app e avvii il player.
-- 🎯 L'app intercetta il flusso video (`.m3u8` / `.mp4`) e lo manda a **Kodi**, che lo riproduce direttamente.
-- 🔋 Il video non passa dal telefono: qualità piena e telefono che si può bloccare. Solo all'avvio il telefono passa a Kodi la playlist e la chiave, che la Fire TV da sola scarica troppo lentamente.
-- 🚫 Popup, `window.open` e salti verso altri domini vengono bloccati: sono quasi tutta la pubblicità di quei siti.
-- 📋 Coda degli episodi nella playlist di Kodi, e su AnimeUnity, se vuoi, gli episodi successivi si accodano da soli.
+- 🔎 The phone is the browser: open the site in the app and start the player.
+- 🎯 The app picks up the video stream (`.m3u8` / `.mp4`) and sends it to **Kodi**, which plays it directly.
+- 🔋 The video does not go through the phone: full quality, and the phone can be locked. Only at the start does the phone hand Kodi the playlist and the key, which the Fire TV alone downloads too slowly.
+- 🚫 Popups, `window.open` and jumps to other domains are blocked: they are almost all of the ads on those sites.
+- 📋 Episode queue in Kodi's playlist, and on AnimeUnity, if you want, the next episodes are queued automatically.
 
-## 📺 Dispositivi compatibili
+## 📺 Compatible devices
 
-L'app parla con **Kodi**, non con la TV: funziona su qualunque dispositivo dove gira Kodi con il controllo remoto via HTTP. Il pulsante **⏻** invece usa ADB in rete (porta 5555) e l'HDMI-CEC, quindi va solo su Fire OS e Android TV.
+The app talks to **Kodi**, not to the TV: it works on any device that runs Kodi with remote control over HTTP. The **⏻** button instead uses network ADB (port 5555) and HDMI-CEC, so it only works on Fire OS and Android TV.
 
-| Dispositivo | Kodi | Manda a Kodi | ⏻ Accendi |
+| Device | Kodi | Send to Kodi | ⏻ Power on |
 |---|---|---|---|
-| Fire TV Stick / Cube con **Fire OS**, TV con Fire TV integrata | APK con Downloader | ✅ | ✅ Debug ADB in rete già previsto |
-| Fire TV con **Vega OS** (Stick 4K Select, Stick HD 2026) | ❌ non si installa | ❌ | ❌ |
-| **Android TV** (Sony Bravia, Philips, TCL, Hisense Android, Sharp…) | Play Store | ✅ | ⚠️ dipende dal modello: serve il debug ADB sulla porta 5555 |
-| **Nvidia Shield TV** | Play Store | ✅ | ✅ *Opzioni sviluppatore → Debug di rete* |
-| Box Android generici (Xiaomi Mi Box, Homatics, Onn…) | Play Store o APK | ✅ | ⚠️ come Android TV |
-| **Google TV** (Chromecast con Google TV, Google TV Streamer, TV Google TV) | Play Store | ✅ | ⚠️ di solito no: il *Debug wireless* usa l'abbinamento con codice e una porta che cambia, non la 5555 |
-| PC Windows / Mac / Linux collegato alla TV | kodi.tv | ✅ | ❌ |
-| Raspberry Pi, LibreELEC, CoreELEC, OSMC | kodi.tv / immagine dedicata | ✅ | ❌ |
+| Fire TV Stick / Cube with **Fire OS**, TVs with built-in Fire TV | APK via Downloader | ✅ | ✅ Network ADB debugging built in |
+| Fire TV with **Vega OS** (Stick 4K Select, Stick HD 2026) | ❌ cannot be installed | ❌ | ❌ |
+| **Android TV** (Sony Bravia, Philips, TCL, Hisense Android, Sharp…) | Play Store | ✅ | ⚠️ depends on the model: needs ADB debugging on port 5555 |
+| **Nvidia Shield TV** | Play Store | ✅ | ✅ *Developer options → Network debugging* |
+| Generic Android boxes (Xiaomi Mi Box, Homatics, Onn…) | Play Store or APK | ✅ | ⚠️ like Android TV |
+| **Google TV** (Chromecast with Google TV, Google TV Streamer, Google TV sets) | Play Store | ✅ | ⚠️ usually not: *Wireless debugging* uses code pairing and a changing port, not 5555 |
+| Windows / Mac / Linux PC connected to the TV | kodi.tv | ✅ | ❌ |
+| Raspberry Pi, LibreELEC, CoreELEC, OSMC | kodi.tv / dedicated image | ✅ | ❌ |
 | Xbox One / Series | Microsoft Store | ✅ | ❌ |
-| **LG webOS** | ⚠️ solo port della comunità (Homebrew, modalità sviluppatore), webOS 4+ | ⚠️ in teoria sì, non provato | ❌ |
-| **Apple TV** (HD e 4K) | ⚠️ solo sideload con Xcode da un Mac, da rifirmare | ⚠️ in teoria sì, non provato | ❌ |
-| **Samsung Tizen**, **Roku**, Chromecast senza Google TV | ❌ Kodi non esiste | ❌ | ❌ |
+| **LG webOS** | ⚠️ community port only (Homebrew, developer mode), webOS 4+ | ⚠️ in theory yes, not tested | ❌ |
+| **Apple TV** (HD and 4K) | ⚠️ sideload only, with Xcode from a Mac, must be re-signed | ⚠️ in theory yes, not tested | ❌ |
+| **Samsung Tizen**, **Roku**, Chromecast without Google TV | ❌ Kodi does not exist | ❌ | ❌ |
 
-- ✅ = funziona, ⚠️ = funziona con limiti o non verificato, ❌ = no. Provato davvero solo sulla Fire TV con Fire OS.
-- Su TV Samsung, LG, Roku si può comunque attaccare all'HDMI un dispositivo della lista (es. una Fire TV Stick con Fire OS o un Chromecast con Google TV).
-- **⏻ su Android TV / Google TV**: l'app si collega in ADB "classico" alla porta 5555. Se il dispositivo ha solo il *Debug wireless* di Android 11+, la 5555 si può aprire una volta da un PC (`adb tcpip 5555`), ma si richiude a ogni riavvio. In sonno profondo molti dispositivi spengono la rete: lì il pulsante non ha nessuno da svegliare.
+- ✅ = works, ⚠️ = works with limits or not verified, ❌ = no. Only actually tested on a Fire TV with Fire OS.
+- On Samsung, LG or Roku TVs you can still plug a device from the list into HDMI (e.g. a Fire TV Stick with Fire OS or a Chromecast with Google TV).
+- **⏻ on Android TV / Google TV**: the app connects with "classic" ADB on port 5555. If the device only has Android 11+ *Wireless debugging*, port 5555 can be opened once from a PC (`adb tcpip 5555`), but it closes again on every reboot. In deep sleep many devices turn off the network: then the button has nothing to wake up.
 
-## 🛠️ Preparazione (una volta sola)
+## 🛠️ Setup (once)
 
 ### 📺 Fire TV
 
-0. Serve una Fire TV con **Fire OS** (es. Fire TV Stick 4K Max e precedenti): controlla in *Impostazioni → La mia Fire TV → Info*. I modelli con **Vega OS** (Fire TV Stick 4K Select, Fire TV Stick HD 2026) non permettono di installare Kodi.
-1. Kodi non è nell'Appstore Amazon: installa l'app **Downloader** dall'Appstore, abilitala alle "app da origini sconosciute" (in *La mia Fire TV → Opzioni sviluppatore*; se non le vedi, tocca 7 volte il nome del dispositivo in *Info*) e scarica da kodi.tv l'APK Android ARM a 32 bit.
-2. In Kodi: *Impostazioni → Servizi → Controllo*, attiva **Consenti il controllo remoto via HTTP**. Annota porta (di solito 8080), utente e password.
-3. In Kodi: *Impostazioni → Servizi → Generale*, attiva **Annuncia servizi ad altri sistemi**: così l'app trova Kodi da sola. Se non funziona, annota l'IP della Fire TV (*Impostazioni → La mia Fire TV → Info → Rete*) e scrivilo a mano.
-4. Per accendere la TV dal telefono (pulsante di accensione, accanto a ★): attiva *La mia Fire TV → Opzioni sviluppatore → **Debug ADB***, *Impostazioni → Display e audio → **Controllo dispositivi HDMI CEC*** e l'HDMI-CEC sulla TV (Anynet+, SimpLink, Bravia Sync… a seconda della marca). Se con Alexa la TV si accende già sull'ingresso giusto, il CEC è a posto.
+0. You need a Fire TV with **Fire OS** (e.g. Fire TV Stick 4K Max and earlier): check in *Settings → My Fire TV → About*. **Vega OS** models (Fire TV Stick 4K Select, Fire TV Stick HD 2026) do not allow installing Kodi.
+1. Kodi is not in the Amazon Appstore: install the **Downloader** app from the Appstore, allow it to install "apps from unknown sources" (in *My Fire TV → Developer options*; if you don't see them, click the device name 7 times in *About*) and download the 32-bit ARM Android APK from kodi.tv.
+2. In Kodi: *Settings → Services → Control*, turn on **Allow remote control via HTTP**. Note the port (usually 8080), username and password.
+3. In Kodi: *Settings → Services → General*, turn on **Announce services to other systems**: this way the app finds Kodi by itself. If that doesn't work, note the Fire TV's IP (*Settings → My Fire TV → About → Network*) and type it in by hand.
+4. To turn the TV on from the phone (power button, next to ★): turn on *My Fire TV → Developer options → **ADB debugging***, *Settings → Display & Sounds → **HDMI CEC Device Control*** and HDMI-CEC on the TV (Anynet+, SimpLink, Bravia Sync… depending on the brand). If Alexa already turns the TV on to the right input, CEC is fine.
 
-### 📱 App sul telefono, senza PC
+### 📱 App on the phone, without a PC
 
-1. A ogni push su `main` GitHub Actions compila l'APK e lo pubblica come release "Versione X.Y.Z" (tag `vX.Y.Z`), con l'elenco delle novità preso da [CHANGELOG.md](CHANGELOG.md). Dal Pixel apri [releases/latest](https://github.com/Fpippi/cast-to-kodi/releases/latest) e scarica `CastToKodi.apk`.
-2. Le build sono firmate con una chiave fissa (secrets `KEYSTORE_BASE64` e `KEYSTORE_PASSWORD` del repo; l'originale non è nel repo), quindi ogni APK si installa sopra il precedente. Se la chiave si perde, ne serve una nuova e va disinstallata l'app una volta.
-3. 🔔 All'avvio l'app avvisa se c'è una build nuova. Per aggiornare con un tocco si può usare **Obtainium** con l'indirizzo del repo.
+1. On every push to `main`, GitHub Actions builds the APK and publishes it as the release "Versione X.Y.Z" (tag `vX.Y.Z`), with the list of changes taken from [CHANGELOG.md](CHANGELOG.md) (in Italian). From the Pixel open [releases/latest](https://github.com/Fpippi/cast-to-kodi/releases/latest) and download `CastToKodi.apk`.
+2. Builds are signed with a fixed key (repo secrets `KEYSTORE_BASE64` and `KEYSTORE_PASSWORD`; the original is not in the repo), so each APK installs over the previous one. If the key is lost a new one is needed, and the app must be uninstalled once.
+3. 🔔 On startup the app tells you if there is a new build. To update with one tap you can use **Obtainium** with the repo address.
 
 <details>
-<summary>💻 Con il PC e Android Studio (in alternativa)</summary>
+<summary>💻 With a PC and Android Studio (alternative)</summary>
 
 **PC**
-1. Installa Android Studio (developer.android.com/studio). Al primo avvio scarica da solo SDK e JDK.
-2. *File → Open* sulla cartella del progetto e aspetta la sincronizzazione Gradle.
+1. Install Android Studio (developer.android.com/studio). On first launch it downloads the SDK and JDK by itself.
+2. *File → Open* on the project folder and wait for the Gradle sync.
 
 **Pixel**
-1. *Impostazioni → Info sul telefono*: tocca 7 volte "Numero build" per sbloccare le Opzioni sviluppatore.
-2. *Impostazioni → Sistema → Opzioni sviluppatore*: attiva **Debug USB**.
-3. Collega il telefono via USB, sceglilo in Android Studio e premi ▶️ Run.
+1. *Settings → About phone*: tap "Build number" 7 times to unlock Developer options.
+2. *Settings → System → Developer options*: turn on **USB debugging**.
+3. Connect the phone via USB, pick it in Android Studio and press ▶️ Run.
 
 </details>
 
-## ▶️ Uso
+## ▶️ Usage
 
 > [!TIP]
-> Prima volta? C'è una guida passo passo, con esempi e soluzioni ai problemi comuni: **[📖 Come si usa Couch Cast](docs/TUTORIAL.md)**.
+> First time? There is a step-by-step guide, with examples and fixes for common problems: **[📖 How to use Couch Cast](docs/TUTORIAL.en.md)**.
 
-1. 📡 Al primo avvio si apre **Dov'è Kodi?**: in *Automatico* l'app cerca Kodi in rete e lo selezioni; in *Manuale* scrivi `IP:porta` (es. `192.168.1.50:8080`). Sotto, utente e password se impostati in Kodi (se mancano, l'app li chiede al primo invio). Si cambia dopo con **Kodi → Dov'è Kodi?**. Se la Fire TV cambia IP, all'invio l'app la ritrova da sola. Le credenziali restano sul telefono, con la password cifrata, legate a quel Kodi e alla rete di casa: su un'altra rete si richiedono.
-2. 🔌 Con la TV spenta premi il **pulsante di accensione** (accanto a ★): l'app trova da sola la Fire TV in rete (anche senza Kodi aperto), la sveglia, la TV si accende e dopo qualche secondo passa sul suo ingresso, poi si apre Kodi; quando risponde l'app scrive "Kodi è pronto". La prima volta la TV chiede di consentire il debug da questo telefono: spunta *Consenti sempre* e premi OK. Se la Fire TV è in sonno profondo non risponde in rete: lì servono Alexa o il telecomando.
-3. 🔍 Nella barra in alto scrivi un indirizzo o una ricerca (es. `jojo animeunity`, va su Google). Con **★** salvi la pagina nei preferiti (con un nome a scelta) e li riapri; con **⋮** accanto a un preferito lo rinomini o lo togli.
-4. 🎬 Vai all'episodio e **avvia il player** (il flusso si rileva solo quando parte).
-5. 📤 Premi **Manda a Kodi**. La pubblicità è già scartata; se restano più video, la playlist principale è la prima.
-6. 📋 **Coda**: tutto passa dalla playlist video di Kodi e non viene mai cancellata. *Manda a Kodi* inserisce il video subito dopo quello in corso e parte; **+ Coda** lo mette in fondo. Se l'episodio non potrebbe partire (video in corso non avviato dall'app, link che scade prima del suo turno) l'app non lo accoda e spiega perché. Con **Kodi → Coda di Kodi** (o tenendo premuto **+ Coda**) la vedi: il video in corso (▶), quelli già visti, quando parte ognuno e se il link è scaduto; tocca un video per farlo partire o toglierlo, **Svuota** toglie tutto tranne quello in corso. Se Kodi sta riproducendo un video partito fuori dalla coda, compare in cima con il motivo per cui la coda non lo segue.
-7. 🪵 Se Kodi dice *Playback failed*: pulsante **Kodi → Log di Kodi**. L'app legge le ultime righe del log dalla Fire TV via ADB (come il pulsante di accensione, niente add-on) e con **Condividi** le mandi dove serve.
+1. 📡 On first launch **Dov'è Kodi?** ("Where is Kodi?") opens: in *Automatico* (automatic) the app looks for Kodi on the network and you pick it; in *Manuale* (manual) you type `IP:port` (e.g. `192.168.1.50:8080`). Below, username and password if set in Kodi (if missing, the app asks for them on the first send). You can change it later with **Kodi → Dov'è Kodi?**. If the Fire TV changes IP, the app finds it again by itself when sending. Credentials stay on the phone, with the password encrypted, tied to that Kodi and to the home network: on another network they are asked again.
+2. 🔌 With the TV off press the **power button** (next to ★): the app finds the Fire TV on the network by itself (even without Kodi open), wakes it up, the TV turns on and after a few seconds switches to its input, then Kodi opens; when it answers the app says "Kodi è pronto" ("Kodi is ready"). The first time the TV asks to allow debugging from this phone: tick *Always allow* and press OK. If the Fire TV is in deep sleep it does not answer on the network: then you need Alexa or the remote.
+3. 🔍 In the top bar type an address or a search (e.g. `jojo animeunity`, goes to Google). With **★** you save the page to favourites (with a name of your choice) and reopen them; with **⋮** next to a favourite you rename or remove it.
+4. 🎬 Go to the episode and **start the player** (the stream is only detected once it starts).
+5. 📤 Press **Manda a Kodi** ("Send to Kodi"). Ads are already filtered out; if more than one video is left the app asks which one: the first, "Video completo" ("Full video"), is almost always the right one; the single qualities of the same video are not listed separately. Next to each video there is a frame taken from it and its length, so an episode stands out from a trailer (on protected videos the frame may be missing).
+6. 📋 **Queue**: everything goes through Kodi's video playlist, which is never cleared. *Manda a Kodi* inserts the video right after the one playing and starts it; **+ Coda** ("+ Queue") puts it at the end. If the episode could not play (the current video was not started from the app, or the link expires before its turn) the app does not queue it and explains why. With **Kodi → Coda di Kodi** ("Kodi queue", or by long-pressing **+ Coda**) you see it: the video playing (▶), the ones already watched, when each one starts and whether its link has expired; tap a video to play it or remove it, **Svuota** ("Clear") removes everything except the one playing. If Kodi is playing a video started outside the queue, it shows at the top with the reason the queue won't follow it.
+7. 🪵 If Kodi says *Playback failed*: button **Kodi → Log di Kodi** ("Kodi log"). The app reads the last lines of the log from the Fire TV via ADB (like the power button, no add-ons) and with **Condividi** ("Share") you send them wherever you need.
 
 > [!IMPORTANT]
-> Telefono e Fire TV devono essere sulla stessa rete Wi-Fi.
+> Phone and Fire TV must be on the same Wi-Fi network.
 
-## 🧩 Addon per siti
+## 🧩 Site add-ons
 
-Funzioni in più che valgono solo per alcuni siti o player. Il resto dell'app funziona su qualunque sito che serve `.m3u8` o `.mp4`.
+Extra features that only apply to some sites or players. The rest of the app works on any site that serves `.m3u8` or `.mp4`.
 
 ### ⏭️ AnimeUnity
 
-- Se lo accendi, dopo l'invio l'app accoda da sola gli episodi successivi (fino a 3, si sceglie in **Kodi → Dov'è Kodi?**; 0 = spento, ed è così di default). Solo sulle pagine degli episodi di `animeunity.*`.
-- Legge l'elenco degli episodi dalla pagina e il link di ognuno dal player VixCloud: se il sito cambia struttura l'app avvisa e resta **+ Coda** a mano.
+- If you turn it on, after sending the app queues the following episodes by itself (up to 3, set in **Kodi → Dov'è Kodi?**; 0 = off, which is the default). Only on `animeunity.*` episode pages.
+- It reads the episode list from the page and the link of each one from the VixCloud player: if the site changes its structure the app warns you and you're left with manual **+ Coda**.
 
-### 🎞️ Player VixCloud (AnimeUnity, StreamingCommunity e altri siti che lo usano)
+### 🎞️ VixCloud player (AnimeUnity, StreamingCommunity and other sites that use it)
 
-- Riconosce la playlist anche senza `.m3u8` (`/playlist/<id>`) e scarta i suoi pezzi (audio, video, singole qualità), così resta solo la playlist principale.
-- Il link ha un token che scade (`expires=`): **+ Coda** e l'accodamento automatico non mettono in coda un episodio che partirebbe dopo la scadenza.
+- Recognises the playlist even without `.m3u8` (`/playlist/<id>`) and drops its pieces (audio, video, single qualities), so only the main playlist remains.
+- The link has a token that expires (`expires=`): **+ Coda** and automatic queueing don't queue an episode that would start after it expires.
 
 ### 🔍 Google
 
-- Dai risultati di Google si può aprire qualunque sito: il blocco dei salti verso altri domini lì è spento.
+- From Google results you can open any site: blocking jumps to other domains is off there.
 
-## 🧪 Test
+## 🧪 Tests
 
-Le regole dell'app che non dipendono da Android (barra degli indirizzi, blocco dei salti, riconoscimento di video e pubblicità) stanno in `Rules.kt`, quelle dei singoli siti (gli addon qui sopra) in `sites/`, e sono provate in `app/src/test`. Invio, coda e passaggio dal telefono (`Kodi.kt`, `Streams.kt`) si provano contro un **Kodi finto** (`FakeKodi`, risponde al JSON-RPC e tiene la sua playlist) e un **sito di streaming finto** (`FakeSite`: playlist con due qualità, chiave AES, link che vale una volta sola), senza Fire TV; il pulsante di accensione contro un adbd finto (`AdbTest`). Su ogni PR verso `develop` il workflow **Test** esegue `./gradlew testDebugUnitTest`; verso `main` anche `assembleDebug`, e lì andranno i controlli più pesanti; con Android Studio si lanciano con il ▶️ accanto alla classe di test.
+The app's rules that don't depend on Android (address bar, jump blocking, recognising videos and ads) live in `Rules.kt`, the per-site ones (the add-ons above) in `sites/`, and they are tested in `app/src/test`. Sending, queue and the phone relay (`Kodi.kt`, `Streams.kt`) are tested against a **fake Kodi** (`FakeKodi`, answers JSON-RPC and keeps its own playlist) and a **fake streaming site** (`FakeSite`: playlist with two qualities, AES key, single-use link), with no Fire TV; the power button against a fake adbd (`AdbTest`). On every PR to `develop` the **Test** workflow runs `./gradlew testDebugUnitTest`; to `main` also `assembleDebug`, and the heavier checks will go there; with Android Studio you run them with the ▶️ next to the test class.
 
-## 🌿 Branch
+## 🌿 Branches
 
-- **`develop`** è dove si lavora: ogni modifica parte da qui e ci torna con una PR.
-- **`main`** è solo per i rilasci: una PR da `develop` a `main` pubblica una nuova versione (il workflow APK parte solo con i push su `main`).
-- Prima di quella PR si aggiunge in cima a [CHANGELOG.md](CHANGELOG.md) la sezione `## X.Y.Z` con le novità: il primo numero per i cambi grossi, il secondo per le funzioni nuove, il terzo per le correzioni. Se manca, il controllo **test** della PR lo dice.
+- **`develop`** is where work happens: every change starts here and comes back with a PR.
+- **`main`** is for releases only: a PR from `develop` to `main` publishes a new version (the APK workflow only runs on pushes to `main`).
+- Before that PR, a `## X.Y.Z` section with the changes is added at the top of [CHANGELOG.md](CHANGELOG.md): the first number for big changes, the second for new features, the third for fixes. If it's missing, the PR's **test** check says so.
+- The README exists in two languages: this one and [README.it.md](README.it.md). A change to one goes into the other too.
 
 <details>
-<summary>⚙️ Impostazioni su GitHub (una volta sola)</summary>
+<summary>⚙️ GitHub settings (once)</summary>
 
-1. *Settings → General → Default branch*: scegli `develop`, così le PR nuove puntano lì da sole.
-2. *Settings → Rules → Rulesets → New branch ruleset*, con target `develop` e `main`: attiva **Restrict deletions**, **Require a pull request before merging** e **Require status checks to pass** con il controllo **test**. Così una PR con i test rossi non si può unire e nessuno pusha direttamente sui due branch.
+1. *Settings → General → Default branch*: choose `develop`, so new PRs target it by default.
+2. *Settings → Rules → Rulesets → New branch ruleset*, targeting `develop` and `main`: turn on **Restrict deletions**, **Require a pull request before merging** and **Require status checks to pass** with the **test** check. This way a PR with red tests can't be merged and nobody pushes directly to the two branches.
 
 </details>
