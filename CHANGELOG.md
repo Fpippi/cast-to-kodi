@@ -7,7 +7,7 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
-## 2.2.0
+## 2.1.2
 
 - **Condividi → Couch Cast**: da Chrome, WhatsApp o un'altra app un link si apre nell'app, dove il video si trova come
   al solito. Se nel testo c'è una frase si prende il primo link; senza link il testo si cerca su Google.
