@@ -1,7 +1,14 @@
 package it.franc.casttokodi
 
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import javax.crypto.Cipher
+import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.SecretKeySpec
+
+// Anteprima di un video HLS: durata e un pezzo già decifrato, da cui il telefono estrae un fotogramma
+class Preview(val seconds: Long?, val sample: ByteArray?)
 
 // Il link da mandare a Kodi: una sola qualità della playlist HLS e, se serve, playlist e chiavi passate dal telefono.
 // Niente android.*: lo prova StreamsTest con un sito finto e un Kodi finto. localIp: IPv4 del telefono sul Wi-Fi.
@@ -26,6 +33,46 @@ class Streams(private val relay: Relay, private val localIp: () -> String?) {
         val quality = singleQuality(url, headers)
         val stream = if (viaPhone) relayed(quality, headers) ?: quality else quality
         return "$stream|$suffix"
+    }
+
+    // Durata e un pezzo della qualità più leggera, per riconoscere il video giusto nell'elenco. Da un thread di
+    // background. Le playlist lette restano in copia: l'invio non rifà la richiesta (token monouso di vidxgo).
+    fun preview(url: String, headers: List<Pair<String, String>>, limit: Int = 8_000_000): Preview {
+        var (body, mediaUrl) = playlist(url, headers)
+        lowestVariant(String(body), mediaUrl)?.let { variant -> playlist(variant, headers).let { body = it.first; mediaUrl = it.second } }
+        val media = String(body)
+        val seconds = playlistSeconds(media)
+        val sample = try {
+            // Al 10% del video, al massimo a un minuto e mezzo: l'inizio spesso è nero
+            segmentAt(media, mediaUrl, minOf((seconds ?: 0.0) * 0.1, 90.0))?.let { sample(it, headers, limit) }
+        } catch (e: Exception) {
+            null
+        }
+        return Preview(seconds?.toLong(), sample)
+    }
+
+    private fun playlist(url: String, headers: List<Pair<String, String>>) =
+        download(url, headers).also { (body, finalUrl) -> capture(url, body, finalUrl) }
+
+    private fun sample(segment: Segment, headers: List<Pair<String, String>>, limit: Int): ByteArray {
+        var data = fetch(segment.url, headers, limit)
+        if (segment.key != null && segment.iv != null) {
+            val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+            cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(fetch(segment.key, headers, 64), "AES"), IvParameterSpec(segment.iv))
+            data = cipher.doFinal(data)
+        }
+        return segment.init?.let { fetch(it, headers, limit) + data } ?: data
+    }
+
+    // Come download ma senza copie e con un limite: un pezzo troppo grosso non vale l'attesa
+    private fun fetch(url: String, headers: List<Pair<String, String>>, limit: Int): ByteArray {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        conn.connectTimeout = 5000
+        conn.readTimeout = 5000
+        headers.forEach { (name, value) -> conn.setRequestProperty(name, value) }
+        val body = conn.inputStream.use { it.readNBytes(limit + 1) }
+        if (body.size > limit) throw IOException("$url: più di $limit byte")
+        return body
     }
 
     // Corpo e indirizzo finale (dopo i redirect), letti con gli stessi header che userà Kodi; le playlist già

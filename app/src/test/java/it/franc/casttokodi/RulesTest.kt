@@ -210,6 +210,56 @@ https://vixcloud.cc/playlist/1?type=video&rendition=720p&token=b
     }
 
     @Test
+    fun qualitaPiuLeggeraPerLAnteprima() {
+        val master = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=4500000\n1080.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=1200000\n480.m3u8\n"
+        assertEquals("https://x.com/480.m3u8", lowestVariant(master, "https://x.com/m.m3u8"))
+        // anche con l'audio a parte: per un fotogramma basta il video
+        assertEquals("https://x.com/v.m3u8", lowestVariant("#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,URI=\"a.m3u8\"\n#EXT-X-STREAM-INF:BANDWIDTH=1\nv.m3u8\n", "https://x.com/m.m3u8"))
+        assertNull(lowestVariant("#EXTM3U\n#EXTINF:4,\n0001.ts\n", "https://x.com/v.m3u8"))
+    }
+
+    @Test
+    fun durataDellaPlaylist() {
+        assertEquals(1440.5, playlistSeconds("#EXTM3U\n#EXTINF:720.25,\na.ts\n#EXTINF:720.25,titolo\nb.ts\n#EXT-X-ENDLIST\n")!!, 0.001)
+        assertNull(playlistSeconds("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nv.m3u8\n"))
+        assertEquals("45 s", durationLabel(45))
+        assertEquals("24 min", durationLabel(1415))
+        assertEquals("1 h 32 min", durationLabel(5520))
+    }
+
+    @Test
+    fun pezzoPerLAnteprima() {
+        val media = """#EXTM3U
+#EXT-X-MEDIA-SEQUENCE:7
+#EXT-X-KEY:METHOD=AES-128,URI="/enc.key"
+#EXTINF:10,
+s0.ts
+#EXTINF:10,
+s1.ts
+#EXT-X-KEY:METHOD=AES-128,URI="k2.key",IV=0x0A0B
+#EXTINF:10,
+s2.ts
+"""
+        val first = segmentAt(media, "https://cdn.x.com/v/i.m3u8", 0.0)!!
+        assertEquals("https://cdn.x.com/v/s0.ts", first.url)
+        assertEquals("https://cdn.x.com/enc.key", first.key)
+        // senza IV vale il numero del pezzo
+        assertEquals(7, first.iv!![15].toInt())
+        assertEquals(8, segmentAt(media, "https://cdn.x.com/v/i.m3u8", 15.0)!!.iv!![15].toInt())
+        val third = segmentAt(media, "https://cdn.x.com/v/i.m3u8", 25.0)!!
+        assertEquals("https://cdn.x.com/v/k2.key", third.key)
+        assertEquals(0x0A, third.iv!![14].toInt())
+        // oltre la fine: l'ultimo
+        assertEquals("https://cdn.x.com/v/s2.ts", segmentAt(media, "https://cdn.x.com/v/i.m3u8", 99.0)!!.url)
+        // in chiaro, con il pezzo d'inizio fMP4
+        val plain = segmentAt("#EXTM3U\n#EXT-X-MAP:URI=\"init.mp4\"\n#EXTINF:4,\n0.m4s\n", "https://x.com/v/i.m3u8", 0.0)!!
+        assertNull(plain.key)
+        assertEquals("https://x.com/v/init.mp4", plain.init)
+        // SAMPLE-AES non si apre
+        assertNull(segmentAt("#EXTM3U\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI=\"k\"\n#EXTINF:4,\n0.ts\n", "https://x.com/i.m3u8", 0.0))
+    }
+
+    @Test
     fun nomiDellaCoda() {
         val file = "https://vixcloud.cc/playlist/1?type=video&rendition=1080p&token=t|Referer=x&User-Agent=y"
         val titles = withTitle(emptyMap(), file, "JoJo Episodio 3")
