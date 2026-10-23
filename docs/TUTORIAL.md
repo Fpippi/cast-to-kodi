@@ -1,5 +1,7 @@
 # 📖 Come si usa Couch Cast
 
+🇮🇹 Italiano · [🇬🇧 English](TUTORIAL.en.md)
+
 Guida passo passo, senza termini tecnici. Se qualcosa non va, salta a [Problemi comuni](#-problemi-comuni).
 
 **L'idea in una riga:** il telefono fa da browser e da telecomando, la TV guarda il video con **Kodi**. Tu apri il sito
@@ -53,7 +55,7 @@ _Le animazioni di questa guida sono disegni che mostrano i passaggi, non registr
 ## 2. Prima volta: preparare la Fire TV
 
 Da fare **una volta sola**, con il telecomando della Fire TV. I passaggi dettagliati per installare Kodi sono nel
-[README](../README.md#-fire-tv); qui c'è quello che serve all'app.
+[README](../README.it.md#-fire-tv); qui c'è quello che serve all'app.
 
 1. **Installa Kodi** sulla Fire TV (con l'app *Downloader*, vedi README) e aprilo.
 2. In Kodi vai su **Impostazioni → Servizi → Controllo** e attiva **Consenti il controllo remoto via HTTP**.
