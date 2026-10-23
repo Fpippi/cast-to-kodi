@@ -147,6 +147,7 @@ class MainActivity : Activity() {
     private lateinit var miniTitle: TextView
     private lateinit var miniStatus: TextView
     private lateinit var miniPlay: ImageButton
+    private lateinit var miniThumb: ImageView
     private lateinit var miniProgress: ProgressBar
     // Video che Kodi sta riproducendo, letto dal mini-player; null = Kodi fermo o non raggiungibile
     private var miniNow: NowPlaying? = null
@@ -301,7 +302,7 @@ class MainActivity : Activity() {
             addView(topBar)
             addView(progress, LinearLayout.LayoutParams(-1, -2))
             addView(page, LinearLayout.LayoutParams(-1, 0, 1f))
-            addView(mini, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(8), dp(6), dp(8), dp(6)) })
+            addView(mini, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(8), dp(4), dp(8), dp(8)) })
             // targetSdk 35 forza l'edge-to-edge: senza padding la barra finisce sotto la status bar
             setOnApplyWindowInsetsListener { v, insets ->
                 val i = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.ime())
@@ -2071,10 +2072,14 @@ class MainActivity : Activity() {
     private fun miniPlayer(): View {
         val onSurface = sys(R.color.system_neutral1_900, R.color.system_neutral1_100)
         val onSurfaceVariant = sys(R.color.system_neutral2_700, R.color.system_neutral2_200)
+        miniThumb = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
         miniPlay = ImageButton(this).apply {
             contentDescription = "Play o pausa su Kodi"
             tooltipText = contentDescription
-            background = rounded(sys(R.color.system_accent1_600, R.color.system_accent1_200), 20)
+            setBackgroundResource(attr(R.attr.selectableItemBackgroundBorderless))
             setOnClickListener {
                 val playing = miniNow ?: return@setOnClickListener wakeKodi()
                 val id = playing.playerId ?: return@setOnClickListener
@@ -2082,45 +2087,53 @@ class MainActivity : Activity() {
             }
         }
         miniTitle = TextView(this).apply {
-            textSize = 14f
+            textSize = 15f
             typeface = Typeface.DEFAULT_BOLD
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
             setTextColor(onSurface)
         }
         miniStatus = TextView(this).apply {
-            textSize = 12f
+            textSize = 13f
             maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            compoundDrawablePadding = dp(6)
             setTextColor(onSurfaceVariant)
         }
         val remote = ImageButton(this).apply {
             contentDescription = "Apri il telecomando"
             tooltipText = contentDescription
-            setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_remote, onSurfaceVariant))
+            setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_remote, onSurface))
             setBackgroundResource(attr(R.attr.selectableItemBackgroundBorderless))
             setOnClickListener { showPlayer() }
         }
         miniProgress = ProgressBar(this, null, R.attr.progressBarStyleHorizontal).apply {
             max = 1000
             progressTintList = ColorStateList.valueOf(sys(R.color.system_accent1_600, R.color.system_accent1_200))
-            progressBackgroundTintList = ColorStateList.valueOf(sys(R.color.system_neutral2_300, R.color.system_neutral2_600))
+            progressBackgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
         }
+        // Come nel mockup: immagine, nome e stato con il pallino, poi play/pausa e telecomando, tutti centrati sulla
+        // stessa riga alta 64 dp; la riga di avanzamento è il bordo in basso della barra
         val row = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(8), dp(8), dp(4), 0)
-            addView(miniPlay, LinearLayout.LayoutParams(dp(40), dp(40)))
-            addView(section(miniTitle, miniStatus), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(12) })
+            setPadding(dp(10), 0, dp(6), 0)
+            addView(miniThumb, LinearLayout.LayoutParams(dp(44), dp(44)))
+            addView(section(miniTitle, miniStatus), LinearLayout.LayoutParams(0, -2, 1f).apply {
+                marginStart = dp(12)
+                marginEnd = dp(4)
+            })
+            addView(miniPlay, LinearLayout.LayoutParams(dp(44), dp(44)))
             addView(remote, LinearLayout.LayoutParams(dp(44), dp(44)))
         }
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = rounded(sys(R.color.system_neutral1_50, R.color.system_neutral1_800), 16)
+        return FrameLayout(this).apply {
+            // Stesso colore e stessi bordi della barra a pillola in alto
+            background = rounded(sys(R.color.system_neutral1_100, R.color.system_neutral1_800), 20)
             clipToOutline = true
             isClickable = true
-            contentDescription = "Video su Kodi: tocca per il telecomando"
+            contentDescription = "Kodi: tocca per il telecomando"
             setOnClickListener { showPlayer() }
-            addView(row)
-            addView(miniProgress, LinearLayout.LayoutParams(-1, dp(4)).apply { setMargins(dp(12), dp(6), dp(12), dp(4)) })
+            addView(row, FrameLayout.LayoutParams(-1, dp(64)))
+            addView(miniProgress, FrameLayout.LayoutParams(-1, dp(3), Gravity.BOTTOM))
             visibility = View.GONE
         }
     }
@@ -2163,12 +2176,27 @@ class MainActivity : Activity() {
             return
         }
         mini.visibility = View.VISIBLE
-        if (playing?.playerId == null) {
+        val onSurface = sys(R.color.system_neutral1_900, R.color.system_neutral1_100)
+        val video = playing?.playerId != null
+        // Immagine: colorata con ▶ se c'è un video, altrimenti tonda neutra con il telecomando
+        miniThumb.setImageDrawable(icon(
+            if (video) it.franc.casttokodi.R.drawable.ic_play else it.franc.casttokodi.R.drawable.ic_remote,
+            if (video) sys(R.color.system_accent1_50, R.color.system_accent1_100) else sys(R.color.system_neutral2_700, R.color.system_neutral2_200),
+        ))
+        miniThumb.background = if (video) GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(
+            sys(R.color.system_accent1_400, R.color.system_accent1_600),
+            sys(R.color.system_accent2_700, R.color.system_accent2_900),
+        )).apply { cornerRadius = dp(10).toFloat() } else circle(sys(R.color.system_neutral2_200, R.color.system_neutral2_700))
+        // Pallino: acceso se Kodi risponde, spento se no
+        val dot = if (playing != null) sys(R.color.system_accent1_500, R.color.system_accent1_200) else sys(R.color.system_neutral2_400, R.color.system_neutral2_500)
+        miniStatus.setCompoundDrawablesRelativeWithIntrinsicBounds(circle(dot).apply { setSize(dp(8), dp(8)) }, null, null, null)
+        if (playing == null || !video) {
             miniTitle.text = prefs.getString("name", "").orEmpty().ifBlank { "Kodi" }
-            miniStatus.text = if (playing != null) "Acceso · niente in riproduzione · tocca per il telecomando" else "Spento o non raggiungibile"
+            miniStatus.text = if (playing != null) "Acceso, niente in riproduzione" else "Spento o non raggiungibile"
             miniProgress.visibility = View.GONE
+            // Spento: il pulsante accende la TV; acceso e fermo: non serve
             miniPlay.visibility = if (playing == null) View.VISIBLE else View.GONE
-            miniPlay.setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_power, sys(R.color.system_accent1_0, R.color.system_accent1_800)))
+            miniPlay.setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_power, onSurface))
             miniPlay.contentDescription = "Accendi la TV e apri Kodi"
             return
         }
@@ -2179,7 +2207,7 @@ class MainActivity : Activity() {
         miniProgress.progress = if (playing.total > 0) (playing.time * 1000 / playing.total).toInt() else 0
         miniPlay.setImageDrawable(icon(
             if (playing.paused) it.franc.casttokodi.R.drawable.ic_play else it.franc.casttokodi.R.drawable.ic_pause,
-            sys(R.color.system_accent1_0, R.color.system_accent1_800),
+            onSurface, 28,
         ))
         miniPlay.contentDescription = if (playing.paused) "Riprendi su Kodi" else "Metti in pausa su Kodi"
     }

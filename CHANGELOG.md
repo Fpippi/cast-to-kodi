@@ -7,6 +7,12 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.1.1
+
+- **Barra di Kodi** in fondo rifatta come nel mockup: immagine a sinistra, nome e stato con il pallino (acceso o
+  spento), play/pausa e telecomando della stessa misura, tutto centrato su una riga; l'avanzamento è una linea sottile
+  sul bordo in basso. Stesso colore e stessi margini della barra in alto.
+
 ## 2.1.0
 
 L'interfaccia come nel mockup scelto, meno piatta, e il telecomando a portata di dito.
