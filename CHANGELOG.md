@@ -7,6 +7,22 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 1.3.0
+
+- Interfaccia nuova. All'avvio c'è una **pagina iniziale** con Kodi (acceso, spento o cosa sta riproducendo, con il
+  pulsante *Accendi* o *Telecomando*), **Riprendi** con l'ultima pagina guardata e i preferiti come icone.
+- **Telecomando** di Kodi nell'app (⋮ → Telecomando): barra di avanzamento, salti di ±10 e ±30 s, vai al minuto,
+  play/pausa/stop, episodio precedente e successivo, velocità, audio e sottotitoli, volume, frecce/OK/Indietro/Home/Menu,
+  testo dalla tastiera e accensione.
+- **Barra di Kodi** in fondo quando Kodi riproduce un video: nome, tempo, play/pausa; toccandola si apre il telecomando.
+- Barra in alto a pillola con l'icona del sito; i popup bloccati si contano in uno scudo (toccalo per vedere quali)
+  invece di un avviso a ogni blocco. Pulsanti tondi ★ (piena se la pagina è tra i preferiti), ⏻ e ⋮ (il vecchio
+  pulsante "Kodi").
+- **Manda a Kodi** e **+ Coda** compaiono sopra il sito solo quando c'è un video, invece della striscia grigia.
+- Scelta del video, preferiti, coda e telecomando si aprono come pannelli dal basso; gli avvisi brevi compaiono in fondo
+  allo schermo.
+- Indietro dalla prima pagina di un sito torna alla pagina iniziale.
+
 ## 1.2.4
 
 - Elenco dei video più chiaro: ogni voce dice cos'è ("Video completo, tutte le qualità (consigliato)", "Solo la
