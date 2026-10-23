@@ -32,28 +32,27 @@ _Le animazioni di questa guida sono disegni che mostrano i passaggi, non registr
 
 ```
 ┌──────────────────────────────────────────────┐
-│ (🌐 Cerca o scrivi un indirizzo  🛡3)  ★ ⏻ ⋮  │  ← barra in alto
+│ (🌐 animeunity.so                🛡3)   ★  ⋮  │  ← barra in alto
 │▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬                            │  ← caricamento della pagina
 │                                              │
 │              pagina del sito                 │
 │                                              │
 │                 (+≡)  ( 📺 Manda a Kodi )     │  ← solo quando c'è un video
+│ [ ||  Episodio 11 · Su Kodi · 12:40 di 23:50 ]│  ← barra di Kodi, sempre
 └──────────────────────────────────────────────┘
 ```
 
 | Pulsante | A cosa serve |
 |---|---|
-| **Barra degli indirizzi** | Scrivi un sito (`animeunity.so`) o una ricerca (`jojo animeunity`, va su Google). A sinistra l'icona del sito. |
+| **Barra degli indirizzi** | Scrivi un sito (`animeunity.so`) o una ricerca (`jojo animeunity`, va su Google). A sinistra l'icona del sito. Finché non la tocchi mostra solo il nome del sito; toccandola torna l'indirizzo intero. |
 | **🛡 con un numero** | Compare quando l'app ha bloccato popup o salti verso altri siti su questa pagina. Toccalo per vedere quali e aprirne uno, se serviva. |
 | **★** | I tuoi siti preferiti. Piena se la pagina aperta è già tra i preferiti. |
-| **⏻** | Accende la TV e apre Kodi. |
+| **Barra di Kodi** (in fondo) | Cosa riproduce Kodi, con play/pausa. Se Kodi è acceso ma fermo scrive *niente in riproduzione*; se è spento o non risponde c'è il pulsante **⏻** per accendere la TV. Toccala per aprire il telecomando con la coda. |
 | **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Pagina iniziale*, *Impostazioni* (dov'è Kodi, accensione, AnimeUnity, log di Kodi, guida, versione). |
 | **Manda a Kodi** | Fa partire subito sulla TV il video della pagina. Compare in basso a destra, sopra il sito, solo quando sulla pagina parte un video. |
 | **+ Coda** (l'icona tonda con le righe e il +, accanto a *Manda a Kodi*) | Mette il video in fondo alla coda di Kodi, senza interrompere quello che stai guardando. Tenendola premuta si apre la coda. |
 
 All'avvio si apre la **pagina iniziale**: in cima Kodi (acceso, spento o cosa sta riproducendo, con il pulsante *Accendi* o *Telecomando*), poi **Riprendi** con l'ultima pagina guardata e i tuoi preferiti come icone. Ci torni con indietro dalla prima pagina di un sito o con **⋮ → Pagina iniziale**.
-
-Quando Kodi sta riproducendo un video, in fondo compare una **barra di Kodi** con il nome del video, il tempo e il pulsante play/pausa: toccala per aprire il telecomando.
 
 Gli avvisi brevi ("Aggiunto alla coda", "Kodi è pronto"…) compaiono in fondo allo schermo, sopra il sito.
 
@@ -70,7 +69,7 @@ Da fare **una volta sola**, con il telecomando della Fire TV. I passaggi dettagl
    - Se imposti **utente e password**, segnateli: l'app te li chiederà.
 3. Sempre in Kodi, **Impostazioni → Servizi → Generale**: attiva **Annuncia servizi ad altri sistemi**.
    Serve perché l'app trovi Kodi da sola.
-4. Solo se vuoi accendere la TV dal telefono (pulsante **⏻**) e leggere il log di Kodi:
+4. Solo se vuoi accendere la TV dal telefono (pulsante **⏻** nella barra di Kodi) e leggere il log di Kodi:
    - Fire TV: **Impostazioni → La mia Fire TV → Opzioni sviluppatore → Debug ADB** = attivo.
      Se *Opzioni sviluppatore* non c'è, vai in **La mia Fire TV → Info** e premi 7 volte sul nome del dispositivo.
    - Fire TV: **Impostazioni → Display e audio → Controllo dispositivi HDMI CEC** = attivo.
@@ -104,7 +103,7 @@ Fatto. Per cambiare queste scelte in futuro: **⋮ → Impostazioni → Kodi**.
 
 <p align="center"><img src="img/accendi.gif" width="640" alt="Animazione: con la TV spenta si preme il pulsante di accensione, la TV si accende e apre Kodi"></p>
 
-Con la TV spenta (in standby) premi **⏻**, in alto accanto a ★.
+Con la TV spenta (in standby) premi **⏻** nella barra di Kodi in fondo (o *Accendi* nella pagina iniziale).
 
 1. L'app cerca la Fire TV in rete (*"Cerco la Fire TV in rete…"*), anche se Kodi è chiuso.
 2. **Solo la prima volta**: sulla TV compare la domanda se consentire il debug da questo telefono.
@@ -141,30 +140,33 @@ Premi **Manda a Kodi**.
 
 - Il pulsante scrive *"Invio a Kodi…"* finché Kodi non risponde: non serve premere di nuovo.
 - Quando ha finito compare **"Inviato a Kodi"** e il video parte sulla TV dopo qualche secondo.
-- Se la pagina ha più video il pulsante dice per esempio **Manda a Kodi (2)** e ti fa scegliere. Ogni voce dice cos'è e
-  da quale sito arriva: *Video completo, tutte le qualità (consigliato)* è quasi sempre quello giusto ed è il primo. Le
-  altre di solito sono un trailer, una pubblicità sfuggita al filtro o un altro player della pagina.
-- Accanto a ogni voce, dopo un paio di secondi, compaiono un'**immagine presa dal video** e la **durata**: un episodio
-  dura una ventina di minuti, un trailer uno o due. Su alcuni video protetti l'immagine non arriva e resta solo la
-  durata (o la scritta *Anteprima non disponibile*): puoi scegliere lo stesso.
+- Se la pagina ha più video il pulsante dice per esempio **Manda a Kodi · 2** e si apre un pannello con tutti i video,
+  ognuno con un'**immagine presa dal video** e la **durata** sopra (dopo un paio di secondi). Il primo, *Video completo*,
+  è quasi sempre quello giusto: è già scelto, con la scritta *Consigliato* e sotto i pulsanti **Manda** e **In coda**.
+  Tocca un altro video per spostare lì i pulsanti. Quelli sotto il minuto sono sbiaditi (*Probabile pubblicità*). Su
+  alcuni video protetti l'immagine non arriva e resta solo la durata: puoi scegliere lo stesso.
 - Da qui il telefono **non serve più**: puoi bloccarlo o usarlo per altro. Il video arriva alla TV direttamente dal sito.
 
-### Il telecomando nell'app: ⋮ → Telecomando
+### Il telecomando nell'app
 
-Per comandare Kodi senza il telecomando della TV premi **⋮ → Telecomando**. In alto c'è il video in corso, che si
-aggiorna da solo:
+Per comandare Kodi senza il telecomando della TV tocca la **barra di Kodi** in fondo (o **⋮ → Telecomando**). Si apre
+a schermo intero con due schede, **Telecomando** e **Coda**; si chiude con ⌄ in alto, con indietro o trascinando giù.
+In alto a destra c'è il nome di Kodi con un pallino acceso se risponde. Nella scheda Telecomando, dall'alto:
 
-- **Barra**: trascinala fino al punto che vuoi; accanto ci sono il tempo passato e la durata.
-- **−30 s, −10 s, +10 s, +30 s**: saltano sempre di quanto c'è scritto. Il telecomando della TV invece usa i passi di
-  Kodi, e con le frecce su e giù salta di 10 minuti.
-- **⏮ ⏯ ⏹ ⏭**: video precedente della coda, play/pausa, stop (chiede conferma, la coda resta), video successivo.
+- **Il video in corso** con l'ora in cui finisce (*fino alle 21:52*), e la **barra**: trascinala fino al punto che
+  vuoi; sotto ci sono il tempo passato e la durata.
+- **⏮ −10 ⏯ +10 ⏭**: video precedente della coda, indietro di 10 secondi, play/pausa (il pulsante grande), avanti di
+  10 secondi, video successivo. I salti sono sempre di quanto c'è scritto: il telecomando della TV invece usa i passi
+  di Kodi, e con le frecce su e giù salta di 10 minuti.
+- **La croce tonda con OK** e sotto **Indietro**, **Home**, **volume giù** e **volume su** (il volume di Kodi, non
+  quello della TV): per muoverti nei menu di Kodi.
+- In una fila che scorre di lato: **Accendi la TV**, **−30 s**, **+30 s**, **Vai al minuto**, **Audio**,
+  **Sottotitoli**, **Velocità**, **Muto**, **Menu**, **Scrivi** e **Ferma** (chiede conferma, la coda resta).
 - **Vai al minuto**: scrivi per esempio `12:30` (12 minuti e 30 secondi) o `1:02:30`.
 - **Velocità**: normale, 1,25x o 1,5x. Con alcuni video Kodi non la cambia, e l'app lo dice.
 - **Audio** e **Sottotitoli**: scegli la lingua tra quelle del video, o spegni i sottotitoli.
-- **Frecce e OK**, **Indietro**, **Home**, **Menu**: per muoverti nei menu di Kodi.
 - **Scrivi**: apri prima in Kodi un campo di testo (per esempio la ricerca), poi scrivi con la tastiera del telefono.
-- **Volume** giù, muto e su: è il volume di Kodi, non quello della TV.
-- **Accendi la TV e Kodi**: come il pulsante ⏻.
+- **Accendi la TV**: come il pulsante ⏻.
 
 ---
 
@@ -206,17 +208,19 @@ A volte **+ Coda** risponde con **"Non messo in coda"**. Non è un guasto, l'app
 - *"Il link di questo episodio scade alle …"*: alcuni siti danno link che valgono poche ore. Se l'episodio arriverebbe
   dopo la scadenza, mettilo in coda più tardi.
 
-### Guardare e sistemare la coda: ⋮ → Coda di Kodi
+### Guardare e sistemare la coda: la scheda Coda
 
-Premi **⋮ → Coda di Kodi**. Vedi l'elenco dei video:
+Apri il telecomando e tocca la scheda **Coda** (il numero accanto dice quanti video aspettano), oppure tieni premuto
+**+ Coda**. Vedi l'elenco dei video:
 
-- **▶ In riproduzione**: quello che va ora.
-- **Già visto**: quelli finiti.
-- **Parte tra circa N min**: quelli in attesa, con l'orario stimato.
-- **Link scaduto**: va rimandato dalla pagina dell'episodio.
+- **▶ In riproduzione · finisce alle 21:52**: quello che va ora.
+- **Già visto**: quelli finiti, più chiari.
+- **Parte alle 22:16**: quelli in attesa, con l'ora stimata (episodi lunghi come quello in corso).
+- In rosso, con l'orologio, **Il link scade prima del suo turno** o **Link scaduto**: va rimandato dalla pagina
+  dell'episodio.
 
-Tocca un video per **Riproduci ora** o **Togli dalla coda**. **Svuota** toglie tutto tranne quello in corso.
-**Aggiorna** rilegge la coda da Kodi.
+Con **⋮** accanto a un video scegli **Riproduci ora** o **Togli dalla coda**. **Svuota la coda** toglie tutto tranne
+quello in corso, **↻** rilegge la coda da Kodi.
 
 ---
 

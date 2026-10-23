@@ -7,6 +7,9 @@ import it.franc.casttokodi.sites.isVixCloudPart
 import it.franc.casttokodi.sites.isVixCloudPlaylist
 import java.net.URI
 import java.net.URLEncoder
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 // Regole dell'app scritte senza API Android (niente Uri, WebView, Context): così le provano i test
@@ -323,6 +326,37 @@ fun queueLabel(file: String, kodiTitle: String, titles: Map<String, String>): St
     val host = Regex("^\\w+://([^/:?|]+)").find(file)?.groupValues?.get(1)
     if (kodiTitle.isNotBlank() && (host == null || ('?' !in kodiTitle && '/' !in kodiTitle))) return kodiTitle
     return if (host != null) "Video da ${shortHost(host)}" else file
+}
+
+// Nella barra in alto, quando non la si sta scrivendo: solo il sito ("animeunity.co"), come Chrome.
+// L'indirizzo intero torna quando la si tocca.
+fun addressLabel(url: String): String {
+    val host = runCatching { URI(url).host }.getOrNull()?.takeIf { it.isNotBlank() } ?: return url
+    return host.removePrefix("www.")
+}
+
+// Ora del giorno ("21:52") di un istante in secondi, per la coda e il telecomando
+fun clockAt(epochSeconds: Long, zone: ZoneId = ZoneId.systemDefault()): String =
+    Instant.ofEpochSecond(epochSeconds).atZone(zone).format(DateTimeFormatter.ofPattern("HH:mm"))
+
+// Riga sotto il nome di un video della coda; warning = da segnare in rosso (link scaduto o che scade prima del turno)
+class QueueNote(val text: String, val warning: Boolean = false)
+
+// A che punto è un video della coda: in corso (e quando finisce), già visto, quando parte (stima con episodi lunghi
+// come quello in corso) o se il link non arriva al suo turno. expires = scadenza del link (expires=), now in secondi.
+fun queueNote(state: KodiState, index: Int, expires: Long?, now: Long, zone: ZoneId = ZoneId.systemDefault()): QueueNote {
+    val running = state.playerId != null && state.fromQueue
+    return when {
+        running && index == state.position -> QueueNote("In riproduzione · finisce alle ${clockAt(now + state.remaining, zone)}")
+        state.fromQueue && index < state.position -> QueueNote("Già visto")
+        expires != null && expires < now -> QueueNote("Link scaduto: rimandalo dalla pagina dell'episodio", warning = true)
+        !running -> QueueNote("In coda")
+        else -> {
+            val start = now + state.secondsUntil(index)
+            if (expires != null && start + EXPIRY_MARGIN >= expires) QueueNote("Il link scade prima del suo turno", warning = true)
+            else QueueNote("Parte alle ${clockAt(start, zone)}")
+        }
+    }
 }
 
 // Telecomando: tempo scritto a mano per "Vai al minuto". "12:30" = 12 min 30 s, "1:02:30", "45" = 45 minuti.
