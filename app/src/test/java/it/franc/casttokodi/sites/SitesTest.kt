@@ -19,6 +19,13 @@ class SitesTest {
     }
 
     @Test
+    fun autoNextLabels() {
+        assertEquals("Spento", autoNextLabel(0))
+        assertEquals("Accoda da solo l'episodio dopo", autoNextLabel(1))
+        assertEquals("Accoda da solo i prossimi 3 episodi", autoNextLabel(3))
+    }
+
+    @Test
     fun vixCloud() {
         assertTrue(isVixCloudPlaylist("/playlist/12345"))
         assertFalse(isVixCloudPlaylist("/hls/master.m3u8"))

@@ -79,6 +79,7 @@ import javax.crypto.spec.GCMParameterSpec
 import it.franc.casttokodi.sites.MASTER_PLAYLIST_JS
 import it.franc.casttokodi.sites.DEFAULT_AUTO_NEXT
 import it.franc.casttokodi.sites.MAX_AUTO_NEXT
+import it.franc.casttokodi.sites.autoNextLabel
 import it.franc.casttokodi.sites.NEXT_EPISODES_JS
 import it.franc.casttokodi.sites.isAnimeUnityEpisode
 import it.franc.casttokodi.sites.isGoogleConsent
@@ -87,6 +88,7 @@ import it.franc.casttokodi.sites.linkExpiry
 import kotlin.concurrent.thread
 
 private const val REPO = "Fpippi/cast-to-kodi"
+private const val TUTORIAL = "https://github.com/$REPO/blob/main/docs/TUTORIAL.md"
 
 private const val NOT_FOUND_HELP = """Nessun Kodi trovato. Controlla che:
 
@@ -321,20 +323,25 @@ class MainActivity : Activity() {
 
     // L'ultima release ha come tag vX.Y.Z, con X.Y.Z = versionName dell'APK (da CHANGELOG.md, vedi .github/workflows/apk.yml).
     // Il repo è pubblico: l'API non vuole token (limite 60 richieste l'ora per IP, ne basta una per avvio).
-    private fun checkUpdate() {
-        val installed = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
+    // asked: dalle Impostazioni, dove si dice anche quando non c'è niente di nuovo o GitHub non risponde
+    private fun checkUpdate(asked: Boolean = false) {
+        val installed = installedVersion()
         thread {
             val latest = try {
                 val conn = URL("https://api.github.com/repos/$REPO/releases/latest").openConnection() as HttpURLConnection
                 conn.connectTimeout = 5000
                 conn.readTimeout = 10000
                 conn.setRequestProperty("Accept", "application/vnd.github+json")
-                if (conn.responseCode != 200) return@thread
+                if (conn.responseCode != 200) throw IOException("HTTP ${conn.responseCode}")
                 JSONObject(conn.inputStream.bufferedReader().readText()).optString("tag_name")
             } catch (e: Exception) {
+                if (asked) toast("Non riesco a controllare gli aggiornamenti: c'è la rete?")
                 return@thread
             }
-            if (!isNewerVersion(latest, installed)) return@thread
+            if (!isNewerVersion(latest, installed)) {
+                if (asked) toast("Hai già l'ultima versione ($installed)")
+                return@thread
+            }
             runOnUiThread {
                 AlertDialog.Builder(this)
                     .setTitle("Nuova versione disponibile")
@@ -347,6 +354,8 @@ class MainActivity : Activity() {
             }
         }
     }
+
+    private fun installedVersion() = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
 
     private fun setupWebView() {
         web.settings.apply {
@@ -1062,14 +1071,6 @@ class MainActivity : Activity() {
         val login = savedLogin(saved, network)
         val (user, password, showPassword) = loginFields(login)
         val authPanel = section(label("Accesso, se impostato in Kodi"), user, password, showPassword).apply { setPadding(0, dp(16), 0, 0) }
-        val autoNext = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER
-            setText(prefs.getInt("autoNext", DEFAULT_AUTO_NEXT).toString())
-        }
-        val autoNextPanel = section(
-            label("AnimeUnity: episodi successivi da accodare da soli (0 = mai, massimo $MAX_AUTO_NEXT)"),
-            autoNext,
-        ).apply { setPadding(0, dp(16), 0, 0) }
 
         fun runSearch() {
             searched = true
@@ -1107,7 +1108,7 @@ class MainActivity : Activity() {
         }
         tabs.check(if (startManual) manualTab.id else autoTab.id)
 
-        val form = section(tabs, autoPanel, manualPanel, authPanel, autoNextPanel).apply { setPadding(dp(24), dp(8), dp(24), 0) }
+        val form = section(tabs, autoPanel, manualPanel, authPanel).apply { setPadding(dp(24), dp(8), dp(24), 0) }
         AlertDialog.Builder(this)
             .setTitle("Dov'è Kodi?")
             .setView(ScrollView(this).apply { addView(form) })
@@ -1118,7 +1119,6 @@ class MainActivity : Activity() {
                     .putString("host", newHost)
                     .putString("name", if (manual) "" else kodiNames[newHost] ?: prefs.getString("name", ""))
                     .putBoolean("manual", manual)
-                    .putInt("autoNext", autoNext.text.toString().toIntOrNull()?.coerceIn(0, MAX_AUTO_NEXT) ?: DEFAULT_AUTO_NEXT)
                     .apply()
                 val typed = user.text.toString().trim() to password.text.toString()
                 when {
@@ -1137,16 +1137,14 @@ class MainActivity : Activity() {
         PopupMenu(this, anchor).apply {
             menu.add(0, 4, 0, "Telecomando")
             menu.add(0, 1, 1, "Coda di Kodi")
-            menu.add(0, 2, 2, "Dov'è Kodi?")
-            menu.add(0, 3, 3, "Log di Kodi")
-            menu.add(0, 5, 4, "Pagina iniziale")
+            menu.add(0, 5, 2, "Pagina iniziale")
+            menu.add(0, 6, 3, "Impostazioni")
             setOnMenuItemClickListener { item ->
                 when (item.itemId) {
                     1 -> showQueue()
-                    2 -> askKodiAddress()
                     4 -> showRemote()
                     5 -> showHome()
-                    else -> showKodiLog()
+                    else -> showSettings()
                 }
                 true
             }
@@ -1466,6 +1464,77 @@ class MainActivity : Activity() {
                     generation++
                 }
             })
+        }
+    }
+
+    // Impostazioni: ogni voce dice com'è adesso, senza doverla aprire. Toccandola si cambia.
+    private fun showSettings() {
+        lateinit var dialog: Dialog
+        val host = prefs.getString("host", "").orEmpty()
+        val login = savedLogin(host, currentNetwork())
+        val adbHost = prefs.getString("adbHost", null)
+        val autoNext = prefs.getInt("autoNext", DEFAULT_AUTO_NEXT)
+        fun then(action: () -> Unit): () -> Unit = { dialog.dismiss(); action() }
+        val content = section(
+            settingsHeading("Kodi"),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_remote,
+                prefs.getString("name", "").orEmpty().ifBlank { "Dov'è Kodi?" },
+                if (host.isBlank()) "Non ancora scelto" else listOfNotNull(
+                    host,
+                    if (prefs.getBoolean("manual", false)) "scritto a mano" else "trovato da solo",
+                    if (login != null) "accesso con ${login.first}" else null,
+                ).joinToString(" · "),
+                then { askKodiAddress() }),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_power, "Accendi la TV e apri Kodi",
+                if (adbHost != null) "Fire TV a $adbHost" else "Serve il debug ADB sulla Fire TV",
+                then { wakeKodi() }),
+            settingsHeading("Siti"),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_queue, "AnimeUnity: episodi successivi", autoNextLabel(autoNext),
+                then { askAutoNext() }),
+            settingsHeading("Aiuto"),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_article, "Log di Kodi", "Le ultime righe, da condividere se un video non parte",
+                then { showKodiLog() }),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_help, "Come si usa", "La guida passo passo",
+                then { open(TUTORIAL) }),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_info, "Versione ${installedVersion()}", "Tocca per cercare aggiornamenti",
+                then { checkUpdate(asked = true) }),
+        ).apply { setPadding(dp(16), 0, dp(16), dp(8)) }
+        dialog = sheet("Impostazioni", content)
+    }
+
+    private fun askAutoNext() {
+        val options = (0..MAX_AUTO_NEXT).map { autoNextLabel(it) }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("AnimeUnity: episodi successivi")
+            .setSingleChoiceItems(options, prefs.getInt("autoNext", DEFAULT_AUTO_NEXT).coerceIn(0, MAX_AUTO_NEXT)) { d, i ->
+                prefs.edit().putInt("autoNext", i).apply()
+                d.dismiss()
+                showSettings()
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+
+    private fun settingsHeading(text: String) = homeHeading(text).apply { setPadding(dp(8), dp(16), 0, dp(4)) }
+
+    // Riga delle Impostazioni: icona su un cerchio, nome e, sotto, com'è adesso
+    private fun settingsRow(iconId: Int, title: String, value: String, onClick: () -> Unit): View {
+        val badge = ImageView(this).apply {
+            setImageDrawable(icon(iconId, sys(R.color.system_accent2_900, R.color.system_accent2_100), 20))
+            scaleType = ImageView.ScaleType.CENTER
+            background = circle(sys(R.color.system_accent2_100, R.color.system_accent2_700))
+        }
+        val detail = homeText(value, 13f, bold = false).apply { maxLines = 2 }
+        return LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(64)
+            setPadding(dp(8), dp(6), dp(8), dp(6))
+            setBackgroundResource(attr(R.attr.selectableItemBackground))
+            setOnClickListener { onClick() }
+            addView(badge, LinearLayout.LayoutParams(dp(40), dp(40)))
+            addView(section(homeText(title, 16f, bold = false).apply {
+                setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50))
+            }, detail), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(16) })
         }
     }
 
