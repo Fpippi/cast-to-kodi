@@ -77,7 +77,7 @@ class RulesTest {
         val master = videoFor("https://vixcloud.co/playlist/1?token=a&expires=1", "ref", "vixcloud.co", "/playlist/1", "token=a&expires=1")
         assertNotNull(master)
         assertTrue(master!!.main)
-        assertEquals("Playlist principale\nvixcloud.co", master.label)
+        assertEquals("Video completo, tutte le qualità (consigliato)\nda vixcloud.co", master.label)
         assertEquals("ref", master.referer)
 
         // pezzi della playlist VixCloud scartati
@@ -86,9 +86,9 @@ class RulesTest {
         // pubblicità scartata
         assertNull(videoFor("u", "r", "imasdk.googleapis.com", "/ad.mp4", null))
 
-        assertEquals("Qualità 720p\ncdn.x", videoFor("https://cdn.x/720p/index.m3u8", "r", "cdn.x", "/720p/index.m3u8", null)!!.label)
-        assertEquals("Video MP4\ncdn.x", videoFor("https://cdn.x/ep.mp4", "r", "cdn.x", "/ep.mp4", null)!!.label)
-        assertEquals("Playlist\ncdn.x", videoFor("https://cdn.x/index.m3u8", "r", "cdn.x", "/index.m3u8", "")!!.label)
+        assertEquals("Solo la qualità 720p\nda cdn.x", videoFor("https://cdn.x/720p/index.m3u8", "r", "cdn.x", "/720p/index.m3u8", null)!!.label)
+        assertEquals("Video (file MP4)\nda cdn.x", videoFor("https://cdn.x/ep.mp4", "r", "cdn.x", "/ep.mp4", null)!!.label)
+        assertEquals("Altro video trovato nella pagina\nda cdn.x", videoFor("https://cdn.x/index.m3u8", "r", "cdn.x", "/index.m3u8", "")!!.label)
         assertTrue(videoFor("https://cdn.x/master.m3u8", "r", "cdn.x", "/master.m3u8", null)!!.main)
     }
 
@@ -250,5 +250,16 @@ https://vixcloud.cc/playlist/1?type=video&rendition=720p&token=b
             mapOf("access-control-allow-origin" to "*"),
             forwardedHeaders(mapOf("access-control-allow-origin" to listOf("*")), "https://v.vidxgo.co")
         )
+    }
+
+    @Test
+    fun sceltaDeiVideo() {
+        val master = Video("https://cdn.x/hls/master.m3u8", "r", "m", true)
+        val part = Video("https://cdn.x/hls/720p/index.m3u8", "r", "q", false)
+        val other = Video("https://altro.y/trailer.mp4", "r", "t", false)
+        // la qualità singola dello stesso sito è un pezzo del completo: resta un video solo, più quello di un altro sito
+        assertEquals(listOf(master, other), videoChoices(listOf(part, other, master)))
+        // senza un video completo restano tutti
+        assertEquals(listOf(part, other), videoChoices(listOf(part, other)))
     }
 }

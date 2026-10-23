@@ -340,10 +340,10 @@ class MainActivity : Activity() {
     private fun domainOf(url: Uri) = domainOf(url.host)
 
     // Video trovati senza pubblicità e senza i pezzi delle playlist VixCloud, con la playlist principale per prima
-    private fun playable(): List<Video> = videos.mapNotNull { (url, referer) ->
+    private fun playable(): List<Video> = videoChoices(videos.mapNotNull { (url, referer) ->
         val uri = Uri.parse(url)
         videoFor(url, referer, uri.host, uri.path, uri.encodedQuery)
-    }.sortedByDescending { it.main }
+    })
 
     private fun refreshCastButton() {
         val count = playable().size
@@ -390,7 +390,7 @@ class MainActivity : Activity() {
         if (list.isEmpty()) return
         if (list.size == 1) return sendToKodi(list[0], queued)
         AlertDialog.Builder(this)
-            .setTitle(if (queued) "Quale video mettere in coda?" else "Quale video?")
+            .setTitle(if (queued) "Quale video mettere in coda? Di solito è il primo" else "Quale video? Di solito è il primo")
             .setItems(list.map { it.label }.toTypedArray()) { _, i -> sendToKodi(list[i], queued) }
             .show()
     }

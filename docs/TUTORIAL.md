@@ -132,8 +132,9 @@ Premi **Manda a Kodi**.
 
 - Il pulsante scrive *"Invio a Kodi…"* finché Kodi non risponde: non serve premere di nuovo.
 - Quando ha finito compare **"Inviato a Kodi"** e il video parte sulla TV dopo qualche secondo.
-- Se la pagina ha più video il pulsante dice per esempio **Manda a Kodi (2)** e ti fa scegliere: il primo dell'elenco è
-  quasi sempre quello giusto.
+- Se la pagina ha più video il pulsante dice per esempio **Manda a Kodi (2)** e ti fa scegliere. Ogni voce dice cos'è e
+  da quale sito arriva: *Video completo, tutte le qualità (consigliato)* è quasi sempre quello giusto ed è il primo. Le
+  altre di solito sono un trailer, una pubblicità sfuggita al filtro o un altro player della pagina.
 - Da qui il telefono **non serve più**: puoi bloccarlo o usarlo per altro. Il video arriva alla TV direttamente dal sito.
 
 Per mettere in pausa, andare avanti o regolare il volume usa il telecomando della Fire TV (o un'app telecomando per Kodi).

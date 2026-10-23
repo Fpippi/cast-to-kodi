@@ -88,16 +88,26 @@ fun videoFor(url: String, referer: String, host: String?, path: String?, query: 
         else -> {
             val main = vixcloud || "master" in p
             val quality = Regex("\\b(\\d{3,4})p\\b").find(url)?.groupValues?.get(1)
+            // Parole semplici: chi sceglie non sa cos'è una playlist HLS
             val kind = when {
-                main -> "Playlist principale"
-                quality != null -> "Qualità ${quality}p"
-                p.endsWith(".mp4") -> "Video MP4"
-                else -> "Playlist"
+                main -> "Video completo, tutte le qualità (consigliato)"
+                quality != null -> "Solo la qualità ${quality}p"
+                p.endsWith(".mp4") -> "Video (file MP4)"
+                else -> "Altro video trovato nella pagina"
             }
-            Video(url, referer, "$kind\n${host.orEmpty()}", main)
+            Video(url, referer, "$kind\nda ${shortHost(host)}", main)
         }
     }
 }
+
+// Video da proporre, il completo per primo. Le singole qualità dello stesso sito del video completo sono pezzi di
+// quello (es. 720p e 1080p di una master): mostrarle a parte faceva sembrare che ci fossero due video diversi.
+fun videoChoices(found: List<Video>): List<Video> {
+    val mainHosts = found.filter { it.main }.map { hostOf(it.url) }.toSet()
+    return found.filter { it.main || hostOf(it.url) !in mainHosts }.sortedByDescending { it.main }
+}
+
+private fun hostOf(url: String): String? = try { URI(url).host } catch (e: Exception) { null }
 
 // Preferito salvato. icon è la favicon in PNG Base64, assente per quelli salvati prima di #25
 data class Favorite(val title: String, val url: String, val icon: String? = null)
