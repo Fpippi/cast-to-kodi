@@ -41,6 +41,21 @@ fun addressFor(input: String): String {
     }
 }
 
+// Testo condiviso da un'altra app con "Condividi → Couch Cast": Chrome manda solo il link, altre app lo mettono in
+// mezzo a una frase ("Guarda qui: https://…"). Il primo link, senza la punteggiatura che lo segue; senza link il testo
+// si cerca su Google come nella barra in alto. null se non c'è niente.
+fun sharedAddress(text: String?): String? {
+    val t = text?.trim().orEmpty()
+    if (t.isEmpty()) return null
+    val link = SHARED_LINK.find(t)?.value?.trimEnd('.', ',', ';', ':', '!', '?', ')', ']', '>', '"', '\'', '»')
+    return link ?: addressFor(t)
+}
+
+private val SHARED_LINK = Regex("https?://\\S+", RegexOption.IGNORE_CASE)
+
+// true se il link è già il video (.m3u8, .mp4, playlist VixCloud) e non una pagina da aprire per trovarlo
+fun isVideoLink(url: String): Boolean = isVideoPath(try { URI(url).path } catch (e: Exception) { null })
+
 // ponytail: "ultime due etichette" sbaglia con suffissi tipo .co.uk, basta per i siti che usiamo
 fun domainOf(host: String?) = host.orEmpty().split('.').takeLast(2).joinToString(".")
 

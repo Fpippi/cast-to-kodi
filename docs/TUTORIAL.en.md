@@ -136,6 +136,16 @@ With the TV off (in standby) press **⏻** in the Kodi bar at the bottom (or *Ac
 4. At the bottom right, over the site, **Manda a Kodi** and the round **+ Coda** button show up. Now you can also pause
    the video on the phone.
 
+### From Chrome or another app: Share → Couch Cast
+
+Found the episode page in Chrome, or someone sent it to you on WhatsApp? Tap **Share** and pick **Couch Cast**: the
+page opens in the app and you carry on from step 3 (start the player, then Manda a Kodi).
+
+- A message with the link in the middle of the text is fine too: the app takes the first link.
+- If you share plain text with no link, the app searches it on Google.
+- If the link is already the video (it ends in `.m3u8` or `.mp4`), a panel opens: **Manda a Kodi** ("Send to Kodi")
+  starts it on the TV right away, **Apri qui** ("Open here") opens it in the app.
+
 > [!TIP]
 > Ads that open windows or take you to other sites are blocked silently.
 > If the site seems "not to react" to a tap, it was probably an ad link: tap the real play button again.

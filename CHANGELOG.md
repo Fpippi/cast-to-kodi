@@ -7,6 +7,13 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.2.0
+
+- **Condividi → Couch Cast**: da Chrome, WhatsApp o un'altra app un link si apre nell'app, dove il video si trova come
+  al solito. Se nel testo c'è una frase si prende il primo link; senza link il testo si cerca su Google.
+- Se il link condiviso è già un video (`.m3u8`, `.mp4`) un pannello propone **Manda a Kodi** subito o **Apri qui**.
+- README e guida aggiornati all'interfaccia 2.1, in italiano e in inglese, con le animazioni ridisegnate.
+
 ## 2.1.1
 
 - **Barra di Kodi** in fondo rifatta come nel mockup: immagine a sinistra, nome e stato con il pallino (acceso o
