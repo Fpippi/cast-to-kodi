@@ -1,5 +1,9 @@
 package it.franc.casttokodi
 
+import javax.crypto.Cipher
+import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.SecretKeySpec
+
 // Un sito di streaming finto, come quelli col player VixCloud: playlist principale con due qualità, playlist dei
 // pezzi con chiave AES e i pezzi del video. Conta le richieste e si ricorda gli header ricevuti.
 // oneShot: la playlist principale vale una volta sola, poi 403 (come vidxgo su StreamingCommunity, 2026-10-21).
@@ -54,6 +58,16 @@ $quality/0001.ts
             "/storage/enc.key" to KEY,
             "/1080p/0000.ts" to "pezzo 0".toByteArray(),
             "/1080p/0001.ts" to "pezzo 1".toByteArray(),
+            // La qualità leggera è cifrata davvero, con la chiave e l'IV della playlist: la apre l'anteprima
+            "/480p/0000.ts" to encrypt("anteprima 0"),
+            "/480p/0001.ts" to encrypt("anteprima 1"),
         )
+
+        private fun encrypt(text: String): ByteArray {
+            val iv = ByteArray(16).also { it[15] = 1 }
+            val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+            cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(KEY, "AES"), IvParameterSpec(iv))
+            return cipher.doFinal(text.toByteArray())
+        }
     }
 }

@@ -137,8 +137,13 @@ Press **Manda a Kodi** (Send to Kodi).
 
 - The button says *"Invio a Kodi…"* ("Sending to Kodi…") until Kodi answers: no need to press again.
 - When done, **"Inviato a Kodi"** ("Sent to Kodi") appears and the video starts on the TV after a few seconds.
-- If the page has more than one video the button says e.g. **Manda a Kodi (2)** and lets you choose: the first in the
-  list is almost always the right one.
+- If the page has more than one video the button says e.g. **Manda a Kodi (2)** and lets you choose. Each entry says
+  what it is and which site it comes from: *Video completo, tutte le qualità (consigliato)* ("Full video, all qualities,
+  recommended") is almost always the right one and comes first. The others are usually a trailer, an ad that slipped
+  past the filter or another player on the page.
+- Next to each entry, after a couple of seconds, a **frame taken from the video** and its **length** appear: an episode
+  lasts about twenty minutes, a trailer one or two. On some protected videos the frame does not arrive and only the
+  length is shown (or *Anteprima non disponibile*, "Preview not available"): you can still pick it.
 - From here on the phone **is no longer needed**: you can lock it or use it for something else. The video reaches the
   TV directly from the site.
 

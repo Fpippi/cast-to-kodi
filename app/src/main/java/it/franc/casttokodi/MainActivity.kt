@@ -11,6 +11,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
@@ -51,6 +52,7 @@ import org.json.JSONObject
 import org.json.JSONTokener
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.HttpURLConnection
@@ -340,10 +342,10 @@ class MainActivity : Activity() {
     private fun domainOf(url: Uri) = domainOf(url.host)
 
     // Video trovati senza pubblicità e senza i pezzi delle playlist VixCloud, con la playlist principale per prima
-    private fun playable(): List<Video> = videos.mapNotNull { (url, referer) ->
+    private fun playable(): List<Video> = videoChoices(videos.mapNotNull { (url, referer) ->
         val uri = Uri.parse(url)
         videoFor(url, referer, uri.host, uri.path, uri.encodedQuery)
-    }.sortedByDescending { it.main }
+    })
 
     private fun refreshCastButton() {
         val count = playable().size
@@ -389,10 +391,85 @@ class MainActivity : Activity() {
         val list = playable()
         if (list.isEmpty()) return
         if (list.size == 1) return sendToKodi(list[0], queued)
-        AlertDialog.Builder(this)
-            .setTitle(if (queued) "Quale video mettere in coda?" else "Quale video?")
-            .setItems(list.map { it.label }.toTypedArray()) { _, i -> sendToKodi(list[i], queued) }
+        lateinit var dialog: AlertDialog
+        val content = section().apply { setPadding(dp(16), dp(8), dp(16), 0) }
+        val userAgent = web.settings.userAgentString
+        list.forEach { video ->
+            val image = ImageView(this).apply {
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(6).toFloat()
+                    setColor(sys(R.color.system_neutral1_100, R.color.system_neutral1_800))
+                }
+                clipToOutline = true
+            }
+            val detail = TextView(this).apply {
+                text = "Anteprima in caricamento…"
+                textSize = 12f
+            }
+            val text = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(TextView(context).apply { text = video.label; textSize = 15f })
+                addView(detail)
+            }
+            val row = LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(8), 0, dp(8))
+                isClickable = true
+                setOnClickListener { dialog.dismiss(); sendToKodi(video, queued) }
+                addView(image, LinearLayout.LayoutParams(dp(112), dp(63)).apply { marginEnd = dp(12) })
+                addView(text, LinearLayout.LayoutParams(0, -2, 1f))
+            }
+            content.addView(row)
+            thread {
+                val (seconds, frame) = videoPreview(video, userAgent)
+                runOnUiThread {
+                    frame?.let { image.setImageBitmap(it) }
+                    detail.text = when {
+                        seconds != null && frame == null -> "Durata ${durationLabel(seconds)}, nessuna immagine"
+                        seconds != null -> "Durata ${durationLabel(seconds)}"
+                        frame != null -> "Durata sconosciuta"
+                        else -> "Anteprima non disponibile"
+                    }
+                }
+            }
+        }
+        dialog = AlertDialog.Builder(this)
+            .setTitle(if (queued) "Quale video mettere in coda? Di solito è il primo" else "Quale video? Di solito è il primo")
+            .setView(ScrollView(this).apply { addView(content) })
+            .setNegativeButton("Annulla", null)
             .show()
+    }
+
+    // Durata in secondi e un fotogramma piccolo, per riconoscere l'episodio da un trailer o da una pubblicità.
+    // Da un thread di background. MP4: li legge MediaMetadataRetriever dal sito. HLS: Streams.preview scarica un pezzo
+    // della qualità più leggera (già decifrato) e il fotogramma si prende da lì. Video protetti: niente immagine.
+    private fun videoPreview(video: Video, userAgent: String): Pair<Long?, Bitmap?> {
+        val headers = streamHeaders(video.url, video.referer, userAgent)
+        val retriever = MediaMetadataRetriever()
+        var file: File? = null
+        var seconds: Long? = null
+        return try {
+            if (Uri.parse(video.url).path.orEmpty().lowercase().endsWith(".mp4")) {
+                retriever.setDataSource(video.url, headers.toMap())
+            } else {
+                val preview = streams.preview(video.url, headers)
+                seconds = preview.seconds
+                val sample = preview.sample ?: return seconds to null
+                file = File.createTempFile("anteprima", ".ts", cacheDir).apply { writeBytes(sample) }
+                retriever.setDataSource(file.path)
+            }
+            val length = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+            if (seconds == null) seconds = length?.let { it / 1000 }
+            // Per un MP4 al 10% (l'inizio spesso è nero), per un pezzo HLS a metà
+            val at = if (file == null) minOf((length ?: 0) / 10, 90_000) else (length ?: 0) / 2
+            seconds to retriever.getScaledFrameAtTime(at * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, dp(224), dp(126))
+        } catch (e: Exception) {
+            seconds to null
+        } finally {
+            retriever.release()
+            file?.delete()
+        }
     }
 
     // Tutto passa dalla playlist video di Kodi, così "+ Coda" e gli episodi successivi seguono quello in corso.
