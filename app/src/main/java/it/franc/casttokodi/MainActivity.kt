@@ -3,6 +3,7 @@ package it.franc.casttokodi
 import android.R
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.Dialog
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.content.res.Configuration
@@ -10,6 +11,8 @@ import android.net.ConnectivityManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Typeface
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.media.MediaMetadataRetriever
@@ -28,6 +31,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
+import android.view.Window
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.webkit.CookieManager
@@ -537,8 +541,9 @@ class MainActivity : Activity() {
         val list = playable()
         if (list.isEmpty()) return
         if (list.size == 1) return sendToKodi(list[0], queued)
-        lateinit var dialog: AlertDialog
-        val content = section().apply { setPadding(dp(16), dp(8), dp(16), 0) }
+        lateinit var dialog: Dialog
+        val content = section().apply { setPadding(dp(24), 0, dp(24), dp(8)) }
+        content.addView(label("Di solito è il primo, il video completo."))
         val userAgent = web.settings.userAgentString
         list.forEach { video ->
             val image = ImageView(this).apply {
@@ -580,11 +585,7 @@ class MainActivity : Activity() {
                 }
             }
         }
-        dialog = AlertDialog.Builder(this)
-            .setTitle(if (queued) "Quale video mettere in coda? Di solito è il primo" else "Quale video? Di solito è il primo")
-            .setView(ScrollView(this).apply { addView(content) })
-            .setNegativeButton("Annulla", null)
-            .show()
+        dialog = sheet(if (queued) "Quale video mettere in coda?" else "Quale video mandare a Kodi?", content)
     }
 
     // Durata in secondi e un fotogramma piccolo, per riconoscere l'episodio da un trailer o da una pubblicità.
@@ -1162,8 +1163,8 @@ class MainActivity : Activity() {
         }, { (state, items, outside) ->
             val titles = loadTitles()
             val current = if (state.fromQueue) state.position else -1
-            lateinit var dialog: AlertDialog
-            val content = section().apply { setPadding(dp(16), dp(8), dp(8), 0) }
+            lateinit var dialog: Dialog
+            val content = section().apply { setPadding(dp(24), 0, dp(16), dp(8)) }
             content.addView(label(when {
                 outside != null && items.isEmpty() ->
                     "Kodi sta riproducendo un video partito fuori dalla coda, e la coda è vuota. \"+ Coda\" non può accodare dopo " +
@@ -1185,13 +1186,8 @@ class MainActivity : Activity() {
                     queueMenu(anchor, name, state, i) { dialog.dismiss() }
                 })
             }
-            val builder = AlertDialog.Builder(this)
-                .setTitle("Coda di Kodi")
-                .setView(ScrollView(this).apply { addView(content) })
-                .setPositiveButton("Aggiorna") { _, _ -> showQueue() }
-                .setNegativeButton("Chiudi", null)
-            if (items.size > (if (current >= 0) 1 else 0)) builder.setNeutralButton("Svuota") { _, _ -> clearQueue(current) }
-            dialog = builder.show()
+            val clear = if (items.size > (if (current >= 0) 1 else 0)) listOf("Svuota" to { clearQueue(current) }) else emptyList()
+            dialog = sheet("Coda di Kodi", content, *(clear + ("Aggiorna" to { showQueue() })).toTypedArray())
         })
     }
 
@@ -1270,11 +1266,7 @@ class MainActivity : Activity() {
     // Telecomando di Kodi in un dialogo (Kodi → Telecomando)
     private fun showRemote() {
         if (prefs.getString("host", "").isNullOrBlank()) return askKodiAddress()
-        AlertDialog.Builder(this)
-            .setTitle("Telecomando")
-            .setView(ScrollView(this).apply { addView(remoteView()) })
-            .setNegativeButton("Chiudi", null)
-            .show()
+        sheet("Telecomando", section(remoteView()).apply { setPadding(dp(16), 0, dp(16), dp(8)) })
     }
 
     // Il telecomando, da solo: chi lo mostra (il dialogo qui sopra o un pannello) mette solo la View.
@@ -1826,8 +1818,8 @@ class MainActivity : Activity() {
         val canAdd = current != null && list.none { it.url == current }
         if (list.isEmpty() && !canAdd) return toast("Apri un sito per aggiungerlo ai preferiti")
 
-        lateinit var dialog: AlertDialog
-        val content = section().apply { setPadding(dp(16), dp(8), dp(8), 0) }
+        lateinit var dialog: Dialog
+        val content = section().apply { setPadding(dp(24), 0, dp(16), dp(8)) }
         if (canAdd) {
             val add = Button(this).apply {
                 text = "＋ Aggiungi questa pagina"
@@ -1847,11 +1839,7 @@ class MainActivity : Activity() {
                 }
             })
         }
-        dialog = AlertDialog.Builder(this)
-            .setTitle("Preferiti")
-            .setView(ScrollView(this).apply { addView(content) })
-            .setNegativeButton("Chiudi", null)
-            .show()
+        dialog = sheet("Preferiti", content)
     }
 
     private fun addFavorite(url: String) {
@@ -1966,6 +1954,71 @@ class MainActivity : Activity() {
         dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
         dialog.show()
         field.requestFocus()
+    }
+
+    // Pannello che sale dal basso al posto di un dialogo al centro: maniglia, titolo, contenuto che scorre e, in fondo,
+    // i pulsanti vicino al pollice. Si chiude toccando fuori o con indietro.
+    private fun sheet(title: String, content: View, vararg actions: Pair<String, () -> Unit>): Dialog {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val radius = dp(28).toFloat()
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadii = floatArrayOf(radius, radius, radius, radius, 0f, 0f, 0f, 0f)
+                setColor(sys(R.color.system_neutral1_10, R.color.system_neutral1_900))
+            }
+            val handle = View(context).apply {
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(2).toFloat()
+                    setColor(sys(R.color.system_neutral2_400, R.color.system_neutral2_600))
+                }
+            }
+            addView(handle, LinearLayout.LayoutParams(dp(32), dp(4)).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                topMargin = dp(16)
+            })
+            addView(TextView(context).apply {
+                text = title
+                textSize = 20f
+                setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_100))
+                setPadding(dp(24), dp(16), dp(24), dp(12))
+            })
+            // Altezza 0 con peso: se il contenuto è più alto dello schermo è lo ScrollView a restringersi, non i pulsanti
+            addView(ScrollView(context).apply { addView(content) }, LinearLayout.LayoutParams(-1, 0, 1f))
+            if (actions.isNotEmpty()) {
+                val bar = LinearLayout(context).apply {
+                    gravity = Gravity.END
+                    setPadding(dp(16), dp(8), dp(16), dp(8))
+                }
+                actions.forEach { (label, action) ->
+                    bar.addView(Button(context).apply {
+                        text = label
+                        isAllCaps = false
+                        stateListAnimator = null
+                        background = rounded(sys(R.color.system_accent2_100, R.color.system_accent2_700), 20)
+                        setTextColor(sys(R.color.system_accent2_900, R.color.system_accent2_100))
+                        setPadding(dp(20), 0, dp(20), 0)
+                        setOnClickListener { dialog.dismiss(); action() }
+                    }, LinearLayout.LayoutParams(-2, dp(40)).apply { marginStart = dp(8) })
+                }
+                addView(bar)
+            }
+            // Sotto la barra dei gesti: il pannello arriva al bordo, il contenuto resta sopra
+            setOnApplyWindowInsetsListener { v, insets ->
+                v.setPadding(0, 0, 0, insets.getInsets(WindowInsets.Type.navigationBars()).bottom)
+                insets
+            }
+        }
+        dialog.setContentView(panel)
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
+            setGravity(Gravity.BOTTOM)
+            setWindowAnimations(R.style.Animation_InputMethod)
+        }
+        dialog.show()
+        return dialog
     }
 
     private fun circle(color: Int) = GradientDrawable().apply {
