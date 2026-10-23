@@ -11,6 +11,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.net.nsd.NsdManager
@@ -38,6 +39,8 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupMenu
@@ -46,7 +49,6 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
-import android.widget.Toast
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -117,7 +119,12 @@ class MainActivity : Activity() {
     private lateinit var web: WebView
     private lateinit var address: EditText
     private lateinit var cast: Button
-    private lateinit var queue: Button
+    private lateinit var queue: ImageButton
+    private lateinit var castBar: View
+    private lateinit var favorites: ImageButton
+    private lateinit var siteIcon: ImageView
+    private lateinit var shield: TextView
+    private lateinit var snack: TextView
     private lateinit var progress: ProgressBar
     private val prefs by lazy { getSharedPreferences("kodi", MODE_PRIVATE) }
 
@@ -135,6 +142,8 @@ class MainActivity : Activity() {
 
     // Favicon della pagina aperta, salvata con il preferito
     private var pageIcon: Bitmap? = null
+    // Popup e salti bloccati sulla pagina aperta: si contano nello scudo della barra invece di un avviso a ogni blocco
+    private val blocked = mutableListOf<Uri>()
 
     // Mentre si cerca Kodi in rete lo dice il pulsante in basso: un toast sparisce prima di averlo letto
     private var searchingKodi = false
@@ -144,43 +153,90 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val onSurface = sys(R.color.system_neutral1_900, R.color.system_neutral1_100)
+        val onSurfaceVariant = sys(R.color.system_neutral2_700, R.color.system_neutral2_200)
         address = EditText(this).apply {
             hint = "Cerca o scrivi un indirizzo"
             isSingleLine = true
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
             imeOptions = EditorInfo.IME_ACTION_GO
+            background = null
+            textSize = 15f
+            setTextColor(onSurface)
+            setHintTextColor(onSurfaceVariant)
+            setPadding(0, 0, 0, 0)
+            setSelectAllOnFocus(true)
             setOnEditorActionListener { _, _, _ -> open(text.toString()); true }
         }
-        val favorites = Button(this).apply {
-            text = "★"
-            setOnClickListener { showFavorites() }
+        siteIcon = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
-        val settings = Button(this).apply {
-            text = "Kodi"
-            setOnClickListener { kodiMenu(this) }
+        shield = TextView(this).apply {
+            textSize = 12f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER_VERTICAL
+            setTextColor(onSurfaceVariant)
+            setCompoundDrawablesRelativeWithIntrinsicBounds(icon(it.franc.casttokodi.R.drawable.ic_shield, onSurfaceVariant, 14), null, null, null)
+            compoundDrawablePadding = dp(4)
+            setPadding(dp(8), 0, dp(10), 0)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat()
+                setStroke(dp(1), sys(R.color.system_neutral2_400, R.color.system_neutral2_600))
+            }
+            visibility = View.GONE
+            setOnClickListener { showBlocked() }
         }
-        val power = Button(this).apply {
-            contentDescription = "Accendi la TV e apri Kodi"
-            tooltipText = contentDescription
-            setOnClickListener { wakeKodi() }
+        // Barra a pillola: icona del sito, indirizzo e, se ha bloccato qualcosa, lo scudo con il conto
+        val pill = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), 0, dp(6), 0)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(24).toFloat()
+                setColor(sys(R.color.system_neutral1_100, R.color.system_neutral1_800))
+            }
+            addView(siteIcon, LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(10) })
+            addView(address, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(shield, LinearLayout.LayoutParams(-2, dp(28)).apply { marginStart = dp(4) })
         }
-        paint(favorites, active = true, primary = false)
-        paint(power, active = true, primary = false)
-        // Il carattere ⏻ manca nel font del Pixel (si vedeva un quadratino): icona vettoriale disegnata sopra, al centro,
-        // del colore del testo. Il testo resta uno spazio, così altezza e linea di base sono quelle di ★ e Kodi
-        // (con l'icona dentro il testo, in un ImageSpan, il pulsante usciva più alto e spostato)
-        power.text = " "
-        power.foreground = getDrawable(it.franc.casttokodi.R.drawable.ic_power)!!.mutate().apply { setTint(power.currentTextColor) }
-        power.foregroundGravity = Gravity.CENTER
-        paint(settings, active = true, primary = false)
+        favorites = iconButton(it.franc.casttokodi.R.drawable.ic_star, "Preferiti") { showFavorites() }
+        val power = iconButton(it.franc.casttokodi.R.drawable.ic_power, "Accendi la TV e apri Kodi") { wakeKodi() }
+        val settings = iconButton(it.franc.casttokodi.R.drawable.ic_more, "Kodi: coda, impostazioni e log") { kodiMenu(it) }
+
+        // "Manda a Kodi" e "+ Coda" galleggiano sul sito e compaiono solo quando c'è un video da mandare
         cast = Button(this).apply {
+            textSize = 15f
+            isAllCaps = false
+            stateListAnimator = null
+            elevation = dp(6).toFloat()
+            compoundDrawablePadding = dp(10)
+            setPadding(dp(16), 0, dp(20), 0)
             setOnClickListener { pickVideo(queued = false) }
         }
-        queue = Button(this).apply {
-            text = "+ Coda"
+        queue = ImageButton(this).apply {
+            contentDescription = "Metti in coda su Kodi (tieni premuto per vedere la coda)"
+            tooltipText = "Metti in coda"
+            stateListAnimator = null
+            elevation = dp(6).toFloat()
             setOnClickListener { pickVideo(queued = true) }
             // Pressione lunga: apre la coda di Kodi
             setOnLongClickListener { showQueue(); true }
+        }
+        castBar = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL or Gravity.END
+            addView(queue, LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginEnd = dp(12) })
+            addView(cast, LinearLayout.LayoutParams(-2, dp(56)))
+        }
+        snack = TextView(this).apply {
+            textSize = 14f
+            setTextColor(sys(R.color.system_neutral1_50, R.color.system_neutral1_900))
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            elevation = dp(6).toFloat()
+            background = GradientDrawable().apply {
+                cornerRadius = dp(8).toFloat()
+                setColor(sys(R.color.system_neutral1_800, R.color.system_neutral1_100))
+            }
+            visibility = View.GONE
         }
         progress = ProgressBar(this, null, R.attr.progressBarStyleHorizontal).apply {
             max = 100
@@ -190,23 +246,30 @@ class MainActivity : Activity() {
         setupWebView()
 
         val topBar = LinearLayout(this).apply {
-            setPadding(dp(8), dp(4), dp(8), 0)
-            addView(address, LinearLayout.LayoutParams(0, -2, 1f))
-            addView(favorites, LinearLayout.LayoutParams(dp(56), -2).apply { marginStart = dp(4) })
-            addView(power, LinearLayout.LayoutParams(dp(56), -2).apply { marginStart = dp(4) })
-            addView(settings, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(4) })
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), dp(6), dp(4), dp(6))
+            addView(pill, LinearLayout.LayoutParams(0, dp(48), 1f))
+            addView(favorites, LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginStart = dp(4) })
+            addView(power, LinearLayout.LayoutParams(dp(44), dp(44)))
+            addView(settings, LinearLayout.LayoutParams(dp(44), dp(44)))
         }
-        val bottomBar = LinearLayout(this).apply {
-            setPadding(dp(8), dp(4), dp(8), dp(4))
-            addView(cast, LinearLayout.LayoutParams(0, dp(56), 1f))
-            addView(queue, LinearLayout.LayoutParams(-2, dp(56)).apply { marginStart = dp(8) })
+        val overlay = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.END
+            setPadding(dp(16), 0, dp(16), dp(16))
+            addView(castBar, LinearLayout.LayoutParams(-2, -2))
+            addView(snack, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
+        }
+        val page = FrameLayout(this).apply {
+            addView(web, FrameLayout.LayoutParams(-1, -1))
+            addView(overlay, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
         }
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            setBackgroundColor(sys(R.color.system_neutral1_10, R.color.system_neutral1_900))
             addView(topBar)
             addView(progress, LinearLayout.LayoutParams(-1, -2))
-            addView(web, LinearLayout.LayoutParams(-1, 0, 1f))
-            addView(bottomBar, LinearLayout.LayoutParams(-1, -2))
+            addView(page, LinearLayout.LayoutParams(-1, 0, 1f))
             // targetSdk 35 forza l'edge-to-edge: senza padding la barra finisce sotto la status bar
             setOnApplyWindowInsetsListener { v, insets ->
                 val i = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.ime())
@@ -215,6 +278,7 @@ class MainActivity : Activity() {
             }
         }
         setContentView(root)
+        showSiteIcon(null)
         refreshCastButton()
 
         migrateAuth()
@@ -287,6 +351,7 @@ class MainActivity : Activity() {
 
             override fun onReceivedIcon(view: WebView, icon: Bitmap) {
                 pageIcon = icon
+                showSiteIcon(icon)
                 fillMissingIcon(view.url, icon)
             }
         }
@@ -302,9 +367,13 @@ class MainActivity : Activity() {
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 pageUrl = url
                 pageIcon = favicon
+                showSiteIcon(favicon)
                 allowedDomain = domainOf(Uri.parse(url))
-                address.setText(url)
+                if (!address.hasFocus()) address.setText(url)
                 videos.clear()
+                blocked.clear()
+                refreshShield()
+                refreshStar()
                 refreshCastButton()
             }
 
@@ -335,8 +404,48 @@ class MainActivity : Activity() {
     }
 
     private fun block(url: Uri): Boolean {
-        toast("Bloccato: ${url.host ?: url.scheme}")
+        if (blocked.none { it.host == url.host }) blocked += url
+        refreshShield()
         return true
+    }
+
+    private fun refreshShield() {
+        shield.text = blocked.size.toString()
+        shield.contentDescription = "${blocked.size} popup o salti bloccati"
+        shield.visibility = if (blocked.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    // Lo scudo mostra cosa è stato bloccato: se serviva (un login, un player su un altro dominio) lo si apre da qui
+    private fun showBlocked() {
+        val list = blocked.toList()
+        AlertDialog.Builder(this)
+            .setTitle("Bloccati su questa pagina")
+            .setItems(list.map { it.host ?: it.scheme ?: it.toString() }.toTypedArray()) { _, i ->
+                allowedDomain = domainOf(list[i])
+                web.loadUrl(list[i].toString())
+            }
+            .setNegativeButton("Chiudi", null)
+            .show()
+    }
+
+    private fun showSiteIcon(icon: Bitmap?) {
+        if (icon != null) {
+            siteIcon.setImageBitmap(icon)
+            siteIcon.imageTintList = null
+        } else {
+            siteIcon.setImageResource(it.franc.casttokodi.R.drawable.ic_public)
+            siteIcon.imageTintList = ColorStateList.valueOf(sys(R.color.system_neutral2_700, R.color.system_neutral2_200))
+        }
+    }
+
+    // Stella piena se la pagina aperta è già nei preferiti
+    private fun refreshStar() {
+        val url = web.url
+        val saved = url != null && loadFavorites().any { it.url == url }
+        favorites.setImageDrawable(icon(
+            if (saved) it.franc.casttokodi.R.drawable.ic_star_filled else it.franc.casttokodi.R.drawable.ic_star,
+            if (saved) sys(R.color.system_accent1_600, R.color.system_accent1_200) else sys(R.color.system_neutral2_700, R.color.system_neutral2_200),
+        ))
     }
 
     private fun domainOf(url: Uri) = domainOf(url.host)
@@ -347,20 +456,54 @@ class MainActivity : Activity() {
         videoFor(url, referer, uri.host, uri.path, uri.encodedQuery)
     })
 
+    // Senza video i pulsanti non ci sono: il sito resta tutto visibile. Mentre si cerca Kodi o si manda il video
+    // restano, spenti, con quello che sta succedendo.
     private fun refreshCastButton() {
         val count = playable().size
-        val ready = count > 0 && !searchingKodi && !sending
+        val busy = searchingKodi || sending
+        val ready = count > 0 && !busy
+        castBar.visibility = if (count > 0 || busy) View.VISIBLE else View.GONE
         cast.isEnabled = ready
         queue.isEnabled = ready
+        queue.visibility = if (busy) View.GONE else View.VISIBLE
         cast.text = when {
             searchingKodi -> "Cerco Kodi in rete…"
             sending -> "Invio a Kodi…"
-            count == 0 -> "Nessun video: avvia il player"
             count == 1 -> "Manda a Kodi"
-            else -> "Manda a Kodi ($count)"
+            else -> "Manda a Kodi · $count"
         }
-        paint(cast, ready, primary = true)
-        paint(queue, ready, primary = false)
+        // Pulsanti galleggianti di Material You: contenitore dell'accento per l'azione principale, tonale per la coda
+        val (castBg, castFg) = sys(R.color.system_accent1_100, R.color.system_accent1_700) to
+            sys(R.color.system_accent1_900, R.color.system_accent1_100)
+        val (queueBg, queueFg) = sys(R.color.system_accent2_100, R.color.system_accent2_700) to
+            sys(R.color.system_accent2_900, R.color.system_accent2_100)
+        cast.background = rounded(castBg, 16)
+        cast.setTextColor(castFg)
+        cast.alpha = if (ready) 1f else 0.7f
+        cast.setCompoundDrawablesRelativeWithIntrinsicBounds(icon(it.franc.casttokodi.R.drawable.ic_cast, castFg), null, null, null)
+        queue.background = rounded(queueBg, 24)
+        queue.setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_queue, queueFg))
+    }
+
+    // Sfondo arrotondato con l'onda al tocco
+    private fun rounded(color: Int, radius: Int) = RippleDrawable(
+        ColorStateList.valueOf(0x33808080),
+        GradientDrawable().apply { cornerRadius = dp(radius).toFloat(); setColor(color) },
+        null,
+    )
+
+    private fun icon(id: Int, color: Int, size: Int = 24) = getDrawable(id)!!.mutate().apply {
+        setTint(color)
+        setBounds(0, 0, dp(size), dp(size))
+    }
+
+    // Pulsante tondo con solo l'icona, come quelli delle barre di Android
+    private fun iconButton(id: Int, description: String, onClick: (View) -> Unit) = ImageButton(this).apply {
+        contentDescription = description
+        tooltipText = description
+        setImageDrawable(icon(id, sys(R.color.system_neutral2_700, R.color.system_neutral2_200)))
+        setBackgroundResource(attr(R.attr.selectableItemBackgroundBorderless))
+        setOnClickListener(onClick)
     }
 
     // Colori di sistema (Material You, presi dallo sfondo del Pixel): accento per l'azione principale,
@@ -1327,6 +1470,7 @@ class MainActivity : Activity() {
     private fun saveFavorites(list: List<Favorite>) {
         val array = JSONArray(list.map { JSONObject().put("title", it.title).put("url", it.url).putOpt("icon", it.icon) })
         prefs.edit().putString("favorites", array.toString()).apply()
+        refreshStar()
     }
 
     private fun encodeIcon(icon: Bitmap): String {
@@ -1511,7 +1655,15 @@ class MainActivity : Activity() {
             .show()
     }
 
-    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    // Avviso in fondo allo schermo, sopra il sito: resta più di un toast se il testo è lungo
+    private val hideSnack = Runnable { snack.visibility = View.GONE }
+
+    private fun toast(msg: String) = runOnUiThread {
+        snack.text = msg
+        snack.visibility = View.VISIBLE
+        snack.removeCallbacks(hideSnack)
+        snack.postDelayed(hideSnack, (2500L + 40L * msg.length).coerceAtMost(6000L))
+    }
 
     // Il WebView salva i cookie su disco ogni tanto: se l'app viene chiusa prima si perde la scelta sulla pagina
     // dei cookie di Google (e i login dei siti), che si ripresenterebbe a ogni avvio

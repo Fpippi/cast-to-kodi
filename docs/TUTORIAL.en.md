@@ -35,23 +35,26 @@ on the phone, start the video, press a button and the video plays on the TV. The
 
 ```
 ┌──────────────────────────────────────────────┐
-│ [Cerca o scrivi un indirizzo]  [★] [⏻] [Kodi] │  ← top bar
+│ (🌐 Cerca o scrivi un indirizzo  🛡3)  ★ ⏻ ⋮  │  ← top bar
 │▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬                            │  ← page loading
 │                                              │
 │                 site page                    │
 │                                              │
-│ [      Manda a Kodi       ]  [ + Coda ]      │  ← bottom bar
+│                 (+≡)  ( 📺 Manda a Kodi )     │  ← only when there's a video
 └──────────────────────────────────────────────┘
 ```
 
 | Button | What it does |
 |---|---|
-| **Address bar** ("Cerca o scrivi un indirizzo") | Type a site (`animeunity.so`) or a search (`jojo animeunity`, goes to Google). |
-| **★** | Your favourite sites. |
+| **Address bar** ("Cerca o scrivi un indirizzo") | Type a site (`animeunity.so`) or a search (`jojo animeunity`, goes to Google). The site's icon is on the left. |
+| **🛡 with a number** | Shows up when the app blocked popups or jumps to other sites on this page. Tap it to see which ones and open one, if you needed it. |
+| **★** | Your favourite sites. Filled if the open page is already a favourite. |
 | **⏻** | Turns the TV on and opens Kodi. |
-| **Kodi** | A small menu: *Coda di Kodi* (Kodi queue), *Dov'è Kodi?* (Where is Kodi?), *Log di Kodi* (Kodi log). |
-| **Manda a Kodi** (Send to Kodi) | Plays the page's video on the TV right away. It is grey and says *"Nessun video: avvia il player"* ("No video: start the player") until a video starts on the page; then it turns coloured. |
-| **+ Coda** (+ Queue) | Puts the video at the end of Kodi's queue, without interrupting what you are watching. |
+| **⋮** | A small menu: *Coda di Kodi* (Kodi queue), *Dov'è Kodi?* (Where is Kodi?), *Log di Kodi* (Kodi log). |
+| **Manda a Kodi** (Send to Kodi) | Plays the page's video on the TV right away. It shows up at the bottom right, over the site, only when a video starts on the page. |
+| **+ Coda** (+ Queue: the round icon with lines and a +, next to *Manda a Kodi*) | Puts the video at the end of Kodi's queue, without interrupting what you are watching. Long-press it to open the queue. |
+
+Short messages ("Aggiunto alla coda", "Kodi è pronto"…) appear at the bottom of the screen, over the site.
 
 ---
 
@@ -88,7 +91,7 @@ To do **once only**, with the Fire TV remote. The detailed steps to install Kodi
 5. **Login, if set in Kodi**: if you set a username and password in Kodi, type them here. If you skip them, the app asks
    for them by itself (*Accesso a Kodi*, "Kodi login" window) the first time you send a video.
 
-Done. To change these choices later: **Kodi → Dov'è Kodi?** button.
+Done. To change these choices later: **⋮ → Dov'è Kodi?** button.
 
 > [!TIP]
 > - If the Fire TV changes address (it happens after a router restart), the app finds it again by itself when sending.
@@ -175,7 +178,7 @@ next one by itself. The app never clears it.
 ### On AnimeUnity it can do it by itself (if you turn it on)
 
 On AnimeUnity the app can queue the following episodes by itself, so you don't have to press **+ Coda** for each one.
-**It is off by default.** To turn it on: **Kodi → Dov'è Kodi?**, in the last box at the bottom
+**It is off by default.** To turn it on: **⋮ → Dov'è Kodi?**, in the last box at the bottom
 (*"AnimeUnity: episodi successivi…"*, "next episodes") type how many episodes to queue (at most 3, `0` = off) and
 press **Salva** (Save).
 
@@ -194,9 +197,9 @@ wouldn't play:
 - *"Il link di questo episodio scade alle …"* ("This episode's link expires at …"): some sites give links that last a
   few hours. If the episode would come after the expiry, queue it later.
 
-### Look at and tidy the queue: Kodi → Coda di Kodi
+### Look at and tidy the queue: ⋮ → Coda di Kodi
 
-Press **Kodi → Coda di Kodi** (Kodi queue). You see the list of videos:
+Press **⋮ → Coda di Kodi** (Kodi queue). You see the list of videos:
 
 - **▶ In riproduzione** (Playing): the one playing now.
 - **Già visto** (Already watched): the finished ones.
@@ -224,7 +227,7 @@ The app also reopens the last page you had open by itself.
 
 If **Playback failed** appears on the TV or the video doesn't start:
 
-1. Press **Kodi → Log di Kodi** (Kodi log). The app reads the last lines of Kodi's log from the Fire TV
+1. Press **⋮ → Log di Kodi** (Kodi log). The app reads the last lines of Kodi's log from the Fire TV
    (it needs the *ADB debugging* from [step 2](#2-first-time-set-up-the-fire-tv); the first time the TV asks to confirm,
    as for ⏻).
 2. Press **Condividi** (Share) and send it wherever you need (WhatsApp, email, a GitHub issue…), together with the name
@@ -244,10 +247,10 @@ On startup, if there is a new version, **Nuova versione disponibile** ("New vers
 
 | What you see | What to do |
 |---|---|
-| The button stays on **"Nessun video: avvia il player"** ("No video: start the player") | Press play on the page's video and wait until it really starts. If there's an ad before the video, wait for it to end. |
-| **"Kodi non risponde"** ("Kodi doesn't answer") / **"Nessun Kodi trovato"** ("No Kodi found") | Kodi must be **open** on the TV, with *Announce services to other systems* on, and phone and TV on the same Wi-Fi. Otherwise **Kodi → Dov'è Kodi? → Manuale** and type `IP:port`. |
+| **Manda a Kodi** doesn't show up | Press play on the page's video and wait until it really starts. If there's an ad before the video, wait for it to end. |
+| **"Kodi non risponde"** ("Kodi doesn't answer") / **"Nessun Kodi trovato"** ("No Kodi found") | Kodi must be **open** on the TV, with *Announce services to other systems* on, and phone and TV on the same Wi-Fi. Otherwise **⋮ → Dov'è Kodi? → Manuale** and type `IP:port`. |
 | **Accesso a Kodi** (Kodi login) window | Type the username and password you set in Kodi (*Services → Control*). If it says it doesn't accept them, check them again in Kodi. |
-| **Playback failed** on the TV | Try **Manda a Kodi** once more. If it happens again, [Log di Kodi → Condividi](#9-kodi-log-when-something-doesnt-play). |
+| **Playback failed** on the TV | Try **Manda a Kodi** once more. If it happens again, [⋮ → Log di Kodi → Condividi](#9-kodi-log-when-something-doesnt-play). |
 | **"Kodi non ha accettato il video"** ("Kodi didn't accept the video") | The site gave a link Kodi can't open. Reload the page, restart the player and try again; if it happens again, send the log. |
 | **"Inviato a Kodi, ma senza coda"** ("Sent to Kodi, but without queue") | The video plays, but Kodi doesn't want it in the playlist: for that video the queue doesn't work. |
 | **"Non messo in coda"** ("Not queued") | Read the reason in the message: see [When the app doesn't queue](#when-the-app-doesnt-queue-and-why). |
