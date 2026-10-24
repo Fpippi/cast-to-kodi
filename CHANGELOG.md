@@ -7,6 +7,14 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.2.1
+
+- **Continua a guardare** su AnimeUnity: la serie non compariva. Il sito cambia episodio senza caricare una pagina nuova,
+  e l'app restava ferma all'indirizzo di prima (spesso la pagina della serie, che non contava come episodio). Ora segue
+  l'indirizzo, e anche un episodio mandato dalla pagina della serie entra nella fila.
+- Se su AnimeUnity la serie non si salva, l'app ora lo dice con il motivo, invece di tacere.
+- Il nome della serie non comincia più con "AnimeUnity ~".
+
 ## 2.2.0
 
 - **Continua a guardare** nella pagina iniziale: una scheda per ogni serie mandata a Kodi, ferma all'episodio e al minuto

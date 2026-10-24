@@ -93,6 +93,7 @@ import it.franc.casttokodi.sites.autoNextLabel
 import it.franc.casttokodi.sites.NEXT_EPISODES_JS
 import it.franc.casttokodi.sites.EPISODE_INFO_JS
 import it.franc.casttokodi.sites.isAnimeUnityEpisode
+import it.franc.casttokodi.sites.animeUnitySeries
 import it.franc.casttokodi.sites.isGoogleConsent
 import it.franc.casttokodi.sites.nextEpisodeTitle
 import it.franc.casttokodi.sites.linkExpiry
@@ -466,13 +467,18 @@ class MainActivity : Activity() {
             }
 
             override fun onPageFinished(view: WebView, url: String) {
-                val uri = Uri.parse(url)
-                if (!url.startsWith("http") || isGoogleConsent(uri.host)) return
-                rememberSite(uri.host)
-                if (historyOn()) {
-                    prefs.edit().putString("last", url).putString("lastTitle", view.title).putLong("lastAt", System.currentTimeMillis()).apply()
-                }
-                refreshBanner(uri, view.title)
+                pageShown(url, view.title)
+            }
+
+            // AnimeUnity cambia episodio senza caricare una pagina nuova (history.pushState): onPageStarted non arriva,
+            // ma pageUrl deve seguire l'indirizzo, se no l'invio vale per la pagina di prima e la serie non si riconosce.
+            // I video trovati restano: è lo stesso player
+            override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+                if (url == pageUrl || !url.startsWith("http")) return
+                pageUrl = url
+                if (!address.hasFocus()) address.setText(addressLabel(url))
+                refreshStar()
+                pageShown(url, view.title)
             }
 
             // Chiamato su un thread di background per ogni risorsa, anche dentro gli iframe e per le XHR dei player
@@ -488,6 +494,17 @@ class MainActivity : Activity() {
                 return null
             }
         }
+    }
+
+    // Pagina finita di caricare, o indirizzo cambiato da JS: ultima pagina, dominio del sito, avviso "Eri all'episodio"
+    private fun pageShown(url: String, title: String?) {
+        val uri = Uri.parse(url)
+        if (!url.startsWith("http") || isGoogleConsent(uri.host)) return
+        rememberSite(uri.host)
+        if (historyOn()) {
+            prefs.edit().putString("last", url).putString("lastTitle", title).putLong("lastAt", System.currentTimeMillis()).apply()
+        }
+        refreshBanner(uri, title)
     }
 
     private fun open(input: String) {
@@ -841,7 +858,18 @@ class MainActivity : Activity() {
                 // Con Kodi fermo "+ Coda" fa partire il video: anche lui diventa quello in corso
                 val playing = !queued || sent.message.startsWith("Inviato")
                 val file = sentFile
-                if (episode != null && file != null) recordSent(episode, pageUri.host.orEmpty(), file, playing, video, page)
+                // 2.2.1: su AnimeUnity la serie non compariva e dal codice non si capisce perché. Finché non è chiaro,
+                // l'app dice cosa è andato storto invece di tacere
+                if (episode != null && file != null) {
+                    try {
+                        recordSent(episode, pageUri.host.orEmpty(), file, playing, video, page)
+                        if (loadShows().none { it.key == episode.key }) notice("Continua a guardare non ha salvato", "Serie non ritrovata dopo il salvataggio\n\n$page")
+                    } catch (e: Exception) {
+                        notice("Continua a guardare non ha salvato", "$e\n\n$page")
+                    }
+                } else if (historyOn() && domainOf(pageUri.host).startsWith("animeunity.")) {
+                    notice("Continua a guardare non ha salvato", "Episodio: ${episode != null}, video: ${file != null}\n\n$page")
+                }
                 if (resume != null && playing && file != null) {
                     toast("${sent.message}: riparte da ${clockLabel(resume)}")
                     thread { runCatching { kodi.resumeAt(file, resume) } }
@@ -2680,16 +2708,17 @@ class MainActivity : Activity() {
         updateShows { withSent(it, episode, host, file, System.currentTimeMillis(), playing) }
         if (!playing) return
         val uri = page?.let { Uri.parse(it) }
-        if (uri != null && page == web.url && isAnimeUnityEpisode(uri.host, uri.path)) {
+        val series = uri?.let { animeUnitySeries(it.host, it.path) }
+        if (series != null && page == web.url) {
             web.evaluateJavascript(EPISODE_INFO_JS) { result ->
                 val info = runCatching { JSONObject(JSONTokener(result).nextValue() as String) }.getOrNull()
                 if (info == null || info.has("error")) return@evaluateJavascript
-                val base = uri.path.orEmpty().trimEnd('/').substringBeforeLast('/')
-                val next = info.optJSONObject("next")?.let { Episode(null, it.optString("number").toIntOrNull(), "$base/${it.optString("id")}") }
+                val next = info.optJSONObject("next")?.let { Episode(null, it.optString("number").toIntOrNull(), "$series/${it.optString("id")}") }
+                val at = info.optString("id").takeIf { it.isNotBlank() && episode.path.trimEnd('/') == series }?.let { "$series/$it" }
                 updateShows {
                     withDetails(it, episode.key, title = info.optString("title").takeIf { known == null },
                         count = info.optInt("count").takeIf { c -> c > 0 }, next = next,
-                        path = episode.path, number = info.optString("number").toIntOrNull())
+                        path = episode.path, number = info.optString("number").toIntOrNull(), at = at)
                 }
             }
         }
