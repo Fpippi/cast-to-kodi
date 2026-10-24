@@ -89,9 +89,17 @@ const val EPISODE_INFO_JS = """(function () {
     try { anime = JSON.parse(p.getAttribute('anime') || '{}'); } catch (e) {}
     var id = location.pathname.replace(/\/$/, '').split('/').pop();
     var i = episodes.findIndex(function (e) { return String(e.id) == id; });
+    if (i < 0) {
+      // Pagina della serie (/anime/1234-jojo), senza episodio nell'indirizzo: quello che il player ha aperto
+      try {
+        var current = JSON.parse(p.getAttribute('episode') || 'null');
+        if (current) i = episodes.findIndex(function (e) { return String(e.id) == String(current.id); });
+      } catch (e) {}
+    }
     var next = i >= 0 && i + 1 < episodes.length ? episodes[i + 1] : null;
     return JSON.stringify({
       title: anime.title_eng || anime.title || anime.title_it || '',
+      id: i >= 0 ? String(episodes[i].id) : '',
       number: i >= 0 ? String(episodes[i].number) : '',
       count: anime.episodes_count || episodes.length,
       next: next ? { id: String(next.id), number: String(next.number) } : null,
