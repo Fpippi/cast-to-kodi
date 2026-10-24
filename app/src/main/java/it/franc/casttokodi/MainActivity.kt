@@ -789,7 +789,8 @@ class MainActivity : Activity() {
     // Durata in secondi e un fotogramma piccolo, per riconoscere l'episodio da un trailer o da una pubblicità.
     // Da un thread di background. MP4: li legge MediaMetadataRetriever dal sito. HLS: Streams.preview scarica un pezzo
     // della qualità più leggera (già decifrato) e il fotogramma si prende da lì. Video protetti: niente immagine.
-    private fun videoPreview(video: Video, userAgent: String): Pair<Long?, Bitmap?> {
+    // width: larghezza massima del fotogramma in pixel (quella delle anteprime nell'elenco dei video, se non detta)
+    private fun videoPreview(video: Video, userAgent: String, width: Int = dp(224)): Pair<Long?, Bitmap?> {
         val headers = streamHeaders(video.url, video.referer, userAgent)
         val retriever = MediaMetadataRetriever()
         var file: File? = null
@@ -808,7 +809,7 @@ class MainActivity : Activity() {
             if (seconds == null) seconds = length?.let { it / 1000 }
             // Per un MP4 al 10% (l'inizio spesso è nero), per un pezzo HLS a metà
             val at = if (file == null) minOf((length ?: 0) / 10, 90_000) else (length ?: 0) / 2
-            seconds to retriever.getScaledFrameAtTime(at * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, dp(224), dp(126))
+            seconds to retriever.getScaledFrameAtTime(at * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, width, width * 9 / 16)
         } catch (e: Exception) {
             seconds to null
         } finally {
@@ -1767,7 +1768,8 @@ class MainActivity : Activity() {
             setOnClickListener { video { kodi, id -> kodi.playPause(id) } }
         }
 
-        // "Salta sigla": avanti di quanto vale per la serie in corso (introOf), da dove si è. Tenuto premuto si cambia
+        // "Salta sigla": avanti di quanto vale per la serie in corso (introOf), da dove si è. "Cambia" accanto (o la
+        // pressione lunga) sceglie quanto, anche un tempo scritto a mano
         val intro = TextView(this).apply {
             textSize = 15f
             typeface = Typeface.DEFAULT_BOLD
@@ -1791,6 +1793,24 @@ class MainActivity : Activity() {
                 chooseIntro(now?.file) { seconds -> text = introLabel(seconds) }
                 true
             }
+        }
+        val introEdit = TextView(this).apply {
+            text = "Cambia"
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setTextColor(onSurfaceVariant)
+            setPadding(dp(16), 0, dp(16), 0)
+            background = RippleDrawable(ColorStateList.valueOf(0x33808080), GradientDrawable().apply {
+                cornerRadius = dp(22).toFloat()
+                setStroke(dp(1), sys(R.color.system_neutral2_400, R.color.system_neutral2_600))
+            }, null)
+            contentDescription = "Cambia di quanto salta la sigla"
+            setOnClickListener { chooseIntro(now?.file) { seconds -> intro.text = introLabel(seconds) } }
+        }
+        val introRow = LinearLayout(this).apply {
+            gravity = Gravity.CENTER
+            addView(intro, LinearLayout.LayoutParams(-2, -1))
+            addView(introEdit, LinearLayout.LayoutParams(-2, -1).apply { marginStart = dp(8) })
         }
 
         fun show(playing: NowPlaying?, problem: String?) {
@@ -1982,7 +2002,7 @@ class MainActivity : Activity() {
                 gap(bar, 16, height = 24),
                 gap(times, 2),
                 gap(transport, 16),
-                gap(intro, 16, width = -2, height = 44, gravity = Gravity.CENTER_HORIZONTAL),
+                gap(introRow, 16, width = -2, height = 44, gravity = Gravity.CENTER_HORIZONTAL),
                 gap(dpad, 24, 216, 216, Gravity.CENTER_HORIZONTAL),
                 gap(keys, 24),
                 gap(volume, 4),
@@ -2438,17 +2458,55 @@ class MainActivity : Activity() {
     private fun chooseIntro(file: String?, done: (Int) -> Unit) {
         val show = showOfFile(loadShows(), file)
         val current = show?.intro ?: generalIntro()
-        val labels = INTRO_CHOICES.map { if (it < 60) "$it secondi" else clockLabel(it.toLong()) }.toTypedArray()
+        val title = if (show != null) "Salta sigla: ${show.title}" else "Salta sigla"
+        fun save(seconds: Int) {
+            if (show != null) updateShows { withIntro(it, show.key, seconds) } else prefs.edit().putInt("intro", seconds).apply()
+            done(seconds)
+        }
+        // In fondo il tempo scritto a mano: con quello attuale se non è tra i soliti
+        val custom = if (current in INTRO_CHOICES) "Altro tempo…" else "Altro tempo: ${introTime(current)}"
+        val labels = (INTRO_CHOICES.map { introTime(it) } + custom).toTypedArray()
+        val checked = INTRO_CHOICES.indexOf(current).takeIf { it >= 0 } ?: INTRO_CHOICES.size
         AlertDialog.Builder(this)
-            .setTitle(if (show != null) "Salta sigla: ${show.title}" else "Salta sigla")
-            .setSingleChoiceItems(labels, INTRO_CHOICES.indexOf(current)) { dialog, i ->
-                val seconds = INTRO_CHOICES[i]
-                if (show != null) updateShows { withIntro(it, show.key, seconds) } else prefs.edit().putInt("intro", seconds).apply()
-                done(seconds)
+            .setTitle(title)
+            .setSingleChoiceItems(labels, checked) { dialog, i ->
                 dialog.dismiss()
+                if (i < INTRO_CHOICES.size) save(INTRO_CHOICES[i]) else askIntro(title, current, ::save)
             }
             .setNegativeButton("Annulla", null)
             .show()
+    }
+
+    private fun askIntro(title: String, current: Int, done: (Int) -> Unit) {
+        val field = EditText(this).apply {
+            hint = "es. 1:25 o 85"
+            setText(clockLabel(current.toLong()))
+            selectAll()
+            isSingleLine = true
+            inputType = InputType.TYPE_CLASS_DATETIME or InputType.TYPE_DATETIME_VARIATION_TIME
+            imeOptions = EditorInfo.IME_ACTION_DONE
+        }
+        lateinit var dialog: AlertDialog
+        val go = {
+            val seconds = parseIntro(field.text.toString())
+            if (seconds == null) toast("Scrivi minuti:secondi (1:25) o i secondi (85), fino a ${clockLabel(MAX_INTRO.toLong())}")
+            else {
+                done(seconds)
+                dialog.dismiss()
+            }
+        }
+        dialog = AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage("Di quanto va avanti il tasto.")
+            .setView(section(field).apply { setPadding(dp(24), dp(8), dp(24), 0) })
+            .setPositiveButton("Salva", null)
+            .setNegativeButton("Annulla", null)
+            .create()
+        field.setOnEditorActionListener { _, _, _ -> go(); true }
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { go() }
+        field.requestFocus()
     }
 
     private fun chooseTempo(done: (Double) -> Unit) {
@@ -2779,8 +2837,8 @@ class MainActivity : Activity() {
     }
 
     // Un episodio appena mandato (playing) o messo in coda. Se è partito, da AnimeUnity si leggono anche il nome vero
-    // della serie, il numero, quanti episodi sono e quello dopo; l'immagine è quella della scelta del video, o se ne
-    // prende una dal video se la serie non ce l'ha ancora
+    // della serie, il numero, quanti episodi sono e quello dopo; la copertina della serie dal sito e, per ogni episodio,
+    // un fotogramma dal suo video
     private fun recordSent(episode: EpisodePage, host: String, file: String, playing: Boolean, video: Video?, page: String? = null) {
         val known = loadShows().firstOrNull { it.key == episode.key }
         val hasCover = known?.image?.startsWith(COVER_PREFIX) == true
@@ -2814,24 +2872,24 @@ class MainActivity : Activity() {
                 if (!image.isNullOrBlank()) fetchCover(episode.key, image, page)
             }
         }
-        // Senza copertina, un fotogramma del video (con VixCloud di solito non si riesce: è protetto)
-        if (hasCover) return
-        val picture = video?.let { previews[it.url] }
-        if (picture != null) {
-            setFrame(episode.key, saveFrame(episode.key, picture))
-        } else if (video != null && known?.image == null) {
-            val userAgent = web.settings.userAgentString
-            thread {
-                val frame = videoPreview(video, userAgent).second ?: return@thread
-                val name = saveFrame(episode.key, frame)
-                runOnUiThread { setFrame(episode.key, name) }
-            }
+        // Un fotogramma per ogni episodio, grande quanto la scheda; se non arriva resta l'anteprima piccola dell'elenco
+        // dei video, se c'è, o la copertina della serie (con VixCloud non sempre si riesce: il video è protetto)
+        if (video == null) return
+        val userAgent = web.settings.userAgentString
+        val small = previews[video.url]
+        val width = resources.displayMetrics.widthPixels.coerceIn(480, 1280)
+        thread {
+            val frame = videoPreview(video, userAgent, width).second ?: small ?: return@thread
+            val name = saveFrame(episode.key, frame)
+            runOnUiThread { setFrame(episode.key, file, name) }
         }
     }
 
-    // Un fotogramma non prende il posto di una copertina, anche se arriva dopo
-    private fun setFrame(key: String, name: String) = updateShows { shows ->
-        if (shows.firstOrNull { it.key == key }?.image?.startsWith(COVER_PREFIX) == true) null else withDetails(shows, key, image = name)
+    // Il fotogramma va all'episodio e, se la serie non ha una copertina del sito, anche alla serie
+    private fun setFrame(key: String, file: String, name: String) = updateShows { shows ->
+        val withEpisode = withEpisodeImage(shows, file, name) ?: shows
+        if (withEpisode.firstOrNull { it.key == key }?.image?.startsWith(COVER_PREFIX) == true) withEpisode
+        else withDetails(withEpisode, key, image = name)
     }
 
     // La copertina della serie dall'indirizzo dato dal sito, scaricata con i cookie e lo User-Agent del WebView
@@ -2876,7 +2934,7 @@ class MainActivity : Activity() {
 
     // All'avvio: via le immagini delle serie tolte (non subito, così "Annulla" le ritrova)
     private fun cleanFrames() {
-        val used = loadShows().mapNotNull { it.image }.toSet()
+        val used = usedImages(loadShows())
         framesDir().listFiles()?.forEach { if (it.name !in used) it.delete() }
     }
 
@@ -2931,7 +2989,7 @@ class MainActivity : Activity() {
     private fun showTile(show: Show, width: Int): View {
         val white = sys(R.color.system_neutral1_10, R.color.system_neutral1_10)
         val image = ImageView(this).apply {
-            val frame = show.image?.let { loadFrame(it) }
+            val frame = (show.picture?.let { loadFrame(it) } ?: show.image?.let { loadFrame(it) })
             if (frame != null) {
                 setImageBitmap(frame)
                 scaleType = ImageView.ScaleType.CENTER_CROP

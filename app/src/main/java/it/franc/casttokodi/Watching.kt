@@ -21,6 +21,18 @@ const val RESUME_MIN = 30L
 // quindi un po' meno. Si cambia tenendolo premuto e vale per la serie, o per tutti i video se non è di una serie nota
 const val DEFAULT_INTRO = 85
 val INTRO_CHOICES = listOf(30, 45, 60, 75, 80, 85, 90, 95, 100, 110, 120)
+const val MAX_INTRO = 600
+
+// Il tempo scritto a mano per "Salta sigla": "1:25" o solo i secondi ("85", non minuti come in "Vai al minuto").
+// null se non è un tempo o se è fuori da 1 secondo – 10 minuti
+fun parseIntro(input: String): Int? {
+    val text = input.trim().replace('.', ':').replace(',', ':')
+    val seconds = text.toIntOrNull() ?: parseClock(text)?.takeIf { ':' in text }?.toInt() ?: return null
+    return seconds.takeIf { it in 1..MAX_INTRO }
+}
+
+// "45 secondi", "1:25" nell'elenco di Salta sigla
+fun introTime(seconds: Int): String = if (seconds < 60) "$seconds secondi" else clockLabel(seconds.toLong())
 
 // Eseguito nella pagina di un episodio (non AnimeUnity, che la dà con EPISODE_INFO_JS): l'immagine di anteprima che il
 // sito dichiara per la condivisione (og:image), di solito la copertina della serie. Stringa vuota se non c'è
@@ -45,6 +57,8 @@ data class Episode(
     val total: Long = 0,
     val watched: Boolean = false,
     val seen: Long = 0,
+    // Fotogramma di questo episodio (file in filesDir/serie), se si è riusciti a prenderlo dal video
+    val image: String? = null,
 )
 
 // host: il dominio dell'ultimo invio, per riaprirla se il sito non si è più visto. episodes: dal meno recente.
@@ -63,6 +77,9 @@ data class Show(
 ) {
     // L'ultimo mandato o visto su Kodi
     val current: Episode get() = episodes.filter { it.seen > 0 }.maxByOrNull { it.seen } ?: episodes.last()
+
+    // Immagine della scheda: il fotogramma dell'episodio a cui si è (scelta di Pippo, 2026-10-24), se no quella della serie
+    val picture: String? get() = current.image ?: image
 
     // Visto l'ultimo episodio: resta in fila con "Finita" finché non la si toglie (scelta di Pippo)
     val finished: Boolean get() = current.let { it.watched && it.season == null && it.number != null && count != null && it.number >= count }
@@ -186,6 +203,19 @@ fun withDetails(
         episodes = show.episodes.map { if (number != null && it.number == null && it.path == path) it.copy(number = number, path = at ?: it.path) else it },
     )
 }
+
+// Il fotogramma preso dal video mandato (file): va all'episodio di quel video. null se nessuna serie lo ha
+fun withEpisodeImage(shows: List<Show>, file: String, image: String): List<Show>? {
+    val key = queueKey(file)
+    if (shows.none { s -> s.episodes.any { it.file != null && queueKey(it.file) == key } }) return null
+    return shows.map { show ->
+        show.copy(episodes = show.episodes.map { if (it.file != null && queueKey(it.file) == key) it.copy(image = image) else it })
+    }
+}
+
+// I file delle immagini ancora usati (serie ed episodi): gli altri si possono cancellare
+fun usedImages(shows: List<Show>): Set<String> =
+    (shows.mapNotNull { it.image } + shows.flatMap { s -> s.episodes.mapNotNull { it.image } }).toSet()
 
 // Kodi sta riproducendo file a time su total (lettura del mini-player): l'episodio diventa quello in corso e prende il
 // punto. Se Kodi è passato da solo a quello dopo, quello prima conta come visto. null se il video non è di una
@@ -332,6 +362,7 @@ fun showsToJson(shows: List<Show>): String = JSONArray(shows.map { s ->
 
 private fun episodeJson(e: Episode) = JSONObject().putOpt("season", e.season).putOpt("number", e.number).put("path", e.path)
     .putOpt("file", e.file).put("time", e.time).put("total", e.total).put("watched", e.watched).put("seen", e.seen)
+    .putOpt("image", e.image)
 
 fun showsFromJson(text: String?): List<Show> = try {
     val array = JSONArray(text ?: "[]")
@@ -361,4 +392,5 @@ private fun episodeOf(o: JSONObject) = Episode(
     total = o.optLong("total"),
     watched = o.optBoolean("watched"),
     seen = o.optLong("seen"),
+    image = o.optString("image").ifEmpty { null },
 )
