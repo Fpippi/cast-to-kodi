@@ -174,7 +174,7 @@ Prima versione con un numero al posto di "Build N" (l'ultima era la Build 18).
 
 - Le release si chiamano "Versione X.Y.Z" e hanno l'elenco delle novità; il link per scaricare l'APK resta lo stesso.
 - L'avviso di aggiornamento confronta le versioni (es. "Installata: 1.0.0, ultima: 1.1.0").
-- Il pulsante di accensione ha un'icona vera: il carattere ⏻ sul Pixel non si vedeva.
+- Il pulsante di accensione ha un'icona vera: il carattere ⏻ sul telefono non si vedeva.
 - Nel README la lista dei dispositivi compatibili.
 - Tutto quello che c'era fino alla Build 18: browser con blocco dei popup, invio del video a Kodi, coda nella playlist
   di Kodi, episodi successivi automatici su AnimeUnity, preferiti, credenziali di Kodi cifrate, ricerca da Google
