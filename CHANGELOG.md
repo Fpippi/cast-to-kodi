@@ -7,6 +7,13 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.3.0
+
+- **Salta sigla** nel telecomando: va avanti di 1:25 da dove sei. Tenendolo premuto scegli quanto, e vale per quella
+  serie di Continua a guardare (o per tutti i video). Non salta da solo, perché la sigla non parte sempre allo stesso punto.
+- **⏭** nel telecomando, con la coda finita, sui siti di anime con player VixCloud manda a Kodi l'episodio dopo della
+  serie, senza aprire la pagina. L'accodamento automatico resta spento.
+
 ## 2.2.3
 
 - **Riprendi su Kodi** e il rinvio di un episodio a metà ripartono dal minuto anche quando Kodi, mentre apre il video,
