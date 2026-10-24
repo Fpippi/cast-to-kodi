@@ -19,6 +19,15 @@ class SitesTest {
     }
 
     @Test
+    fun animeUnitySerie() {
+        assertEquals("/anime/1234-jojo", animeUnitySeries("www.animeunity.so", "/anime/1234-jojo/56789"))
+        assertEquals("/anime/1234-jojo", animeUnitySeries("animeunity.to", "/anime/1234-jojo"))
+        assertNull(animeUnitySeries("streamingcommunity.so", "/anime/1234-jojo/56789"))
+        assertNull(animeUnitySeries("animeunity.so", "/top-anime"))
+        assertEquals("Jojo No Kimyou", animeUnitySlugTitle("/anime/1234-jojo-no-kimyou"))
+    }
+
+    @Test
     fun autoNextLabels() {
         assertEquals("Spento", autoNextLabel(0))
         assertEquals("Accoda da solo l'episodio dopo", autoNextLabel(1))

@@ -12,6 +12,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
@@ -27,6 +29,11 @@ import android.security.keystore.KeyProperties
 import android.text.InputType
 import android.text.TextUtils
 import android.text.format.DateFormat
+import android.text.format.DateUtils
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.util.Base64
 import android.util.TypedValue
 import android.view.Gravity
@@ -84,6 +91,7 @@ import it.franc.casttokodi.sites.DEFAULT_AUTO_NEXT
 import it.franc.casttokodi.sites.MAX_AUTO_NEXT
 import it.franc.casttokodi.sites.autoNextLabel
 import it.franc.casttokodi.sites.NEXT_EPISODES_JS
+import it.franc.casttokodi.sites.EPISODE_INFO_JS
 import it.franc.casttokodi.sites.isAnimeUnityEpisode
 import it.franc.casttokodi.sites.isGoogleConsent
 import it.franc.casttokodi.sites.nextEpisodeTitle
@@ -172,6 +180,15 @@ class MainActivity : Activity() {
     private var pageIcon: Bitmap? = null
     // Popup e salti bloccati sulla pagina aperta: si contano nello scudo della barra invece di un avviso a ogni blocco
     private val blocked = mutableListOf<Uri>()
+    // Continua a guardare: le immagini già lette nella scelta del video (diventano quella della serie), gli avvisi
+    // "Eri all'episodio" chiusi in questa sessione e, per ogni scheda della pagina iniziale, come aggiornarla in silenzio
+    private val previews = HashMap<String, Bitmap>()
+    private val bannerClosed = mutableSetOf<String>()
+    private val tileUpdaters = HashMap<String, (Show) -> Unit>()
+    private lateinit var banner: View
+    private lateinit var bannerTitle: TextView
+    private lateinit var bannerDetail: TextView
+    private lateinit var bannerGo: Button
 
     // Mentre si cerca Kodi in rete lo dice il pulsante in basso: un toast sparisce prima di averlo letto
     private var searchingKodi = false
@@ -296,11 +313,13 @@ class MainActivity : Activity() {
             addView(overlay, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
         }
         mini = miniPlayer()
+        banner = resumeBannerView()
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(sys(R.color.system_neutral1_10, R.color.system_neutral1_900))
             addView(topBar)
             addView(progress, LinearLayout.LayoutParams(-1, -2))
+            addView(banner, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(8), 0, dp(8), dp(6)) })
             addView(page, LinearLayout.LayoutParams(-1, 0, 1f))
             addView(mini, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(8), dp(4), dp(8), dp(8)) })
             // targetSdk 35 forza l'edge-to-edge: senza padding la barra finisce sotto la status bar
@@ -316,6 +335,7 @@ class MainActivity : Activity() {
 
         migrateAuth()
         migrateAutoNext()
+        cleanFrames()
         showHome()
         if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress()
         openShared(intent)
@@ -434,9 +454,11 @@ class MainActivity : Activity() {
                 pageIcon = favicon
                 showSiteIcon(favicon)
                 home.visibility = View.GONE
+                banner.visibility = View.GONE
                 allowedDomain = domainOf(Uri.parse(url))
                 if (!address.hasFocus()) address.setText(addressLabel(url))
                 videos.clear()
+                previews.clear()
                 blocked.clear()
                 refreshShield()
                 refreshStar()
@@ -444,7 +466,13 @@ class MainActivity : Activity() {
             }
 
             override fun onPageFinished(view: WebView, url: String) {
-                if (!isGoogleConsent(Uri.parse(url).host)) prefs.edit().putString("last", url).putString("lastTitle", view.title).apply()
+                val uri = Uri.parse(url)
+                if (!url.startsWith("http") || isGoogleConsent(uri.host)) return
+                rememberSite(uri.host)
+                if (historyOn()) {
+                    prefs.edit().putString("last", url).putString("lastTitle", view.title).putLong("lastAt", System.currentTimeMillis()).apply()
+                }
+                refreshBanner(uri, view.title)
             }
 
             // Chiamato su un thread di background per ogni risorsa, anche dentro gli iframe e per le XHR dei player
@@ -697,7 +725,10 @@ class MainActivity : Activity() {
             thread {
                 val (seconds, picture) = videoPreview(video, userAgent)
                 runOnUiThread {
-                    picture?.let { image.setImageBitmap(it) }
+                    picture?.let {
+                        previews[video.url] = it
+                        image.setImageBitmap(it)
+                    }
                     seconds?.let {
                         duration.text = clockLabel(it)
                         duration.visibility = View.VISIBLE
@@ -751,8 +782,9 @@ class MainActivity : Activity() {
     // Tutto passa dalla playlist video di Kodi, così "+ Coda" e gli episodi successivi seguono quello in corso.
     // La coda non si cancella mai: un video nuovo si inserisce dopo quello in corso o in fondo.
     // typed: utente e password appena scritti nel dialogo dopo un 401, al posto di quelli salvati.
-    // page: la pagina del video, o il video stesso quando è arrivato da Condividi senza pagina
-    private fun sendToKodi(video: Video, queued: Boolean, typed: Pair<String, String>? = null, page: String = pageUrl) {
+    // page: la pagina del video, o il video stesso quando è arrivato da Condividi senza pagina.
+    // name: il nome da mostrare, quando la pagina non è quella aperta ("Riprendi su Kodi" dalla pagina iniziale)
+    private fun sendToKodi(video: Video, queued: Boolean, typed: Pair<String, String>? = null, page: String = pageUrl, name: String? = null) {
         if (sending) return
         val host = prefs.getString("host", "").orEmpty()
         if (host.isBlank()) return askKodiAddress()
@@ -760,7 +792,13 @@ class MainActivity : Activity() {
         val login = typed ?: savedLogin(host, network)
         val kodi = Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty())
         val userAgent = web.settings.userAgentString
-        val title = suggestedName(web.title.takeIf { page == pageUrl }, Uri.parse(page).host)
+        val pageTitle = name ?: web.title.takeIf { page == pageUrl }
+        val title = suggestedName(pageTitle, Uri.parse(page).host)
+        // Continua a guardare: l'episodio di questa pagina e, se era a metà, da dove riprenderlo
+        val pageUri = Uri.parse(page)
+        val episode = if (historyOn()) episodeFromPage(pageUri.host, pageUri.path, pageUri.encodedQuery, pageTitle) else null
+        val resume = if (!queued && episode != null) resumePoint(loadShows(), episode.site, episode.path) else null
+        var sentFile: String? = null
         sending = true
         refreshCastButton()
         // Il pulsante torna attivo prima di qualunque dialogo, così il nuovo tentativo che ne parte non viene scartato
@@ -774,13 +812,18 @@ class MainActivity : Activity() {
 
         thread {
             val sent = try {
-                if (queued) kodi.enqueue({ kodiItem(video.url, video.referer, userAgent, title, viaPhone = it) }) { expiryProblem(video.url, it) }
-                else kodi.playNow(kodiItem(video.url, video.referer, userAgent, title, viaPhone = true))
+                if (queued) {
+                    kodi.enqueue({ kodiItem(video.url, video.referer, userAgent, title, viaPhone = it).also { item -> sentFile = item.getString("file") } }) {
+                        expiryProblem(video.url, it)
+                    }
+                } else {
+                    kodi.playNow(kodiItem(video.url, video.referer, userAgent, title, viaPhone = true).also { sentFile = it.getString("file") })
+                }
             } catch (e: IOException) {
-                done { relocateKodi(host) { sendToKodi(video, queued, typed, page) } }
+                done { relocateKodi(host) { sendToKodi(video, queued, typed, page, name) } }
                 return@thread
             } catch (e: Unauthorized) {
-                done { askLogin(host, login, wrong = login != null) { sendToKodi(video, queued, it, page) } }
+                done { askLogin(host, login, wrong = login != null) { sendToKodi(video, queued, it, page, name) } }
                 return@thread
             } catch (e: Refused) {
                 done { notice("Non messo in coda", e.message.orEmpty()) }
@@ -795,7 +838,16 @@ class MainActivity : Activity() {
             done {
                 // Hanno funzionato: valgono per questo Kodi su questa rete (anche le vecchie senza rete, o dopo un cambio di IP)
                 if (login != null && network != null) storeLogin(host, network, login)
-                toast(sent.message)
+                // Con Kodi fermo "+ Coda" fa partire il video: anche lui diventa quello in corso
+                val playing = !queued || sent.message.startsWith("Inviato")
+                val file = sentFile
+                if (episode != null && file != null) recordSent(episode, pageUri.host.orEmpty(), file, playing, video, page)
+                if (resume != null && playing && file != null) {
+                    toast("${sent.message}: riparte da ${clockLabel(resume)}")
+                    thread { runCatching { kodi.resumeAt(file, resume) } }
+                } else {
+                    toast(sent.message)
+                }
                 readMini()
                 sent.position?.let { queueNextEpisodes(kodi, page, it, userAgent, title) }
             }
@@ -868,6 +920,8 @@ class MainActivity : Activity() {
         val uri = Uri.parse(page)
         if (count <= 0 || !isAnimeUnityEpisode(uri.host, uri.path)) return
         if (web.url != page) return
+        val sentEpisode = if (historyOn()) episodeFromPage(uri.host, uri.path, uri.encodedQuery, title) else null
+        val base = uri.path.orEmpty().trimEnd('/').substringBeforeLast('/')
         web.evaluateJavascript(NEXT_EPISODES_JS.replace("COUNT", count.toString())) { result ->
             val reply = (JSONTokener(result).nextValue() as? String)?.let { JSONObject(it) }
             val next = reply?.optJSONArray("next")
@@ -891,13 +945,21 @@ class MainActivity : Activity() {
                         return@resolveVixCloud
                     }
                     thread {
+                        var file: String? = null
                         val problem = try {
-                            kodi.insertAt(after + 1 + i, { kodiItem(stream, embed, userAgent, nextEpisodeTitle(title, number)) }) { expiryProblem(stream, it) }
+                            kodi.insertAt(after + 1 + i, {
+                                kodiItem(stream, embed, userAgent, nextEpisodeTitle(title, number)).also { file = it.getString("file") }
+                            }) { expiryProblem(stream, it) }
                         } catch (e: Exception) {
                             "Kodi: ${e.message}"
                         }
                         runOnUiThread {
                             if (problem != null) return@runOnUiThread notice("Episodio $number non messo in coda", problem)
+                            val id = episode.optString("id")
+                            if (sentEpisode != null && file != null && id.isNotBlank()) {
+                                val next = EpisodePage(sentEpisode.key, sentEpisode.site, sentEpisode.series, null, number.toIntOrNull(), "$base/$id")
+                                recordSent(next, uri.host.orEmpty(), file!!, playing = false, video = null)
+                            }
                             queuedNumbers += number
                             queueAt(i + 1)
                         }
@@ -910,7 +972,7 @@ class MainActivity : Activity() {
 
     // Il link video (playlist VixCloud con token) esiste solo dentro la pagina del player: la si carica in un
     // WebView invisibile e si legge window.masterPlaylist, senza far partire il video
-    private fun resolveVixCloud(embed: String, userAgent: String, onResult: (String?) -> Unit) {
+    private fun resolveVixCloud(embed: String, userAgent: String, referer: String = pageUrl, onResult: (String?) -> Unit) {
         val hidden = WebView(this)
         hidden.settings.javaScriptEnabled = true
         hidden.settings.userAgentString = userAgent
@@ -933,7 +995,7 @@ class MainActivity : Activity() {
                 }
             }
         }
-        hidden.loadUrl(embed, mapOf("Referer" to pageUrl))
+        hidden.loadUrl(embed, mapOf("Referer" to referer))
         web.postDelayed({ finish(null) }, 15000)
     }
 
@@ -1884,6 +1946,11 @@ class MainActivity : Activity() {
             settingsHeading("Siti"),
             settingsRow(it.franc.casttokodi.R.drawable.ic_queue, "AnimeUnity: episodi successivi", autoNextLabel(autoNext),
                 then { askAutoNext() }),
+            settingsHeading("Cronologia"),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_history, "Ricorda dove sono arrivato", historyLabel(),
+                then { toggleHistory() }),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_delete, "Cancella la cronologia", "Toglie le serie e l'ultima pagina dalla pagina iniziale",
+                then { askClearHistory() }),
             settingsHeading("Aiuto"),
             settingsRow(it.franc.casttokodi.R.drawable.ic_article, "Log di Kodi", "Le ultime righe, da condividere se un video non parte",
                 then { showKodiLog() }),
@@ -1934,12 +2001,14 @@ class MainActivity : Activity() {
     // Pagina iniziale al posto del sito: Kodi (stato e accensione), l'ultima pagina guardata e i preferiti come icone
     private fun showHome() {
         home.visibility = View.VISIBLE
+        banner.visibility = View.GONE
         if (!address.hasFocus()) address.setText("")
         showSiteIcon(null)
         blocked.clear()
         refreshShield()
         refreshHome()
         refreshCastButton()
+        readSavedPoints()
     }
 
     private fun refreshHome() {
@@ -1947,25 +2016,28 @@ class MainActivity : Activity() {
         homeContent.addView(kodiCard())
         refreshKodiCard()
 
-        val last = prefs.getString("last", null)
-        if (last != null) {
-            homeContent.addView(homeHeading("Riprendi"))
-            val host = Uri.parse(last).host
-            val title = prefs.getString("lastTitle", null)?.takeIf { it.isNotBlank() } ?: shortHost(host)
-            val saved = loadFavorites().firstOrNull { Uri.parse(it.url).host == host }
-            val icon = saved?.let { favoriteIcon(it) } ?: ImageView(this).apply {
-                setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_public, sys(R.color.system_neutral2_700, R.color.system_neutral2_200)))
-                scaleType = ImageView.ScaleType.CENTER
+        // Continua a guardare: una scheda per serie, la più recente a sinistra, in una fila che scorre di lato
+        tileUpdaters.clear()
+        val shows = if (historyOn()) loadShows() else emptyList()
+        if (shows.isNotEmpty()) {
+            homeContent.addView(homeHeading("Continua a guardare"))
+            val width = ((resources.configuration.screenWidthDp - 32) * 0.76f).toInt()
+            val row = LinearLayout(this).apply { setPadding(0, dp(4), dp(16), dp(4)) }
+            shows.forEachIndexed { i, show ->
+                row.addView(showTile(show, width), LinearLayout.LayoutParams(dp(width), -2).apply { if (i > 0) marginStart = dp(12) })
             }
-            homeContent.addView(homeCard().apply {
-                gravity = Gravity.CENTER_VERTICAL
-                setOnClickListener { open(last) }
-                addView(icon, LinearLayout.LayoutParams(dp(40), dp(40)))
-                addView(section(
-                    homeText(title, 15f, bold = true),
-                    homeText(shortHost(host), 13f, bold = false),
-                ), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(16) })
-            })
+            homeContent.addView(HorizontalScrollView(this).apply {
+                isHorizontalScrollBarEnabled = false
+                clipToPadding = false
+                addView(row)
+            }, LinearLayout.LayoutParams(-1, -2).apply { marginEnd = dp(-16) })
+        }
+
+        // L'ultima pagina, se non è già un episodio della fila sopra; la ✕ la toglie (con Annulla)
+        val last = prefs.getString("last", null)
+        if (historyOn() && lastPageShown(last, shows)) {
+            homeContent.addView(homeHeading("Ultima pagina"))
+            homeContent.addView(lastPageCard(last!!))
         }
 
         homeContent.addView(homeHeading("Preferiti"))
@@ -2196,6 +2268,7 @@ class MainActivity : Activity() {
 
     private fun showMini(playing: NowPlaying?) {
         miniNow = playing
+        if (playing?.playerId != null && playing.file.isNotBlank()) trackProgress(playing)
         kodiReachable = playing != null
         refreshKodiCard()
         if (prefs.getString("host", "").isNullOrBlank()) {
@@ -2535,6 +2608,630 @@ class MainActivity : Activity() {
         null
     }
 
+    // ---- Continua a guardare (2026-10-24): le serie ferme all'episodio giusto. La logica è in Watching.kt ----
+
+    private fun historyOn() = prefs.getBoolean("history", true)
+
+    private fun historyLabel(): String {
+        if (!historyOn()) return "Spento: la pagina iniziale non mostra serie né ultima pagina"
+        val series = when (val count = loadShows().size) {
+            0 -> "nessuna serie"
+            1 -> "1 serie"
+            else -> "$count serie"
+        }
+        return "Acceso: " + if (prefs.getString("last", null) != null) "$series e l'ultima pagina" else series
+    }
+
+    // Spento: non si salva più niente e la pagina iniziale perde le due sezioni; quello che c'era resta, finché non
+    // si cancella
+    private fun toggleHistory() {
+        prefs.edit().putBoolean("history", !historyOn()).apply()
+        toast(if (historyOn()) "Ricordo di nuovo dove sei arrivato" else "Non ricordo più serie né ultima pagina")
+        if (home.visibility == View.VISIBLE) refreshHome()
+        showSettings()
+    }
+
+    private fun askClearHistory() {
+        AlertDialog.Builder(this)
+            .setTitle("Cancellare la cronologia?")
+            .setMessage("Le serie di Continua a guardare e l'ultima pagina spariscono dalla pagina iniziale. Kodi, la coda e i preferiti restano.")
+            .setPositiveButton("Cancella") { _, _ ->
+                prefs.edit().remove("shows").remove("last").remove("lastTitle").remove("lastAt").apply()
+                cleanFrames()
+                if (home.visibility == View.VISIBLE) refreshHome()
+                toast("Cronologia cancellata")
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+
+    // Le serie in prefs["shows"] (vedi showsToJson). Si leggono e scrivono solo dal thread principale
+    private fun loadShows(): List<Show> = showsFromJson(prefs.getString("shows", null))
+
+    private fun saveShows(list: List<Show>) {
+        prefs.edit().putString("shows", showsToJson(list)).apply()
+    }
+
+    private fun updateShows(change: (List<Show>) -> List<Show>?) {
+        val changed = change(loadShows()) ?: return
+        saveShows(changed)
+        if (home.visibility == View.VISIBLE) refreshHome()
+    }
+
+    // Ultimo dominio visto di ogni sito che ha una serie: i siti pirata cambiano dominio spesso, e una serie si riapre
+    // dove il sito si è visto l'ultima volta (anche se ci si è arrivati da Google o da un preferito aggiornato)
+    private fun siteHosts(): Map<String, String> {
+        val json = JSONObject(prefs.getString("siteHosts", "{}")!!)
+        return json.keys().asSequence().associateWith { json.getString(it) }
+    }
+
+    private fun rememberSite(host: String?) {
+        val site = siteOf(host)
+        if (host.isNullOrBlank() || site.isBlank() || loadShows().none { it.site == site }) return
+        val json = JSONObject(prefs.getString("siteHosts", "{}")!!)
+        if (json.optString(site) != host) prefs.edit().putString("siteHosts", json.put(site, host).toString()).apply()
+    }
+
+    // Un episodio appena mandato (playing) o messo in coda. Se è partito, da AnimeUnity si leggono anche il nome vero
+    // della serie, il numero, quanti episodi sono e quello dopo; l'immagine è quella della scelta del video, o se ne
+    // prende una dal video se la serie non ce l'ha ancora
+    private fun recordSent(episode: EpisodePage, host: String, file: String, playing: Boolean, video: Video?, page: String? = null) {
+        val known = loadShows().firstOrNull { it.key == episode.key }
+        updateShows { withSent(it, episode, host, file, System.currentTimeMillis(), playing) }
+        if (!playing) return
+        val uri = page?.let { Uri.parse(it) }
+        if (uri != null && page == web.url && isAnimeUnityEpisode(uri.host, uri.path)) {
+            web.evaluateJavascript(EPISODE_INFO_JS) { result ->
+                val info = runCatching { JSONObject(JSONTokener(result).nextValue() as String) }.getOrNull()
+                if (info == null || info.has("error")) return@evaluateJavascript
+                val base = uri.path.orEmpty().trimEnd('/').substringBeforeLast('/')
+                val next = info.optJSONObject("next")?.let { Episode(null, it.optString("number").toIntOrNull(), "$base/${it.optString("id")}") }
+                updateShows {
+                    withDetails(it, episode.key, title = info.optString("title").takeIf { known == null },
+                        count = info.optInt("count").takeIf { c -> c > 0 }, next = next,
+                        path = episode.path, number = info.optString("number").toIntOrNull())
+                }
+            }
+        }
+        val picture = video?.let { previews[it.url] }
+        if (picture != null) {
+            updateShows { withDetails(it, episode.key, image = saveFrame(episode.key, picture)) }
+        } else if (video != null && known?.image == null) {
+            val userAgent = web.settings.userAgentString
+            thread {
+                val frame = videoPreview(video, userAgent).second ?: return@thread
+                val name = saveFrame(episode.key, frame)
+                runOnUiThread { updateShows { withDetails(it, episode.key, image = name) } }
+            }
+        }
+    }
+
+    // Le immagini delle serie stanno in file a parte, così prefs["shows"] resta piccolo (si rilegge ogni 3 secondi)
+    private fun framesDir() = File(filesDir, "serie").apply { mkdirs() }
+
+    private fun saveFrame(key: String, picture: Bitmap): String {
+        val name = "${Integer.toHexString(key.hashCode())}-${System.currentTimeMillis()}.jpg"
+        val width = minOf(480, picture.width)
+        val scaled = Bitmap.createScaledBitmap(picture, width, (width * picture.height / picture.width.coerceAtLeast(1)).coerceAtLeast(1), true)
+        File(framesDir(), name).outputStream().use { scaled.compress(Bitmap.CompressFormat.JPEG, 80, it) }
+        return name
+    }
+
+    private fun loadFrame(name: String): Bitmap? = runCatching { BitmapFactory.decodeFile(File(framesDir(), name).path) }.getOrNull()
+
+    // All'avvio: via le immagini delle serie tolte (non subito, così "Annulla" le ritrova)
+    private fun cleanFrames() {
+        val used = loadShows().mapNotNull { it.image }.toSet()
+        framesDir().listFiles()?.forEach { if (it.name !in used) it.delete() }
+    }
+
+    // Lettura del mini-player: se Kodi riproduce un episodio di una serie, la serie prende il punto. La pagina
+    // iniziale aggiorna solo la sua scheda, senza ridisegnarsi (perderebbe lo scorrimento e la ✕ già toccata)
+    private fun trackProgress(playing: NowPlaying) {
+        if (!historyOn()) return
+        val before = loadShows()
+        val after = withProgress(before, playing.file, playing.time, playing.total, System.currentTimeMillis()) ?: return
+        saveShows(after)
+        if (home.visibility != View.VISIBLE) return
+        val show = after[0]
+        val old = before.firstOrNull { it.key == show.key }
+        val update = tileUpdaters[show.key]
+        val sameCard = old != null && before.firstOrNull()?.key == show.key && old.current.path == show.current.path &&
+            old.current.watched == show.current.watched
+        if (update != null && sameCard) update(show) else refreshHome()
+    }
+
+    // Con l'app chiusa il mini-player non legge Kodi: il punto degli episodi in corso si chiede a Kodi, che lo salva
+    // da sé (Files.GetFileDetails). Non ancora provato sulla Fire TV vera: se Kodi non lo sa, resta quello che c'era
+    private fun readSavedPoints() {
+        if (!historyOn()) return
+        val kodi = quietKodi() ?: return
+        val playingFile = miniNow?.file
+        val files = loadShows().map { it.current }.filter { !it.watched && it.file != null && it.file != playingFile }.mapNotNull { it.file }.take(6)
+        if (files.isEmpty()) return
+        thread {
+            val points = mutableListOf<Pair<String, Triple<Long, Long, Boolean>>>()
+            for (file in files) {
+                try {
+                    kodi.savedPoint(file)?.let { points += file to it }
+                } catch (e: IOException) {
+                    break
+                } catch (e: Exception) {
+                    // Kodi non conosce questo video: si passa al prossimo
+                }
+            }
+            if (points.isEmpty()) return@thread
+            runOnUiThread {
+                updateShows { shows ->
+                    var result: List<Show>? = null
+                    points.forEach { (file, p) -> withSaved(result ?: shows, file, p.first, p.second, p.third)?.let { result = it } }
+                    result
+                }
+            }
+        }
+    }
+
+    // Scheda di una serie: immagine con l'icona del sito, la ✕ e il punto, poi nome e a che episodio si è. Tocco =
+    // pannello della serie. La ✕ chiede conferma sulla scheda stessa (diventa rossa, "Togli…?") per 4 secondi
+    private fun showTile(show: Show, width: Int): View {
+        val white = sys(R.color.system_neutral1_10, R.color.system_neutral1_10)
+        val image = ImageView(this).apply {
+            val frame = show.image?.let { loadFrame(it) }
+            if (frame != null) {
+                setImageBitmap(frame)
+                scaleType = ImageView.ScaleType.CENTER_CROP
+            } else {
+                setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_play, sys(R.color.system_accent1_50, R.color.system_accent1_100), 36))
+                scaleType = ImageView.ScaleType.CENTER
+                background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(
+                    sys(R.color.system_accent1_400, R.color.system_accent1_600),
+                    sys(R.color.system_accent2_700, R.color.system_accent2_900),
+                ))
+            }
+            // Finita: sbiadita
+            if (show.finished) colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0.3f) })
+        }
+        val badge = TextView(this).apply {
+            textSize = 12f
+            typeface = Typeface.DEFAULT_BOLD
+            fontFeatureSettings = "tnum"
+            setTextColor(white)
+            setPadding(dp(8), dp(2), dp(8), dp(2))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(6).toFloat()
+                setColor(Color.argb(180, 0, 0, 0))
+            }
+        }
+        val bar = ProgressBar(this, null, R.attr.progressBarStyleHorizontal).apply {
+            max = 1000
+            progressTintList = ColorStateList.valueOf(sys(R.color.system_accent1_200, R.color.system_accent1_200))
+            progressBackgroundTintList = ColorStateList.valueOf(Color.argb(90, 255, 255, 255))
+        }
+        val close = ImageButton(this).apply {
+            setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_close, white, 16))
+            contentDescription = "Togli ${show.title} da Continua a guardare"
+            background = circle(Color.argb(140, 0, 0, 0))
+        }
+        fun pill(text: String, filled: Boolean) = TextView(this).apply {
+            this.text = text
+            textSize = 14f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(dp(16), dp(6), dp(16), dp(6))
+            val error = errorColor()
+            setTextColor(if (filled) error else white)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(16).toFloat()
+                if (filled) setColor(white) else setStroke(dp(1), white)
+            }
+        }
+        val yes = pill("Togli", filled = true)
+        val no = pill("No", filled = false)
+        val ask = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            isClickable = true
+            background = GradientDrawable().apply { setColor(errorColor()) }
+            addView(TextView(context).apply {
+                text = "Togli ${show.title}?"
+                textSize = 15f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                maxLines = 2
+                ellipsize = TextUtils.TruncateAt.END
+                setTextColor(white)
+                setPadding(dp(12), 0, dp(12), dp(10))
+            })
+            addView(LinearLayout(context).apply {
+                gravity = Gravity.CENTER
+                addView(yes)
+                addView(no, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(8) })
+            })
+            visibility = View.GONE
+        }
+        val revert = Runnable { ask.visibility = View.GONE }
+        close.setOnClickListener {
+            ask.visibility = View.VISIBLE
+            ask.removeCallbacks(revert)
+            ask.postDelayed(revert, 4000)
+        }
+        no.setOnClickListener {
+            ask.removeCallbacks(revert)
+            revert.run()
+        }
+        yes.setOnClickListener {
+            ask.removeCallbacks(revert)
+            removeShow(show)
+        }
+        val art = FrameLayout(this).apply {
+            background = GradientDrawable().apply {
+                cornerRadius = dp(16).toFloat()
+                setColor(sys(R.color.system_neutral2_200, R.color.system_neutral2_700))
+            }
+            clipToOutline = true
+            addView(image, FrameLayout.LayoutParams(-1, -1))
+            addView(siteBadge(show), FrameLayout.LayoutParams(dp(28), dp(28), Gravity.TOP or Gravity.START).apply { setMargins(dp(8), dp(8), 0, 0) })
+            addView(close, FrameLayout.LayoutParams(dp(32), dp(32), Gravity.TOP or Gravity.END).apply { setMargins(0, dp(8), dp(8), 0) })
+            addView(badge, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, dp(8), dp(12)) })
+            addView(bar, FrameLayout.LayoutParams(-1, dp(4), Gravity.BOTTOM))
+            addView(ask, FrameLayout.LayoutParams(-1, -1))
+        }
+        val finished = TextView(this).apply {
+            text = "Finita"
+            textSize = 12f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(sys(R.color.system_neutral2_700, R.color.system_neutral2_200))
+            setPadding(dp(8), dp(1), dp(8), dp(1))
+            background = rounded(sys(R.color.system_neutral2_100, R.color.system_neutral2_700), 8)
+            visibility = if (show.finished) View.VISIBLE else View.GONE
+        }
+        val note = homeText("", 13f, bold = false)
+        fun fill(s: Show) {
+            val card = showCard(s)
+            note.text = card.note
+            badge.text = card.badge
+            badge.visibility = if (card.badge != null) View.VISIBLE else View.GONE
+            bar.progress = (card.progress * 1000).toInt()
+            bar.visibility = if (card.progress > 0f && !s.finished) View.VISIBLE else View.GONE
+        }
+        fill(show)
+        tileUpdaters[show.key] = { fill(it) }
+        return section(
+            art,
+            homeText(show.title, 16f, bold = true).apply { setPadding(dp(2), dp(8), dp(2), 0) },
+            LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(2), dp(2), dp(2), 0)
+                addView(finished, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(6) })
+                addView(note, LinearLayout.LayoutParams(0, -2, 1f))
+            },
+        ).apply {
+            (art.layoutParams as LinearLayout.LayoutParams).height = dp(width * 9 / 16)
+            setOnClickListener { showPanel(show.key) }
+            art.setOnClickListener { showPanel(show.key) }
+        }
+    }
+
+    // L'icona del sito sulla scheda: quella di un preferito dello stesso sito, se no l'iniziale
+    private fun siteBadge(show: Show): View {
+        val favorite = loadFavorites().firstOrNull { siteOf(Uri.parse(it.url).host) == show.site }
+        return favorite?.let { favoriteIcon(it).apply { setPadding(dp(4), dp(4), dp(4), dp(4)) } } ?: TextView(this).apply {
+            text = initialOf(show.site, show.host)
+            gravity = Gravity.CENTER
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(sys(R.color.system_accent1_900, R.color.system_accent1_100))
+            background = rounded(sys(R.color.system_accent1_100, R.color.system_accent1_700), 8)
+        }
+    }
+
+    // Tolta subito; "Annulla" nell'avviso la rimette dov'era
+    private fun removeShow(show: Show) {
+        val before = loadShows()
+        val index = before.indexOfFirst { it.key == show.key }.coerceAtLeast(0)
+        saveShows(withoutShow(before, show.key))
+        refreshHome()
+        toast("${show.title}: tolta da Continua a guardare") {
+            val now = loadShows()
+            if (now.none { it.key == show.key }) {
+                saveShows(now.toMutableList().apply { add(index.coerceAtMost(size), show) })
+                if (home.visibility == View.VISIBLE) refreshHome()
+            }
+        }
+    }
+
+    // L'ultima pagina aperta, con la ✕: un tocco la toglie, "Annulla" la rimette (è una pagina, non serve la conferma)
+    private fun lastPageCard(url: String): View {
+        val host = Uri.parse(url).host
+        val title = prefs.getString("lastTitle", null)?.takeIf { it.isNotBlank() } ?: shortHost(host)
+        val at = prefs.getLong("lastAt", 0)
+        val saved = loadFavorites().firstOrNull { Uri.parse(it.url).host == host }
+        val icon = saved?.let { favoriteIcon(it) } ?: ImageView(this).apply {
+            setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_public, sys(R.color.system_accent2_900, R.color.system_accent2_100), 20))
+            scaleType = ImageView.ScaleType.CENTER
+            background = circle(sys(R.color.system_accent2_100, R.color.system_accent2_700))
+        }
+        val detail = listOfNotNull(
+            shortHost(host),
+            at.takeIf { it > 0 }?.let { DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString() },
+        ).joinToString(" · ")
+        val close = ImageButton(this).apply {
+            setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_close, sys(R.color.system_neutral2_700, R.color.system_neutral2_200), 20))
+            contentDescription = "Togli l'ultima pagina"
+            tooltipText = contentDescription
+            setBackgroundResource(attr(R.attr.selectableItemBackgroundBorderless))
+            setOnClickListener {
+                prefs.edit().remove("last").remove("lastTitle").remove("lastAt").apply()
+                refreshHome()
+                toast("Ultima pagina tolta") {
+                    prefs.edit().putString("last", url).putString("lastTitle", title).putLong("lastAt", at).apply()
+                    if (home.visibility == View.VISIBLE) refreshHome()
+                }
+            }
+        }
+        return homeCard().apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(10), dp(4), dp(10))
+            setOnClickListener { open(url) }
+            addView(icon, LinearLayout.LayoutParams(dp(40), dp(40)))
+            addView(section(homeText(title, 15f, bold = true), homeText(detail, 13f, bold = false)),
+                LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(16) })
+            addView(close, LinearLayout.LayoutParams(dp(44), dp(44)))
+        }
+    }
+
+    // Pannello di una serie: gli episodi vicini (visto, a metà, prossimo), "Riprendi su Kodi" (solo AnimeUnity, dove
+    // l'app sa leggere il player senza aprire la pagina) e "Apri qui"; poi "Segna come visto" e "Togli", con conferma
+    private fun showPanel(key: String) {
+        val show = loadShows().firstOrNull { it.key == key } ?: return
+        lateinit var dialog: Dialog
+        val hosts = siteHosts()
+        val host = hosts[show.site] ?: show.host
+        val target = show.upNext
+        val content = section().apply { setPadding(dp(16), 0, dp(16), dp(16)) }
+        content.addView(homeText(listOfNotNull(shortHost(host), show.count?.let { "$it episodi" }).joinToString(" · "), 13f, bold = false).apply {
+            setPadding(dp(8), 0, dp(8), dp(8))
+        })
+        show.nearby.forEach { episode ->
+            content.addView(episodeRow(show, episode) { dialog.dismiss(); open(episodeUrl(show, episode, hosts)) })
+        }
+        val canSend = target != null && isAnimeUnityEpisode(host, target.path) && !prefs.getString("host", "").isNullOrBlank()
+        val resumeAt = target?.takeIf { !it.watched && it.time >= RESUME_MIN }?.time
+        fun action(text: String, iconId: Int, primary: Boolean, onClick: () -> Unit) = Button(this).apply {
+            val (bg, fg) = if (primary) sys(R.color.system_accent1_600, R.color.system_accent1_200) to sys(R.color.system_accent1_0, R.color.system_accent1_800)
+                else sys(R.color.system_accent2_100, R.color.system_accent2_700) to sys(R.color.system_accent2_900, R.color.system_accent2_100)
+            this.text = text
+            textSize = 15f
+            isAllCaps = false
+            stateListAnimator = null
+            background = rounded(bg, 24)
+            setTextColor(fg)
+            setCompoundDrawablesRelativeWithIntrinsicBounds(icon(iconId, fg, 20), null, null, null)
+            compoundDrawablePadding = dp(8)
+            setPadding(dp(20), 0, dp(20), 0)
+            gravity = Gravity.CENTER
+            setOnClickListener { dialog.dismiss(); onClick() }
+        }
+        val openHere = { open(episodeUrl(show, target ?: show.current, hosts)) }
+        val actions = LinearLayout(this).apply { setPadding(0, dp(12), 0, dp(4)) }
+        if (canSend) {
+            val label = if (target === show.current) "Riprendi su Kodi" else "Ep. ${target!!.number} su Kodi"
+            actions.addView(action(label, it.franc.casttokodi.R.drawable.ic_cast, primary = true) { resumeOnKodi(show, target!!) },
+                LinearLayout.LayoutParams(0, dp(48), 1f))
+            actions.addView(action("Apri qui", it.franc.casttokodi.R.drawable.ic_public, primary = false, openHere),
+                LinearLayout.LayoutParams(-2, dp(48)).apply { marginStart = dp(8) })
+        } else {
+            actions.addView(action("Apri qui", it.franc.casttokodi.R.drawable.ic_public, primary = true, openHere), LinearLayout.LayoutParams(0, dp(48), 1f))
+        }
+        content.addView(actions)
+        if (!canSend && resumeAt != null) {
+            content.addView(homeText("Avvia il player e premi Manda a Kodi: riparte da ${clockLabel(resumeAt)}.", 13f, bold = false).apply {
+                maxLines = 3
+                setPadding(dp(8), dp(4), dp(8), 0)
+            })
+        }
+        if (!show.current.watched) {
+            val number = show.current.number?.let { "l'ep. $it" } ?: "l'episodio"
+            content.addView(settingsRow(it.franc.casttokodi.R.drawable.ic_check, "Segna $number come visto", "La scheda passa al prossimo") {
+                dialog.dismiss()
+                updateShows { withCurrentWatched(it, key) }
+            })
+        }
+        var armed = false
+        lateinit var remove: View
+        remove = settingsRow(it.franc.casttokodi.R.drawable.ic_delete, "Togli da Continua a guardare", show.title) {
+            if (armed) {
+                dialog.dismiss()
+                removeShow(show)
+                return@settingsRow
+            }
+            armed = true
+            val title = (remove as LinearLayout).let { (it.getChildAt(1) as LinearLayout).getChildAt(0) as TextView }
+            title.text = "Tocca ancora per togliere"
+            title.setTextColor(errorColor())
+            remove.postDelayed({
+                armed = false
+                title.text = "Togli da Continua a guardare"
+                title.setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50))
+            }, 4000)
+        }
+        content.addView(remove)
+        dialog = sheet(show.title, content)
+    }
+
+    // Una riga del pannello: tondo con la spunta (visto), pausa (a metà), play (l'ultimo mandato) o il numero
+    private fun episodeRow(show: Show, episode: Episode, onClick: () -> Unit): View {
+        val current = episode === show.current
+        val (bg, fg) = when {
+            episode.watched -> sys(R.color.system_neutral2_100, R.color.system_neutral2_800) to sys(R.color.system_neutral2_700, R.color.system_neutral2_200)
+            current -> sys(R.color.system_accent1_600, R.color.system_accent1_200) to sys(R.color.system_accent1_0, R.color.system_accent1_800)
+            else -> sys(R.color.system_accent2_100, R.color.system_accent2_700) to sys(R.color.system_accent2_900, R.color.system_accent2_100)
+        }
+        val iconId = when {
+            episode.watched -> it.franc.casttokodi.R.drawable.ic_check
+            current && episode.time >= RESUME_MIN -> it.franc.casttokodi.R.drawable.ic_pause
+            current -> it.franc.casttokodi.R.drawable.ic_play
+            else -> null
+        }
+        val badge: View = if (iconId != null) ImageView(this).apply {
+            setImageDrawable(icon(iconId, fg, 18))
+            scaleType = ImageView.ScaleType.CENTER
+            background = circle(bg)
+        } else TextView(this).apply {
+            text = episode.number?.toString() ?: "?"
+            gravity = Gravity.CENTER
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(fg)
+            background = circle(bg)
+        }
+        val detail = when {
+            episode.watched -> "Visto"
+            current && episode.time >= RESUME_MIN ->
+                "Fermo a ${clockLabel(episode.time)}" + if (episode.total > 0) " di ${clockLabel(episode.total)}" else ""
+            current -> "L'ultimo mandato a Kodi"
+            episode.seen == 0L && episode.file != null -> "In coda su Kodi"
+            else -> "Prossimo"
+        }
+        val name = episode.number?.let { if (episode.season != null) "Stagione ${episode.season}, episodio $it" else "Episodio $it" } ?: "Episodio"
+        return LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(56)
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            setBackgroundResource(attr(R.attr.selectableItemBackground))
+            if (episode.watched) alpha = 0.7f
+            setOnClickListener { onClick() }
+            addView(badge, LinearLayout.LayoutParams(dp(36), dp(36)))
+            addView(section(homeText(name, 15f, bold = current).apply {
+                if (!current) setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50))
+            }, homeText(detail, 13f, bold = false)), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(16) })
+        }
+    }
+
+    // "Riprendi su Kodi" (AnimeUnity): l'episodio parte su Kodi senza aprirlo qui. La pagina si carica in un WebView
+    // invisibile (stessi cookie del sito, quindi anche Cloudflare già passato), il player si legge con EPISODE_INFO_JS e
+    // il link con resolveVixCloud, come per gli episodi successivi; sendToKodi riprende dal punto salvato. Se qualcosa
+    // non va si apre la pagina qui, dove basta avviare il player e premere Manda a Kodi.
+    private fun resumeOnKodi(show: Show, target: Episode) {
+        val url = episodeUrl(show, target, siteHosts())
+        val name = "${show.title} Episodio ${target.number}"
+        val userAgent = web.settings.userAgentString
+        toast("Preparo l'episodio ${target.number} per Kodi…")
+        val hidden = WebView(this)
+        hidden.settings.javaScriptEnabled = true
+        hidden.settings.domStorageEnabled = true
+        hidden.settings.userAgentString = userAgent
+        var done = false
+        fun giveUp() {
+            if (done) return
+            done = true
+            web.post { hidden.destroy() }
+            toast("Non riesco a mandarlo da qui: avvia il player e premi Manda a Kodi")
+            open(url)
+        }
+        hidden.webViewClient = object : WebViewClient() {
+            // Solo i redirect HTTP (il sito che cambia dominio): i salti fatti da JS (pubblicità) no
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = !request.isRedirect
+
+            override fun onPageFinished(view: WebView, loaded: String) {
+                if (done) return
+                view.evaluateJavascript(EPISODE_INFO_JS) { result ->
+                    val info = runCatching { JSONObject(JSONTokener(result).nextValue() as String) }.getOrNull()
+                    // Senza player (la pagina di controllo di Cloudflare) si aspetta la pagina vera o il tempo massimo
+                    val embed = info?.optString("embed")?.takeIf { it.startsWith("http") } ?: return@evaluateJavascript
+                    if (done) return@evaluateJavascript
+                    done = true
+                    web.post { hidden.destroy() }
+                    rememberSite(Uri.parse(loaded).host)
+                    resolveVixCloud(embed, userAgent, referer = loaded) { stream ->
+                        if (stream == null) {
+                            toast("Non trovo il video dell'episodio: avvia il player e premi Manda a Kodi")
+                            open(loaded)
+                        } else {
+                            sendToKodi(Video(stream, embed, name, true), queued = false, page = loaded, name = name)
+                        }
+                    }
+                }
+            }
+        }
+        hidden.loadUrl(url)
+        web.postDelayed({ giveUp() }, 25_000)
+    }
+
+    // Avviso sotto la barra quando si apre dal sito (o da Google) una serie che si sta guardando, ma non l'episodio da
+    // guardare: "Eri all'episodio 12 · fermo a 12:40" con Vai. La ✕ lo chiude per quella serie finché l'app è aperta.
+    private var bannerKey: String? = null
+
+    private fun resumeBannerView(): View {
+        val fg = sys(R.color.system_accent1_900, R.color.system_accent1_100)
+        bannerTitle = TextView(this).apply {
+            textSize = 14f
+            typeface = Typeface.DEFAULT_BOLD
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            setTextColor(fg)
+        }
+        bannerDetail = TextView(this).apply {
+            textSize = 12f
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            setTextColor(fg)
+        }
+        bannerGo = Button(this).apply {
+            text = "Vai"
+            isAllCaps = false
+            stateListAnimator = null
+            textSize = 14f
+            background = rounded(sys(R.color.system_accent1_600, R.color.system_accent1_200), 18)
+            setTextColor(sys(R.color.system_accent1_0, R.color.system_accent1_800))
+            setPadding(dp(16), 0, dp(16), 0)
+            minWidth = 0
+            minimumWidth = 0
+        }
+        val close = ImageButton(this).apply {
+            setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_close, fg, 18))
+            contentDescription = "Chiudi l'avviso"
+            setBackgroundResource(attr(R.attr.selectableItemBackgroundBorderless))
+            setOnClickListener {
+                bannerKey?.let { key -> bannerClosed += key }
+                banner.visibility = View.GONE
+            }
+        }
+        return LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), dp(8), dp(2), dp(8))
+            background = rounded(sys(R.color.system_accent1_100, R.color.system_accent1_800), 16)
+            addView(ImageView(context).apply {
+                setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_history, fg, 22))
+            }, LinearLayout.LayoutParams(dp(24), dp(24)))
+            addView(section(bannerTitle, bannerDetail), LinearLayout.LayoutParams(0, -2, 1f).apply {
+                marginStart = dp(12)
+                marginEnd = dp(8)
+            })
+            addView(bannerGo, LinearLayout.LayoutParams(-2, dp(36)))
+            addView(close, LinearLayout.LayoutParams(dp(40), dp(40)))
+            visibility = View.GONE
+        }
+    }
+
+    private fun refreshBanner(uri: Uri, title: String?) {
+        banner.visibility = View.GONE
+        if (!historyOn() || home.visibility == View.VISIBLE) return
+        val show = showOfPage(loadShows(), uri.host, uri.path, uri.encodedQuery, title) ?: return
+        if (show.key in bannerClosed) return
+        val path = uri.path.orEmpty().ifEmpty { "/" } + (uri.encodedQuery?.let { "?$it" } ?: "")
+        val (headline, detail) = resumeBanner(show, path) ?: return
+        val target = show.upNext ?: return
+        bannerKey = show.key
+        bannerTitle.text = headline
+        bannerDetail.text = detail
+        bannerGo.setOnClickListener {
+            banner.visibility = View.GONE
+            open("${uri.scheme}://${uri.host}${target.path}")
+        }
+        banner.visibility = View.VISIBLE
+    }
+
     private fun section(vararg views: View) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         views.forEach { addView(it) }
@@ -2829,12 +3526,29 @@ class MainActivity : Activity() {
         visibility = View.GONE
     }
 
-    private fun toast(msg: String) = runOnUiThread {
+    // undo: l'avviso dice anche "Annulla" e, toccato, lo esegue (dopo aver tolto una serie o l'ultima pagina)
+    private fun toast(msg: String, undo: (() -> Unit)? = null) = runOnUiThread {
         val target = playerSnack ?: snack
-        target.text = msg
+        if (undo == null) {
+            target.text = msg
+            target.setOnClickListener(null)
+            target.isClickable = false
+        } else {
+            target.text = SpannableStringBuilder(msg).apply {
+                append("   ")
+                val start = length
+                append("Annulla")
+                setSpan(StyleSpan(Typeface.BOLD), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                setSpan(ForegroundColorSpan(sys(R.color.system_accent1_200, R.color.system_accent1_600)), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            target.setOnClickListener {
+                hideSnack.run()
+                undo()
+            }
+        }
         target.visibility = View.VISIBLE
         snack.removeCallbacks(hideSnack)
-        snack.postDelayed(hideSnack, (2500L + 40L * msg.length).coerceAtMost(6000L))
+        snack.postDelayed(hideSnack, if (undo != null) 6000L else (2500L + 40L * msg.length).coerceAtMost(6000L))
     }
 
     // Il WebView salva i cookie su disco ogni tanto: se l'app viene chiusa prima si perde la scelta sulla pagina

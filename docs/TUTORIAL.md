@@ -51,11 +51,11 @@ _Le animazioni di questa guida sono disegni dell'interfaccia della versione 2.1,
 | **🛡 con un numero** | Compare quando l'app ha bloccato popup o salti verso altri siti su questa pagina. Toccalo per vedere quali e aprirne uno, se serviva. |
 | **★** | I tuoi siti preferiti. Piena se la pagina aperta è già tra i preferiti. |
 | **Barra di Kodi** (in fondo) | C'è sempre, appena l'app sa dov'è Kodi. Mostra cosa riproduce, con il tempo, play/pausa e una linea sottile in basso che avanza. Il pallino accanto allo stato è acceso se Kodi risponde. Se Kodi è acceso ma fermo scrive *Acceso, niente in riproduzione*; se è spento o non risponde c'è il pulsante **⏻** per accendere la TV. Il pulsante a destra, o un tocco sulla barra, apre il telecomando con la coda. |
-| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Pagina iniziale*, *Impostazioni* (dov'è Kodi, accensione, AnimeUnity, log di Kodi, guida, versione). |
+| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Pagina iniziale*, *Impostazioni* (dov'è Kodi, accensione, AnimeUnity, cronologia, log di Kodi, guida, versione). |
 | **Manda a Kodi** | Fa partire subito sulla TV il video della pagina. Compare in basso a destra, sopra il sito, solo quando sulla pagina parte un video. |
 | **+ Coda** (l'icona tonda con le righe e il +, accanto a *Manda a Kodi*) | Mette il video in fondo alla coda di Kodi, senza interrompere quello che stai guardando. Tenendola premuta si apre la coda. |
 
-All'avvio si apre la **pagina iniziale**: in cima Kodi (acceso, spento o cosa sta riproducendo, con il pulsante *Accendi* o *Telecomando*), poi **Riprendi** con l'ultima pagina guardata e i tuoi preferiti come icone. Ci torni con indietro dalla prima pagina di un sito o con **⋮ → Pagina iniziale**.
+All'avvio si apre la **pagina iniziale**: in cima Kodi (acceso, spento o cosa sta riproducendo, con il pulsante *Accendi* o *Telecomando*), poi **Continua a guardare** con le serie a cui sei arrivato, l'**ultima pagina** aperta e i tuoi preferiti come icone (vedi [Continua a guardare](#continua-a-guardare)). Ci torni con indietro dalla prima pagina di un sito o con **⋮ → Pagina iniziale**.
 
 Gli avvisi brevi ("Aggiunto alla coda", "Kodi è pronto"…) compaiono in fondo allo schermo, sopra il sito.
 
@@ -249,7 +249,35 @@ quello in corso, **↻** rilegge la coda da Kodi.
   **Rinomina** o **Togli**.
 - La **★** in alto è piena quando la pagina aperta è già tra i preferiti.
 
-L'ultima pagina che hai guardato la ritrovi in **Riprendi**, nella pagina iniziale.
+### Continua a guardare
+
+Quando mandi a Kodi un episodio, l'app se lo ricorda. Nella pagina iniziale, sotto Kodi, trovi **Continua a guardare**:
+una fila che scorre di lato, con una scheda per ogni serie, la più recente a sinistra.
+
+- La scheda dice a che episodio sei e a che minuto ti sei fermato (es. *Ep. 12 · fermo a 12:40*), con una linea che
+  mostra quanto ne hai visto. Quando Kodi passa il 95% dell'episodio, o mancano meno di 2 minuti alla fine (la sigla),
+  l'episodio è visto e la scheda passa al prossimo (*Visto il 12 · tocca al 13*).
+- **Toccala**: sale un pannello con l'episodio prima, quello in corso e il prossimo. **Riprendi su Kodi** manda
+  l'episodio senza aprire la pagina e Kodi riparte dal minuto in cui eri (solo AnimeUnity). **Apri qui** apre la pagina
+  dell'episodio: sugli altri siti avvii il player, premi *Manda a Kodi* e Kodi riparte comunque da dove eri. Dal
+  pannello puoi anche segnare l'episodio come visto.
+- Una serie arrivata all'ultimo episodio resta sbiadita, con scritto **Finita**, finché non la togli.
+- **Togliere una serie**: la **✕** in alto a destra sulla scheda. La scheda diventa rossa e chiede *Togli …?*: tocca
+  **Togli** (se non tocchi niente, dopo 4 secondi torna com'era). Subito dopo puoi ancora premere **Annulla**
+  nell'avviso in fondo.
+- Sotto c'è l'**Ultima pagina** aperta, se non è già un episodio della fila: la ✕ la toglie al primo tocco, con
+  *Annulla*.
+- Se dal sito (o da Google) apri una serie che stai guardando ma su un altro episodio, sotto la barra compare
+  **Eri all'episodio 12** con **Vai**.
+- I siti cambiano spesso dominio: l'app riconosce la serie dal nome del sito e dalla parte dell'indirizzo che resta
+  uguale, e la riapre sull'ultimo dominio che ha visto funzionare.
+- **⋮ → Impostazioni → Cronologia**: *Ricorda dove sono arrivato* (spento, l'app non salva niente e la pagina iniziale
+  non mostra serie né ultima pagina) e *Cancella la cronologia*.
+
+Il minuto l'app lo legge da Kodi mentre è aperta; se il telefono era bloccato, quando torni alla pagina iniziale lo
+chiede a Kodi, che di solito se lo ricorda. Su AnimeUnity serie e numero vengono dall'indirizzo e dal player; sugli
+altri siti dal titolo della pagina ("Episodio 5", "S2E5"): se il titolo non li dice, la pagina resta solo come ultima
+pagina.
 
 ---
 
