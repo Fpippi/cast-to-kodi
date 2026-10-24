@@ -9,26 +9,26 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 
 ## 2.2.2
 
-- **Continua a guardare**: la scheda della serie ha la copertina presa dal sito (AnimeUnity dalla pagina della serie,
+- **Continua a guardare**: la scheda della serie ha la copertina presa dal sito (i siti di anime con player VixCloud dalla pagina della serie,
   gli altri siti dall'immagine di anteprima della pagina). Il fotogramma del video resta solo se la copertina manca.
 - I preferiti non prendono più l'icona di Google quando si salvano appena arrivati da una ricerca, e quelli che
   l'avevano presa si correggono alla prossima visita del sito.
-- Il nome di pagine e video non comincia più con "AnimeUnity ~" (ultima pagina, barra di Kodi, coda, nuovi preferiti).
+- Il nome di pagine e video non comincia più con il nome del sito e "~" (ultima pagina, barra di Kodi, coda, nuovi preferiti).
 
 ## 2.2.1
 
-- **Continua a guardare** su AnimeUnity: la serie non compariva. Il sito cambia episodio senza caricare una pagina nuova,
+- **Continua a guardare** sul sito di anime con player VixCloud: la serie non compariva. Il sito cambia episodio senza caricare una pagina nuova,
   e l'app restava ferma all'indirizzo di prima (spesso la pagina della serie, che non contava come episodio). Ora segue
   l'indirizzo, e anche un episodio mandato dalla pagina della serie entra nella fila.
-- Se su AnimeUnity la serie non si salva, l'app ora lo dice con il motivo, invece di tacere.
-- Il nome della serie non comincia più con "AnimeUnity ~".
+- Se su quel sito la serie non si salva, l'app ora lo dice con il motivo, invece di tacere.
+- Il nome della serie non comincia più con il nome del sito e "~".
 
 ## 2.2.0
 
 - **Continua a guardare** nella pagina iniziale: una scheda per ogni serie mandata a Kodi, ferma all'episodio e al minuto
   giusti (*Ep. 12 · fermo a 12:40*). Un episodio è visto quando Kodi passa il 95% o mancano meno di 2 minuti (la sigla),
   e la scheda passa al prossimo. Una serie finita resta con **Finita** finché non la togli.
-- Toccando una serie: episodio prima, in corso e prossimo, **Riprendi su Kodi** (AnimeUnity: parte senza aprire la
+- Toccando una serie: episodio prima, in corso e prossimo, **Riprendi su Kodi** (sito di anime con player VixCloud: parte senza aprire la
   pagina, dal minuto in cui eri) e **Apri qui**. Rimandando un episodio a metà da qualunque sito, Kodi riparte da lì.
 - La **✕** sulla scheda chiede conferma (la scheda diventa rossa per 4 secondi), poi c'è ancora **Annulla**.
 - **Ultima pagina** con la ✕ per toglierla, al posto di "Riprendi" che non si poteva cancellare.
@@ -74,7 +74,7 @@ Nuova interfaccia: l'app cambia nel modo in cui si usa. Riassume anche la 1.3.0.
 - **Telecomando** di Kodi nell'app e **barra di Kodi** in fondo mentre un video è in riproduzione (nome, tempo,
   play/pausa; toccandola si apre il telecomando).
 - **Impostazioni** (⋮ → Impostazioni) al posto del dialogo "Dov'è Kodi?": Kodi e accesso, accensione della TV, episodi
-  successivi di AnimeUnity, log di Kodi, guida e versione (con "cerca aggiornamenti"). Ogni voce dice com'è adesso.
+  successivi automatici, log di Kodi, guida e versione (con "cerca aggiornamenti"). Ogni voce dice com'è adesso.
 - Il menu ⋮ ora ha Telecomando, Coda di Kodi, Pagina iniziale e Impostazioni.
 - Barra in alto a pillola con l'icona del sito e lo scudo dei popup bloccati; **Manda a Kodi** compare solo quando c'è
   un video; pannelli dal basso per scelta del video, preferiti, coda, telecomando e impostazioni.
@@ -112,14 +112,14 @@ Nuova interfaccia: l'app cambia nel modo in cui si usa. Riassume anche la 1.3.0.
 ## 1.2.2
 
 - Il pulsante di accensione ha la stessa altezza di ★ e Kodi.
-- AnimeUnity: l'accodamento automatico degli episodi successivi parte spento (si accende da Kodi → Dov'è Kodi?). Anche chi
+- L'accodamento automatico degli episodi successivi parte spento (si accende da Kodi → Dov'è Kodi?). Anche chi
   l'aveva già acceso lo ritrova spento una volta.
 - Tutorial passo passo con animazioni in docs/TUTORIAL.md, collegato dal README.
 - Test con un Kodi finto e un sito finto che provano invio, coda e password.
 
 ## 1.2.1
 
-- StreamingCommunity (player vidxgo): le playlist del video le scarica l'app al posto del browser e se ne tiene una
+- Siti con player vidxgo: le playlist del video le scarica l'app al posto del browser e se ne tiene una
   copia, così all'invio Kodi la riceve dal telefono invece di richiederla al sito, che rispondeva 403.
 
 ## 1.2.0
@@ -127,7 +127,7 @@ Nuova interfaccia: l'app cambia nel modo in cui si usa. Riassume anche la 1.3.0.
 - Manda a Kodi: all'avvio il telefono scarica la playlist e la chiave del video e le passa a Kodi in rete locale. La
   Fire TV ci metteva 10-20 secondi per ognuna e Kodi rinuncia dopo 30 ("Playback failed"). I pezzi del video Kodi li
   prende sempre dal sito: il telefono serve solo nei primi secondi.
-- Manda a Kodi: con il video si mandano anche Origin e cookie del sito, come fa il browser (StreamingCommunity con il
+- Manda a Kodi: con il video si mandano anche Origin e cookie del sito, come fa il browser (un sito con il
   player vidxgo rispondeva 403).
 - Manda a Kodi e + Coda restano spenti, con "Invio a Kodi…", finché Kodi non risponde: i tocchi ripetuti non mandano
   altri video.
@@ -142,7 +142,7 @@ Nuova interfaccia: l'app cambia nel modo in cui si usa. Riassume anche la 1.3.0.
 
 ## 1.1.1
 
-- Manda a Kodi: per i video HLS (es. AnimeUnity/VixCloud) l'app manda a Kodi una sola qualità, la migliore, invece della
+- Manda a Kodi: per i video HLS (es. player VixCloud) l'app manda a Kodi una sola qualità, la migliore, invece della
   playlist con tutte: Kodi sulla Fire TV le apriva tutte per scegliere e andava oltre il suo limite di 30 secondi
   ("Playback failed").
 - Manda a Kodi: niente più seconda apertura dello stesso video mentre Kodi lo sta ancora caricando (interrompeva la prima).
@@ -160,7 +160,7 @@ Nuova interfaccia: l'app cambia nel modo in cui si usa. Riassume anche la 1.3.0.
 
 ## 1.0.2
 
-- Manda a Kodi: se Kodi non riesce a far partire il video dalla sua playlist ("Playback failed", es. AnimeUnity con il
+- Manda a Kodi: se Kodi non riesce a far partire il video dalla sua playlist ("Playback failed", es. con il
   player VixCloud), l'app lo riapre direttamente come nelle prime build. In quel caso il video parte senza coda dietro.
 
 ## 1.0.1
@@ -177,5 +177,5 @@ Prima versione con un numero al posto di "Build N" (l'ultima era la Build 18).
 - Il pulsante di accensione ha un'icona vera: il carattere ⏻ sul telefono non si vedeva.
 - Nel README la lista dei dispositivi compatibili.
 - Tutto quello che c'era fino alla Build 18: browser con blocco dei popup, invio del video a Kodi, coda nella playlist
-  di Kodi, episodi successivi automatici su AnimeUnity, preferiti, credenziali di Kodi cifrate, ricerca da Google
+  di Kodi, episodi successivi automatici sui siti di anime, preferiti, credenziali di Kodi cifrate, ricerca da Google
   e pulsante ⏻ per accendere la TV.

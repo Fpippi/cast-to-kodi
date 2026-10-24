@@ -252,7 +252,7 @@ def mini_player(f, state):
     icon_remote(f, *pos["remote"], TEXT)
 
 
-def page_home(f, x, y, w, h, mini, kodi_button=None, status=None, favorites=("StreamingCommunity",), resume=True):
+def page_home(f, x, y, w, h, mini, kodi_button=None, status=None, favorites=("SerieTV",), resume=True):
     f.rect(x, y, w, h, SURFACE)
     cx, cw = x + 10, w - 20
     # Kodi
@@ -280,7 +280,7 @@ def page_home(f, x, y, w, h, mini, kodi_button=None, status=None, favorites=("St
         f.circle(cx + 18, ty + 30, 10, "#1B1D2B")
         f.text(cx + 18, ty + 30, "A", 8, WHITE, bold=True, anchor="mm")
         f.text(cx + 36, ty + 24, "JoJo – Episodio 1", 9, TEXT, bold=True, anchor="lm")
-        f.text(cx + 36, ty + 37, "animeunity.so", 7, MUTED, anchor="lm")
+        f.text(cx + 36, ty + 37, "animetv.example", 7, MUTED, anchor="lm")
         ty += 60
     f.text(cx + 2, ty, "PREFERITI", 7, ACCENT, bold=True)
     tiles = {}
@@ -313,7 +313,7 @@ def page_google(f, x, y, w, h):
 
 def page_results(f, x, y, w, h):
     f.rect(x, y, w, h, WHITE)
-    rows = [("animeunity.so", "JoJo's Bizarre Adventure – Episodi"), ("wikipedia.org", "Le bizzarre avventure di JoJo"),
+    rows = [("animetv.example", "JoJo's Bizarre Adventure – Episodi"), ("wikipedia.org", "Le bizzarre avventure di JoJo"),
             ("youtube.com", "JoJo – Trailer ufficiale")]
     for i, (site, title) in enumerate(rows):
         ry = y + 14 + i * 56
@@ -326,7 +326,7 @@ def page_results(f, x, y, w, h):
 def page_episode(f, x, y, w, h, episode=1, state="poster"):
     f.rect(x, y, w, h, WHITE)
     f.rect(x, y, w, 26, "#1B1D2B")
-    f.text(x + 10, y + 7, "AnimeUnity", 10, WHITE, bold=True)
+    f.text(x + 10, y + 7, "AnimeTV", 10, WHITE, bold=True)
     f.text(x + 12, y + 36, f"JoJo – Episodio {episode}", 12, TEXT, bold=True)
     vx, vy, vw, vh = x + 10, y + 58, w - 20, 120
     if state == "poster":
@@ -595,14 +595,14 @@ def manda():
     c3 = "3. Compare Manda a Kodi: premilo"
     c4 = "4. Il video parte sulla TV"
     seq = []
-    q = "jojo animeunity"
+    q = "jojo episodio 1"
     seq.append((step(c1, after=lambda f: tap(f, SX + 80, BAR_Y + 15)), 600))
     for n in (4, 9, 15):
         seq.append((step(c1, address=q[:n], typing=True), 280))
     seq.append((step(c1, page="results", address=q, typing=True, progress=0.5), 350))
     seq.append((step(c1, page="results", address="google.com"), 900))
     seq.append((step(c1, page="results", address="google.com", after=lambda f: tap(f, SX + 70, PAGE_TOP + 20)), 500))
-    ep = "animeunity.so"
+    ep = "animetv.example"
     seq.append((step(c2, page=("episode", 1, "poster"), address=ep, shield=2, progress=0.7), 400))
     seq.append((step(c2, page=("episode", 1, "poster"), address=ep, shield=2), 900))
     seq.append((step(c2, page=("episode", 1, "poster"), address=ep, shield=2, after=lambda f: tap(f, *PLAYER_BUTTON)), 500))
@@ -618,7 +618,7 @@ def manda():
 
 
 def coda():
-    ep = "animeunity.so"
+    ep = "animetv.example"
     c1 = "1. Sulla TV va l'episodio 1. Apri il 2 e avvia il player"
     c2 = "2. + Coda: va in fondo, l'episodio 1 continua"
     c3 = "3. Tocca la barra di Kodi, scheda Coda"
@@ -662,25 +662,25 @@ def accendi():
 
 
 def preferiti():
-    ep = "animeunity.so"
+    ep = "animetv.example"
     c1 = "1. Sulla pagina da salvare premi ★"
     c2 = "2. Aggiungi questa pagina e scegli un nome"
     c3 = "3. Lo ritrovi nella pagina iniziale: toccalo"
     pg = dict(page=("episode", 1, "poster"), address=ep)
-    old = [("StreamingCommunity", "streamingcommunity.computer")]
+    old = [("SerieTV", "serietv.example")]
     seq = [
         (step(c1, after=lambda f: tap(f, *STAR), **pg), 600),
         (step(c1, after=lambda f: sheet_favorites(f, old), **pg), 900),
         (step(c2, after=lambda f: tap(f, *sheet_favorites(f, old)["add"]), **pg), 500),
     ]
-    for t in ("Ani", "AnimeUni", "AnimeUnity"):
+    for t in ("Ani", "Anime", "AnimeTV"):
         seq.append((step(c2, after=lambda f, t=t: dialog_name(f, t), **pg), 300))
-    seq.append((step(c2, after=lambda f: tap(f, *dialog_name(f, "AnimeUnity")["Salva"]), **pg), 500))
+    seq.append((step(c2, after=lambda f: tap(f, *dialog_name(f, "AnimeTV")["Salva"]), **pg), 500))
     seq.append((step(c2, star=True, toast="Aggiunto ai preferiti", **pg), 1200))
-    favs = ("StreamingCommunity", "AnimeUnity")
+    favs = ("SerieTV", "AnimeTV")
     home = dict(home=dict(favorites=favs))
     seq.append((step(c3, **home), 900))
-    seq.append((step(c3, after=lambda f: tap(f, *home_tiles(favs)["AnimeUnity"]), **home), 500))
+    seq.append((step(c3, after=lambda f: tap(f, *home_tiles(favs)["AnimeTV"]), **home), 500))
     seq.append((step(c3, star=True, **pg), 1600))
     render("preferiti", seq)
 
