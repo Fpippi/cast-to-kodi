@@ -259,16 +259,31 @@ class WatchingTest {
         val kodi = Kodi(fake.host, "")
         kodi.playNow(org.json.JSONObject().put("file", "http://cdn/12.m3u8|Referer=x"))
         fake.totaltime = 1430
-        assertTrue(kodi.resumeAt("http://cdn/12.m3u8|Referer=x", 760, tries = 3, wait = 10))
+        // Finché il tempo è fermo a 0 il video si sta ancora aprendo: non si salta
+        assertEquals("il video su Kodi non è partito in tempo", kodi.resumeAt("http://cdn/12.m3u8|Referer=x", 760, tries = 3, wait = 10, seekPause = 1))
+        assertEquals(0, fake.time)
+        fake.time = 2
+        assertNull(kodi.resumeAt("http://cdn/12.m3u8|Referer=x", 760, tries = 3, wait = 10, seekPause = 1))
         assertEquals(760, fake.time)
         // Kodi che non risponde bene mentre apre il video: si riprova, non si rinuncia
-        fake.time = 0
+        fake.time = 2
         fake.failing = 2
-        assertTrue(kodi.resumeAt("http://cdn/12.m3u8|Referer=x", 700, tries = 5, wait = 10))
+        assertNull(kodi.resumeAt("http://cdn/12.m3u8|Referer=x", 700, tries = 6, wait = 10, seekPause = 1))
         assertEquals(700, fake.time)
+        // Kodi che accetta il salto ma resta dov'era: si risalta finché non arriva
+        fake.time = 2
+        fake.ignoredSeeks = 2
+        assertNull(kodi.resumeAt("http://cdn/12.m3u8|Referer=x", 700, tries = 10, wait = 10, seekPause = 1))
+        assertEquals(700, fake.time)
+        // ...ma non all'infinito
+        fake.time = 2
+        fake.ignoredSeeks = 10
+        assertNotNull(kodi.resumeAt("http://cdn/12.m3u8|Referer=x", 700, tries = 20, wait = 10, seekPause = 1, seeks = 3))
+        assertEquals(2, fake.time)
+        fake.ignoredSeeks = 0
         fake.time = 760
         // Se parte un altro video non salta
-        assertFalse(kodi.resumeAt("http://cdn/13.m3u8", 500, tries = 2, wait = 10))
+        assertEquals("Kodi non ha mostrato il video in riproduzione", kodi.resumeAt("http://cdn/13.m3u8", 500, tries = 2, wait = 10))
         assertEquals(760, fake.time)
     }
 

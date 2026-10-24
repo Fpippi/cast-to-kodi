@@ -7,6 +7,12 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.2.6
+
+- **Riprendi su Kodi** salta al minuto solo quando il video sta già andando, poi controlla che Kodi ci sia arrivato
+  e, se no, ci riprova (Kodi accettava il salto mentre apriva ancora il video e poi partiva da capo).
+- Se la ripresa non riesce, l'app lo dice e spiega perché, invece di lasciar partire l'episodio dall'inizio in silenzio.
+
 ## 2.2.5
 
 - **Salta sigla** nel telecomando: va avanti di 1:25 da dove sei. Tenendolo premuto scegli quanto, e vale per quella

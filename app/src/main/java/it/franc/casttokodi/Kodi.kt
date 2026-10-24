@@ -314,30 +314,55 @@ class Kodi(val host: String, val auth: String) {
 
     // "Riprendi su Kodi" (Continua a guardare): appena il video file è partito ed è lungo quanto basta, si va al
     // secondo dove ci si era fermati. Si aspetta fino a tries volte, wait ms tra una e l'altra: sulla Fire TV un video
-    // ci mette anche 20 secondi a partire. Non lo riapre mai (vedi la nota su Player.Open nel README). true se ha saltato
-    fun resumeAt(file: String, seconds: Long, tries: Int = 60, wait: Long = 1000): Boolean {
-        repeat(tries) {
-            // Mentre apre il video (sulla Fire TV anche 30 secondi) Kodi può rispondere con un errore o non rispondere:
-            // si riprova al giro dopo invece di rinunciare alla ripresa
+    // HLS impiega anche 30 secondi ad aprirsi. Mai una seconda apertura, solo Player.Seek.
+    // 2.2.5 (prova di Pippo: ripartiva da capo anche con la 2.2.4): Kodi accetta il salto anche mentre sta ancora
+    // aprendo il video e poi parte da 0 lo stesso. Per questo si salta solo quando il tempo corre già, poi si controlla
+    // che Kodi sia davvero arrivato e, se no, si risalta (dopo seekPause giri, perché il salto sulla Fire TV è lento).
+    // null se è arrivato al punto, se no il motivo, così l'app può dirlo
+    fun resumeAt(file: String, seconds: Long, tries: Int = 120, wait: Long = 1000, seekPause: Int = 8, seeks: Int = 4): String? {
+        var done = 0
+        var lastSeek = -seekPause
+        var lastError: String? = null
+        var seen = false
+        for (i in 0 until tries) {
+            // Mentre apre il video Kodi può rispondere con un errore o non rispondere: si riprova al giro dopo
             val playing = try {
                 nowPlaying()
             } catch (e: KodiError) {
+                lastError = e.message
                 null
             } catch (e: IOException) {
                 null
             }
-            if (playing == null) {
-                Thread.sleep(wait)
-                return@repeat
-            }
-            val id = playing.playerId
-            if (id != null && queueKey(playing.file) == queueKey(file) && playing.total > seconds) {
-                seekTo(id, seconds)
-                return true
+            val id = playing?.playerId
+            if (playing != null && id != null && queueKey(playing.file) == queueKey(file)) {
+                seen = true
+                when {
+                    // Arrivato (un po' di margine: il salto va al pezzo di video più vicino)
+                    done > 0 && playing.time >= seconds - 20 -> return null
+                    // Ancora in apertura: durata non nota o tempo fermo a 0
+                    playing.total <= seconds || playing.time < 1 -> Unit
+                    i - lastSeek < seekPause -> Unit
+                    done >= seeks -> return "Kodi non è andato al punto dopo $done salti (è a ${playing.time} s)"
+                    else -> try {
+                        seekTo(id, seconds)
+                        done++
+                        lastSeek = i
+                    } catch (e: KodiError) {
+                        lastError = e.message
+                    } catch (e: IOException) {
+                        Unit
+                    }
+                }
             }
             Thread.sleep(wait)
         }
-        return false
+        val reason = when {
+            done > 0 -> "Kodi non è andato al punto"
+            seen -> "il video su Kodi non è partito in tempo"
+            else -> "Kodi non ha mostrato il video in riproduzione"
+        }
+        return reason + (lastError?.let { " ($it)" } ?: "")
     }
 
     // Il punto che Kodi ha salvato per un video già riprodotto (posizione e durata in secondi) e se l'ha visto tutto.
