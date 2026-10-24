@@ -7,6 +7,10 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.2.8
+
+- Se l'immagine di un episodio non si riesce a prendere dal video, l'app lo dice e spiega perché.
+
 ## 2.2.7
 
 - **Salta sigla**: accanto c'è il pulsante **Cambia** per scegliere quanto salta, anche con un tempo scritto a mano

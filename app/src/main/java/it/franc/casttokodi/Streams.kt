@@ -8,7 +8,8 @@ import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 // Anteprima di un video HLS: durata e un pezzo già decifrato, da cui il telefono estrae un fotogramma
-class Preview(val seconds: Long?, val sample: ByteArray?)
+// error: perché il pezzo non c'è, quando manca
+class Preview(val seconds: Long?, val sample: ByteArray?, val error: String? = null)
 
 // Il link da mandare a Kodi: una sola qualità della playlist HLS e, se serve, playlist e chiavi passate dal telefono.
 // Niente android.*: lo prova StreamsTest con un sito finto e un Kodi finto. localIp: IPv4 del telefono sul Wi-Fi.
@@ -42,13 +43,17 @@ class Streams(private val relay: Relay, private val localIp: () -> String?) {
         lowestVariant(String(body), mediaUrl)?.let { variant -> playlist(variant, headers).let { body = it.first; mediaUrl = it.second } }
         val media = String(body)
         val seconds = playlistSeconds(media)
+        var error: String? = null
         val sample = try {
             // Al 10% del video, al massimo a un minuto e mezzo: l'inizio spesso è nero
-            segmentAt(media, mediaUrl, minOf((seconds ?: 0.0) * 0.1, 90.0))?.let { sample(it, headers, limit) }
+            val segment = segmentAt(media, mediaUrl, minOf((seconds ?: 0.0) * 0.1, 90.0))
+            if (segment == null) error = "nessun pezzo leggibile nella playlist (protetto?)"
+            segment?.let { sample(it, headers, limit) }
         } catch (e: Exception) {
+            error = e.message ?: e.javaClass.simpleName
             null
         }
-        return Preview(seconds?.toLong(), sample)
+        return Preview(seconds?.toLong(), sample, error)
     }
 
     private fun playlist(url: String, headers: List<Pair<String, String>>) =
