@@ -2726,7 +2726,10 @@ class MainActivity : Activity() {
         if (series != null && page == web.url) {
             web.evaluateJavascript(EPISODE_INFO_JS) { result ->
                 val info = runCatching { JSONObject(JSONTokener(result).nextValue() as String) }.getOrNull()
-                if (info == null || info.has("error")) return@evaluateJavascript
+                if (info == null || info.has("error")) {
+                    if (!hasCover) toast("Copertina: pagina non letta (${info?.optString("error") ?: result.take(40)})")
+                    return@evaluateJavascript
+                }
                 val next = info.optJSONObject("next")?.let { Episode(null, it.optString("number").toIntOrNull(), "$series/${it.optString("id")}") }
                 val at = info.optString("id").takeIf { it.isNotBlank() && episode.path.trimEnd('/') == series }?.let { "$series/$it" }
                 updateShows {
@@ -2734,7 +2737,11 @@ class MainActivity : Activity() {
                         count = info.optInt("count").takeIf { c -> c > 0 }, next = next,
                         path = episode.path, number = info.optString("number").toIntOrNull(), at = at)
                 }
-                if (!hasCover) info.optString("image").takeIf { it.isNotBlank() }?.let { fetchCover(episode.key, it, page!!) }
+                if (!hasCover) {
+                    val image = info.optString("image")
+                    // 2.2.3: sul sito vero la copertina non arrivava. Finché non è chiaro perché, l'app lo dice
+                    if (image.isBlank()) toast("Copertina: la pagina non la indica") else fetchCover(episode.key, image, page!!)
+                }
             }
         } else if (page != null && page == web.url && !hasCover) {
             web.evaluateJavascript(PAGE_IMAGE_JS) { result ->
@@ -2768,15 +2775,19 @@ class MainActivity : Activity() {
         val userAgent = web.settings.userAgentString
         val cookie = CookieManager.getInstance().getCookie(url)
         thread {
-            val picture = runCatching {
+            val picture = try {
                 val conn = URL(url).openConnection() as HttpURLConnection
                 conn.connectTimeout = 10_000
                 conn.readTimeout = 10_000
                 conn.setRequestProperty("User-Agent", userAgent)
                 conn.setRequestProperty("Referer", page)
                 if (!cookie.isNullOrBlank()) conn.setRequestProperty("Cookie", cookie)
-                conn.inputStream.use { BitmapFactory.decodeStream(it) }
-            }.getOrNull() ?: return@thread
+                if (conn.responseCode != 200) throw IOException("HTTP ${conn.responseCode}")
+                conn.inputStream.use { BitmapFactory.decodeStream(it) } ?: throw IOException("formato non letto (${conn.contentType})")
+            } catch (e: Exception) {
+                runOnUiThread { toast("Copertina non scaricata: ${e.message ?: e.javaClass.simpleName} · ${Uri.parse(url).host}") }
+                return@thread
+            }
             val name = saveFrame(key, picture, COVER_PREFIX)
             runOnUiThread { updateShows { withDetails(it, key, image = name) } }
         }

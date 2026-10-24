@@ -231,6 +231,12 @@ class WatchingTest {
         fake.totaltime = 1430
         assertTrue(kodi.resumeAt("http://cdn/12.m3u8|Referer=x", 760, tries = 3, wait = 10))
         assertEquals(760, fake.time)
+        // Kodi che non risponde bene mentre apre il video: si riprova, non si rinuncia
+        fake.time = 0
+        fake.failing = 2
+        assertTrue(kodi.resumeAt("http://cdn/12.m3u8|Referer=x", 700, tries = 5, wait = 10))
+        assertEquals(700, fake.time)
+        fake.time = 760
         // Se parte un altro video non salta
         assertFalse(kodi.resumeAt("http://cdn/13.m3u8", 500, tries = 2, wait = 10))
         assertEquals(760, fake.time)

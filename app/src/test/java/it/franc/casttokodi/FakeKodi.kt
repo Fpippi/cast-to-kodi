@@ -38,6 +38,8 @@ class FakeKodi(private val login: String? = null) : AutoCloseable {
     // Il punto salvato da Kodi per i video già riprodotti (posizione, durata) e quelli visti tutti
     val saved = mutableMapOf<String, Pair<Long, Long>>()
     val played = mutableSetOf<String>()
+    // Le prossime n chiamate rispondono con un errore, come Kodi mentre apre il video sulla Fire TV
+    var failing = 0
 
     private val server = TinyHttp { serve(it) }
 
@@ -71,6 +73,10 @@ class FakeKodi(private val login: String? = null) : AutoCloseable {
         val request = JSONObject(String(http.body))
         val method = request.getString("method")
         calls += method
+        if (failing > 0) {
+            failing--
+            return TinyHttp.Response(500)
+        }
         val reply = JSONObject().put("jsonrpc", "2.0").put("id", request.opt("id"))
         try {
             reply.put("result", answer(method, request.optJSONObject("params") ?: JSONObject()))
