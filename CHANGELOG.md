@@ -14,6 +14,13 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **⏭** nel telecomando, con la coda finita, sui siti di anime con player VixCloud manda a Kodi l'episodio dopo della
   serie, senza aprire la pagina. L'accodamento automatico resta spento.
 
+## 2.2.4
+
+- Copertina delle serie più nitida: prima veniva rimpicciolita troppo prima di essere tagliata per la scheda. Quelle
+  già salvate si riscaricano al prossimo episodio mandato.
+- L'icona di un sito nei preferiti e in **Continua a guardare** si aggiorna davvero quando lo visiti, anche se il
+  preferito era salvato su un altro dominio dello stesso sito (prima poteva restare quella di Google).
+
 ## 2.2.3
 
 - **Riprendi su Kodi** e il rinvio di un episodio a metà ripartono dal minuto anche quando Kodi, mentre apre il video,
