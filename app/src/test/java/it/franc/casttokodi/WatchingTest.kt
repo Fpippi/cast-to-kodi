@@ -15,6 +15,20 @@ class WatchingTest {
         episodeFromPage("www.animeunity.so", "/anime/1234-jojo/$id", null, "JoJo's Bizarre Adventure Episodio $number - AnimeUnity")!!
 
     @Test
+    fun animeUnityDallaPaginaDellaSerie() {
+        // Mandato dalla pagina della serie: il player dice poi numero e indirizzo vero dell'episodio
+        val serie = episodeFromPage("www.animeunity.so", "/anime/1234-jojo", null, "JoJo - AnimeUnity")!!
+        var shows = withSent(emptyList(), serie, "www.animeunity.so", "f1", 1000, playing = true)
+        assertEquals(1, shows.size)
+        shows = withDetails(shows, serie.key, path = serie.path, number = 1, at = "/anime/1234-jojo/56781")
+        assertEquals(1, shows[0].current.number)
+        assertEquals("/anime/1234-jojo/56781", shows[0].current.path)
+        // Poi l'episodio 1 dalla sua pagina è lo stesso
+        shows = withSent(shows, jojo(1), "www.animeunity.so", "f1b", 2000, playing = true)
+        assertEquals(1, shows[0].episodes.size)
+    }
+
+    @Test
     fun animeUnityDallIndirizzo() {
         val page = jojo(12)
         assertEquals("animeunity:/anime/1234-jojo", page.key)
@@ -27,8 +41,11 @@ class WatchingTest {
         val bare = episodeFromPage("animeunity.so", "/anime/77-frieren-beyond/9", null, null)!!
         assertEquals("Frieren Beyond", bare.series)
         assertNull(bare.number)
-        // La scheda della serie non è un episodio
-        assertNull(episodeFromPage("animeunity.so", "/anime/1234-jojo", null, "JoJo - AnimeUnity"))
+        // La pagina della serie ha già il player: stessa serie, numero ancora da sapere
+        val serie = episodeFromPage("animeunity.so", "/anime/1234-jojo", null, "JoJo - AnimeUnity")!!
+        assertEquals(page.key, serie.key)
+        assertEquals("/anime/1234-jojo", serie.path)
+        assertNull(serie.number)
     }
 
     @Test

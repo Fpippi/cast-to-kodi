@@ -2,7 +2,6 @@ package it.franc.casttokodi
 
 import it.franc.casttokodi.sites.animeUnitySeries
 import it.franc.casttokodi.sites.animeUnitySlugTitle
-import it.franc.casttokodi.sites.isAnimeUnityEpisode
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URI
@@ -83,7 +82,8 @@ private val EPISODE_WORD = Regex("(?i)\\b(?:episodio|episode|ep\\.?)\\s*(\\d{1,4
 private const val SEPARATORS = " -|–—:·,()[]"
 
 // L'episodio di una pagina: su AnimeUnity dall'indirizzo, sugli altri siti dal titolo ("Episodio 5", "S2E5",
-// "Stagione 2 Episodio 5"). null se la pagina non sembra un episodio
+// "Stagione 2 Episodio 5"). null se la pagina non sembra un episodio. Su AnimeUnity vale anche la pagina della serie
+// (/anime/1234-jojo), che ha già il player: il numero lo dice poi il player (EPISODE_INFO_JS)
 fun episodeFromPage(host: String?, path: String?, query: String?, title: String?): EpisodePage? {
     val site = siteOf(host).ifBlank { return null }
     val text = title.orEmpty().replace(Regex("\\s+"), " ").trim()
@@ -96,7 +96,6 @@ fun episodeFromPage(host: String?, path: String?, query: String?, title: String?
 
     val series = animeUnitySeries(host, path)
     if (series != null) {
-        if (!isAnimeUnityEpisode(host, path)) return null
         val name = before.ifBlank { suggestedName(text.takeIf { match == null }, null).takeIf { it.isNotBlank() } ?: animeUnitySlugTitle(series) }
         return EpisodePage("$site:$series", site, name, seasonNumber, number, fullPath)
     }
@@ -156,10 +155,11 @@ private fun same(e: Episode, page: EpisodePage) =
 
 // Quello che arriva dopo l'invio: dal player di AnimeUnity il nome della serie, quanti episodi sono e quello dopo;
 // il fotogramma dal video. null lascia com'era
-// path e number: il numero dell'episodio a quell'indirizzo, se il titolo della pagina non lo diceva
+// path e number: il numero dell'episodio a quell'indirizzo, se il titolo della pagina non lo diceva; at: il suo
+// indirizzo vero, se è stato mandato dalla pagina della serie di AnimeUnity
 fun withDetails(
     shows: List<Show>, key: String, title: String? = null, image: String? = null, count: Int? = null, next: Episode? = null,
-    path: String? = null, number: Int? = null,
+    path: String? = null, number: Int? = null, at: String? = null,
 ): List<Show> = shows.map { show ->
     if (show.key != key) show
     else show.copy(
@@ -167,7 +167,7 @@ fun withDetails(
         image = image ?: show.image,
         count = count ?: show.count,
         next = next ?: show.next,
-        episodes = show.episodes.map { if (number != null && it.number == null && it.path == path) it.copy(number = number) else it },
+        episodes = show.episodes.map { if (number != null && it.number == null && it.path == path) it.copy(number = number, path = at ?: it.path) else it },
     )
 }
 
