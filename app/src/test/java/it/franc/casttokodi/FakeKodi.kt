@@ -40,6 +40,8 @@ class FakeKodi(private val login: String? = null) : AutoCloseable {
     val played = mutableSetOf<String>()
     // Le prossime n chiamate rispondono con un errore, come Kodi mentre apre il video sulla Fire TV
     var failing = 0
+    // I prossimi n Player.Seek rispondono OK ma il video resta dov'è, come Kodi che salta mentre apre ancora il video
+    var ignoredSeeks = 0
 
     private val server = TinyHttp { serve(it) }
 
@@ -122,7 +124,7 @@ class FakeKodi(private val login: String? = null) : AutoCloseable {
             val value = params.getJSONObject("value")
             val to = value.optJSONObject("time")?.let { it.getLong("hours") * 3600 + it.getLong("minutes") * 60 + it.getLong("seconds") }
                 ?: (time + value.getLong("seconds"))
-            time = to.coerceIn(0, totaltime)
+            if (ignoredSeeks > 0) ignoredSeeks-- else time = to.coerceIn(0, totaltime)
             JSONObject().put("time", clock(time)).put("totaltime", clock(totaltime))
         }
         "Player.SetTempo" -> {
