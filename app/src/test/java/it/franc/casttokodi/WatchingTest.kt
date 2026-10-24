@@ -46,6 +46,10 @@ class WatchingTest {
         assertEquals(page.key, serie.key)
         assertEquals("/anime/1234-jojo", serie.path)
         assertNull(serie.number)
+        // Il titolo vero di AnimeUnity ha il nome del sito davanti
+        val vero = episodeFromPage("www.animeunity.co", "/anime/627-le-bizzarre-avventure-di-jojo-diamond-is-unbreakable/14883",
+            null, "AnimeUnity ~ Le Bizzarre Avventure di JoJo: Diamond is Unbreakable")!!
+        assertEquals("Le Bizzarre Avventure di JoJo: Diamond is Unbreakable", vero.series)
     }
 
     @Test

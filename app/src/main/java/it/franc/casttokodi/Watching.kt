@@ -86,7 +86,8 @@ private const val SEPARATORS = " -|–—:·,()[]"
 // (/anime/1234-jojo), che ha già il player: il numero lo dice poi il player (EPISODE_INFO_JS)
 fun episodeFromPage(host: String?, path: String?, query: String?, title: String?): EpisodePage? {
     val site = siteOf(host).ifBlank { return null }
-    val text = title.orEmpty().replace(Regex("\\s+"), " ").trim()
+    // AnimeUnity mette il suo nome davanti: "AnimeUnity ~ Le Bizzarre Avventure di JoJo"
+    val text = title.orEmpty().replace(Regex("\\s+"), " ").trim().replace(Regex("(?i)^animeunity\\s*~\\s*"), "")
     val fullPath = path.orEmpty().ifEmpty { "/" } + (query?.takeIf { it.isNotBlank() }?.let { "?$it" } ?: "")
     val season = SEASON_WORD.find(text) ?: SEASON_EPISODE.find(text)
     val match = season ?: EPISODE_WORD.find(text)

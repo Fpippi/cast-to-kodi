@@ -12,6 +12,8 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Continua a guardare** su AnimeUnity: la serie non compariva. Il sito cambia episodio senza caricare una pagina nuova,
   e l'app restava ferma all'indirizzo di prima (spesso la pagina della serie, che non contava come episodio). Ora segue
   l'indirizzo, e anche un episodio mandato dalla pagina della serie entra nella fila.
+- Se su AnimeUnity la serie non si salva, l'app ora lo dice con il motivo, invece di tacere.
+- Il nome della serie non comincia più con "AnimeUnity ~".
 
 ## 2.2.0
 
