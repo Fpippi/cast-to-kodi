@@ -40,6 +40,9 @@ class KodiState(
     // Secondi prima che parta l'elemento in posizione index, stimando gli episodi lunghi come quello in corso
     fun secondsUntil(index: Int): Long =
         if (playerId == null || !fromQueue) 0 else remaining + (index - position - 1).coerceAtLeast(0) * episode
+
+    // ⏭ del telecomando: c'è qualcosa dopo nella coda
+    val hasNext: Boolean get() = playerId != null && fromQueue && position + 1 < queueLength
 }
 
 // Una traccia audio o di sottotitoli del video in corso, come la descrive Kodi (lingua di 3 lettere, nome)

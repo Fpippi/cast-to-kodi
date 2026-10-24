@@ -87,6 +87,36 @@ class WatchingTest {
     }
 
     @Test
+    fun saltaSigla() {
+        var shows = withSent(emptyList(), jojo(12), "www.animeunity.so", "http://cdn/12.m3u8|Referer=x", 1000, playing = true)
+        // Finché la serie non ha il suo, vale quello per tutti
+        assertEquals(DEFAULT_INTRO, introOf(shows, "http://cdn/12.m3u8|Referer=y", DEFAULT_INTRO))
+        assertEquals(60, introOf(shows, "http://altro/video.mp4", 60))
+        shows = withIntro(shows, shows[0].key, 55)
+        assertEquals(55, introOf(shows, "http://cdn/12.m3u8", DEFAULT_INTRO))
+        // Resta dopo il salvataggio e con l'episodio dopo
+        shows = showsFromJson(showsToJson(shows))
+        shows = withSent(shows, jojo(13), "www.animeunity.so", "http://cdn/13.m3u8", 2000, playing = true)
+        assertEquals(55, introOf(shows, "http://cdn/13.m3u8", DEFAULT_INTRO))
+        assertEquals("Salta sigla (+1:25)", introLabel(85))
+    }
+
+    @Test
+    fun episodioDopo() {
+        val next = EpisodePage("x", "animeunity", "JoJo", null, 13, "/anime/1234-jojo/56793")
+        var shows = withSent(emptyList(), jojo(12), "animeunity.so", "f12", 1000, playing = true, count = 39, next = next)
+        assertEquals("/anime/1234-jojo/56793", episodeAfter(shows[0], "f12")?.path)
+        // Un video che non è della serie, o l'ultimo episodio: niente
+        assertNull(episodeAfter(shows[0], "altro"))
+        shows = withSent(shows, jojo(39), "animeunity.so", "f39", 2000, playing = true)
+        assertNull(episodeAfter(shows[0], "f39"))
+        // Senza il prossimo dal sito ma con l'episodio dopo già mandato una volta
+        shows = withSent(emptyList(), jojo(4), "animeunity.so", "f4", 1000, playing = true)
+        shows = withSent(shows, jojo(5), "animeunity.so", "f5", 1100, playing = false)
+        assertEquals(5, episodeAfter(shows[0], "f4")?.number)
+    }
+
+    @Test
     fun invioERiproduzione() {
         var shows = withSent(emptyList(), jojo(12), "www.animeunity.so", "http://cdn/12.m3u8|Referer=x", 1000, playing = true, count = 39)
         assertEquals(1, shows.size)
