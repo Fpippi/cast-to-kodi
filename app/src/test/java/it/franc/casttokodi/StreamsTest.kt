@@ -11,7 +11,7 @@ import java.net.URL
 // chiave, e il Kodi finto (FakeKodi) riproduce scaricando tutto come farebbe quello vero.
 class StreamsTest {
 
-    private val headers = listOf("Referer" to "https://animeunity.so/anime/1", "User-Agent" to "Pixel")
+    private val headers = listOf("Referer" to "https://animeunity.so/anime/1", "User-Agent" to "Telefono")
 
     private fun withRelay(test: (Streams) -> Unit) {
         val relay = Relay()
@@ -29,7 +29,7 @@ class StreamsTest {
                 val file = streams.kodiFile("${site.base}/master.m3u8", headers, viaPhone = true)
                 // La playlist la serve il telefono, gli header restano per i pezzi
                 assertTrue(file, file.startsWith("http://127.0.0.1:"))
-                assertTrue(file, file.endsWith("|Referer=https%3A%2F%2Fanimeunity.so%2Fanime%2F1&User-Agent=Pixel"))
+                assertTrue(file, file.endsWith("|Referer=https%3A%2F%2Fanimeunity.so%2Fanime%2F1&User-Agent=Telefono"))
                 Kodi(kodi.host, "").playNow(JSONObject().put("file", file))
 
                 // Kodi apre la playlist dal telefono: solo la qualità migliore, chiave sul telefono, pezzi sul sito

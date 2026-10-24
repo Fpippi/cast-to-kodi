@@ -630,7 +630,7 @@ class MainActivity : Activity() {
         setOnClickListener(onClick)
     }
 
-    // Colori di sistema (Material You, presi dallo sfondo del Pixel): accento per l'azione principale,
+    // Colori di sistema (Material You, presi dallo sfondo del telefono): accento per l'azione principale,
     // tonale per le secondarie, neutro quando non si può premere. Chiaro e scuro seguono il tema del telefono.
     private fun paint(button: Button, active: Boolean, primary: Boolean) {
         val (background, text) = when {

@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "it.franc.casttokodi"
-        minSdk = 33 // uso personale su Pixel 9 Pro XL
+        minSdk = 33 // uso personale, Android 13 o più recente
         targetSdk = 35
         // Su GitHub Actions cresce a ogni build, così ogni APK si installa sopra il precedente
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toInt() ?: 1

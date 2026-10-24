@@ -8,7 +8,7 @@
 
 <p align="center">
   Dal telefono alla Fire TV, gratis e senza pubblicità.<br>
-  Apri il sito sul Pixel, il video parte su <b>Kodi</b>.
+  Apri il sito sul telefono, il video parte su <b>Kodi</b>.
 </p>
 
 <p align="center">
@@ -25,12 +25,12 @@
 
 ---
 
-App Android personale (Pixel 9 Pro XL) per guardare i video dei siti di streaming sulla Fire TV. Sul telefono si chiama **Couch Cast**; repo, release e APK (`CastToKodi.apk`) mantengono il vecchio nome, così aggiornamenti e Obtainium continuano a funzionare.
+App Android personale (Android 13 o più recente) per guardare i video dei siti di streaming sulla Fire TV. Sul telefono si chiama **Couch Cast**; repo, release e APK (`CastToKodi.apk`) mantengono il vecchio nome, così aggiornamenti e Obtainium continuano a funzionare.
 
 ## ✨ Come funziona
 
 ```
-📱 Pixel (browser + telecomando)  ──link del video──▶  📺 Kodi sulla Fire TV  ──▶  🌐 sito di streaming
+📱 Telefono (browser + telecomando)  ──link del video──▶  📺 Kodi sulla Fire TV  ──▶  🌐 sito di streaming
 ```
 
 - 🔎 Il telefono fa da browser: apri il sito nell'app e avvii il player.
@@ -80,7 +80,7 @@ L'app parla con **Kodi**, non con la TV: funziona su qualunque dispositivo dove 
 
 ### 📱 App sul telefono, senza PC
 
-1. A ogni push su `main` GitHub Actions compila l'APK e lo pubblica come release "Versione X.Y.Z" (tag `vX.Y.Z`), con l'elenco delle novità preso da [CHANGELOG.md](CHANGELOG.md). Dal Pixel apri [releases/latest](https://github.com/Fpippi/cast-to-kodi/releases/latest) e scarica `CastToKodi.apk`.
+1. A ogni push su `main` GitHub Actions compila l'APK e lo pubblica come release "Versione X.Y.Z" (tag `vX.Y.Z`), con l'elenco delle novità preso da [CHANGELOG.md](CHANGELOG.md). Dal telefono apri [releases/latest](https://github.com/Fpippi/cast-to-kodi/releases/latest) e scarica `CastToKodi.apk`.
 2. Le build sono firmate con una chiave fissa (secrets `KEYSTORE_BASE64` e `KEYSTORE_PASSWORD` del repo; l'originale non è nel repo), quindi ogni APK si installa sopra il precedente. Se la chiave si perde, ne serve una nuova e va disinstallata l'app una volta.
 3. 🔔 All'avvio l'app avvisa se c'è una build nuova. Per aggiornare con un tocco si può usare **Obtainium** con l'indirizzo del repo.
 
@@ -91,7 +91,7 @@ L'app parla con **Kodi**, non con la TV: funziona su qualunque dispositivo dove 
 1. Installa Android Studio (developer.android.com/studio). Al primo avvio scarica da solo SDK e JDK.
 2. *File → Open* sulla cartella del progetto e aspetta la sincronizzazione Gradle.
 
-**Pixel**
+**Telefono**
 1. *Impostazioni → Info sul telefono*: tocca 7 volte "Numero build" per sbloccare le Opzioni sviluppatore.
 2. *Impostazioni → Sistema → Opzioni sviluppatore*: attiva **Debug USB**.
 3. Collega il telefono via USB, sceglilo in Android Studio e premi ▶️ Run.

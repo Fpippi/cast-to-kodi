@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Tema del telefono: chiaro o scuro come il sistema, con i colori Material You del Pixel -->
+    <!-- Tema del telefono: chiaro o scuro come il sistema, con i colori Material You del sistema -->
     <style name="App" parent="@android:style/Theme.DeviceDefault.DayNight">
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>

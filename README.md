@@ -8,7 +8,7 @@
 
 <p align="center">
   From your phone to the Fire TV, free and without ads.<br>
-  Open the site on your Pixel, the video plays on <b>Kodi</b>.
+  Open the site on your phone, the video plays on <b>Kodi</b>.
 </p>
 
 <p align="center">
@@ -25,7 +25,7 @@
 
 ---
 
-A personal Android app (Pixel 9 Pro XL) for watching videos from streaming sites on a Fire TV. On the phone it is called **Couch Cast**; the repo, releases and APK (`CastToKodi.apk`) keep the old name, so updates and Obtainium keep working.
+A personal Android app (Android 13 or later) for watching videos from streaming sites on a Fire TV. On the phone it is called **Couch Cast**; the repo, releases and APK (`CastToKodi.apk`) keep the old name, so updates and Obtainium keep working.
 
 > [!NOTE]
 > The app's interface is in Italian. Below, button names are given as they appear in the app, with a translation in brackets.
@@ -33,7 +33,7 @@ A personal Android app (Pixel 9 Pro XL) for watching videos from streaming sites
 ## ✨ How it works
 
 ```
-📱 Pixel (browser + remote)  ──video link──▶  📺 Kodi on the Fire TV  ──▶  🌐 streaming site
+📱 Phone (browser + remote)  ──video link──▶  📺 Kodi on the Fire TV  ──▶  🌐 streaming site
 ```
 
 - 🔎 The phone is the browser: open the site in the app and start the player.
@@ -83,7 +83,7 @@ The app talks to **Kodi**, not to the TV: it works on any device that runs Kodi 
 
 ### 📱 App on the phone, without a PC
 
-1. On every push to `main`, GitHub Actions builds the APK and publishes it as the release "Versione X.Y.Z" (tag `vX.Y.Z`), with the list of changes taken from [CHANGELOG.md](CHANGELOG.md) (in Italian). From the Pixel open [releases/latest](https://github.com/Fpippi/cast-to-kodi/releases/latest) and download `CastToKodi.apk`.
+1. On every push to `main`, GitHub Actions builds the APK and publishes it as the release "Versione X.Y.Z" (tag `vX.Y.Z`), with the list of changes taken from [CHANGELOG.md](CHANGELOG.md) (in Italian). From the phone open [releases/latest](https://github.com/Fpippi/cast-to-kodi/releases/latest) and download `CastToKodi.apk`.
 2. Builds are signed with a fixed key (repo secrets `KEYSTORE_BASE64` and `KEYSTORE_PASSWORD`; the original is not in the repo), so each APK installs over the previous one. If the key is lost a new one is needed, and the app must be uninstalled once.
 3. 🔔 On startup the app tells you if there is a new build. To update with one tap you can use **Obtainium** with the repo address.
 
@@ -94,7 +94,7 @@ The app talks to **Kodi**, not to the TV: it works on any device that runs Kodi 
 1. Install Android Studio (developer.android.com/studio). On first launch it downloads the SDK and JDK by itself.
 2. *File → Open* on the project folder and wait for the Gradle sync.
 
-**Pixel**
+**Phone**
 1. *Settings → About phone*: tap "Build number" 7 times to unlock Developer options.
 2. *Settings → System → Developer options*: turn on **USB debugging**.
 3. Connect the phone via USB, pick it in Android Studio and press ▶️ Run.
