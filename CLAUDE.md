@@ -19,6 +19,7 @@
 - Il Pixel trasmette solo con Google Cast e la Fire TV non lo supporta in modo nativo: per questo serve tutto questo giro.
 - Chiave di firma fissa nei secrets di GitHub, mai nel repo (l'utente la tiene in `D:\Progetti\casttokodi-firma`): così gli aggiornamenti si installano senza disinstallare. L'app avvisa delle build nuove leggendo `releases/latest` senza token.
 - README in due lingue (2026-10-23, scelta di Pippo): `README.md` in inglese (quello che GitHub mostra), `README.it.md` in italiano (importato qui sopra), tutorial `docs/TUTORIAL.md` + `docs/TUTORIAL.en.md`. Vanno tenuti allineati. L'interfaccia dell'app resta in italiano: nei testi inglesi i nomi dei pulsanti restano quelli dell'app, con la traduzione tra parentesi.
+- Sito (2026-10-24, per farlo trovare su Google): `docs/index.html` pubblicato da GitHub Pages (*Settings → Pages → main /docs*) su `https://fpippi.github.io/cast-to-kodi/`, testi EN/IT con lo stesso contenuto dei README, da tenere allineato. Jekyll resta acceso, quindi anche i tutorial in `docs/` diventano pagine. La pagina si registra in Google Search Console (github.com no, non è nostro). Gratis, nessun dominio comprato.
 - **Il repo è pubblico**: niente segreti, IP di casa, credenziali o dati personali nei file committati.
 - I commit portano solo l'utente come autore: niente `Co-Authored-By` né altre righe di attribuzione.
 - Nomi dei branch: `feature/<nome>` per cose nuove, `hotfix/<nome>` per bug esistenti, con nomi che dicono cosa fanno. Mai `claude/` o nomi generati.
