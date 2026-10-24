@@ -7,16 +7,13 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
-## 2.2.8
-
-- **Continua a guardare**: ogni episodio ha la sua immagine, presa dal suo video quando lo mandi a Kodi. La scheda
-  mostra quella dell'episodio a cui sei; se il fotogramma non arriva (alcuni video sono protetti) resta la copertina
-  della serie.
-
 ## 2.2.7
 
 - **Salta sigla**: accanto c'è il pulsante **Cambia** per scegliere quanto salta, anche con un tempo scritto a mano
   (*Altro tempo…*, es. `1:12` o `72` secondi). Prima si cambiava solo tenendo premuto il tasto.
+- **Continua a guardare**: ogni episodio ha la sua immagine, presa dal suo video quando lo mandi a Kodi. La scheda
+  mostra quella dell'episodio a cui sei; se il fotogramma non arriva (alcuni video sono protetti) resta la copertina
+  della serie.
 
 ## 2.2.6
 
