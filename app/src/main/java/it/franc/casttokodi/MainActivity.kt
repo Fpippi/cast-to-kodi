@@ -1763,6 +1763,32 @@ class MainActivity : Activity() {
             setOnClickListener { video { kodi, id -> kodi.playPause(id) } }
         }
 
+        // "Salta sigla": avanti di quanto vale per la serie in corso (introOf), da dove si è. Tenuto premuto si cambia
+        val intro = TextView(this).apply {
+            textSize = 15f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setTextColor(onSurface)
+            background = RippleDrawable(ColorStateList.valueOf(0x33808080), GradientDrawable().apply {
+                cornerRadius = dp(22).toFloat()
+                setColor(pad)
+            }, null)
+            setCompoundDrawablesRelative(icon(it.franc.casttokodi.R.drawable.ic_skip_next, onSurface, 20), null, null, null)
+            compoundDrawablePadding = dp(8)
+            setPadding(dp(20), 0, dp(20), 0)
+            text = introLabel(introOf(loadShows(), null, generalIntro()))
+            contentDescription = "Salta la sigla. Tieni premuto per cambiare di quanto"
+            tooltipText = contentDescription
+            setOnClickListener {
+                val seconds = introOf(loadShows(), now?.file, generalIntro())
+                video { kodi, id -> kodi.skip(id, seconds) }
+            }
+            setOnLongClickListener {
+                chooseIntro(now?.file) { seconds -> text = introLabel(seconds) }
+                true
+            }
+        }
+
         fun show(playing: NowPlaying?, problem: String?) {
             now = playing
             onRead(playing)
@@ -1783,6 +1809,7 @@ class MainActivity : Activity() {
                 return
             }
             title.text = queueLabel(playing.file, playing.title, loadTitles())
+            intro.text = introLabel(introOf(loadShows(), playing.file, generalIntro()))
             val end = if (playing.total > 0) "fino alle ${clockAt(System.currentTimeMillis() / 1000 + playing.total - playing.time)}" else "in diretta"
             status.text = if (playing.paused) "In pausa · $end" else end
             playPause.setImageDrawable(icon(
@@ -1836,7 +1863,13 @@ class MainActivity : Activity() {
             add(round(null, "−10", "Indietro di 10 secondi", true) { video { kodi, id -> kodi.skip(id, -10) } }, 48)
             add(playPause, 80, 64)
             add(round(null, "+10", "Avanti di 10 secondi", true) { video { kodi, id -> kodi.skip(id, 10) } }, 48)
-            add(round(it.franc.casttokodi.R.drawable.ic_skip_next, null, "Video successivo della coda", false) { video { kodi, id -> kodi.next(id) } }, 48)
+            add(round(it.franc.casttokodi.R.drawable.ic_skip_next, null, "Video successivo della coda, o episodio dopo", false) {
+                if (now?.playerId == null) return@round toast("Kodi non sta riproducendo niente")
+                val file = now?.file
+                onKodi({ kodi -> kodi.state().also { if (it.hasNext) kodi.next(it.playerId!!) } }, { state ->
+                    if (state.hasNext) refresh() else nextEpisode(file)
+                })
+            }, 48)
         }
 
         // Croce tonda: un cerchio con le frecce sui quattro lati e OK al centro, come il telecomando della Fire TV
@@ -1945,6 +1978,7 @@ class MainActivity : Activity() {
                 gap(bar, 16, height = 24),
                 gap(times, 2),
                 gap(transport, 16),
+                gap(intro, 16, width = -2, height = 44, gravity = Gravity.CENTER_HORIZONTAL),
                 gap(dpad, 24, 216, 216, Gravity.CENTER_HORIZONTAL),
                 gap(keys, 24),
                 gap(volume, 4),
@@ -2392,6 +2426,25 @@ class MainActivity : Activity() {
         // Con un tempo sbagliato il dialogo resta aperto
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { go() }
         field.requestFocus()
+    }
+
+    private fun generalIntro(): Int = prefs.getInt("intro", DEFAULT_INTRO)
+
+    // Di quanto salta "Salta sigla": per la serie del video in corso, o per tutti se il video non è di una serie nota
+    private fun chooseIntro(file: String?, done: (Int) -> Unit) {
+        val show = showOfFile(loadShows(), file)
+        val current = show?.intro ?: generalIntro()
+        val labels = INTRO_CHOICES.map { if (it < 60) "$it secondi" else clockLabel(it.toLong()) }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(if (show != null) "Salta sigla: ${show.title}" else "Salta sigla")
+            .setSingleChoiceItems(labels, INTRO_CHOICES.indexOf(current)) { dialog, i ->
+                val seconds = INTRO_CHOICES[i]
+                if (show != null) updateShows { withIntro(it, show.key, seconds) } else prefs.edit().putInt("intro", seconds).apply()
+                done(seconds)
+                dialog.dismiss()
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
     }
 
     private fun chooseTempo(done: (Double) -> Unit) {
@@ -3210,6 +3263,20 @@ class MainActivity : Activity() {
     // invisibile (stessi cookie del sito, quindi anche Cloudflare già passato), il player si legge con EPISODE_INFO_JS e
     // il link con resolveVixCloud, come per gli episodi successivi; sendToKodi riprende dal punto salvato. Se qualcosa
     // non va si apre la pagina qui, dove basta avviare il player e premere Manda a Kodi.
+    // ⏭ con la coda finita: l'episodio dopo, mandato come "Riprendi su Kodi". Solo se l'app sa leggere il player senza
+    // aprire la pagina (AnimeUnity); non accende l'accodamento automatico
+    private fun nextEpisode(file: String?) {
+        val show = showOfFile(loadShows(), file)
+        val target = show?.let { episodeAfter(it, file) }
+        when {
+            show == null -> toast("Niente dopo nella coda")
+            target == null -> toast("Niente dopo nella coda, e non so qual è l'episodio dopo")
+            !isAnimeUnityEpisode(siteHosts()[show.site] ?: show.host, target.path) ->
+                toast("Niente dopo nella coda: apri l'episodio ${target.number} sul sito e premi Manda a Kodi")
+            else -> resumeOnKodi(show, target)
+        }
+    }
+
     private fun resumeOnKodi(show: Show, target: Episode) {
         val url = episodeUrl(show, target, siteHosts())
         val name = "${show.title} Episodio ${target.number}"

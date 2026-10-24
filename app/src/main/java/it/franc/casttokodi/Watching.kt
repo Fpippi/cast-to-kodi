@@ -16,6 +16,12 @@ const val MAX_EPISODES = 6
 // Sotto i 30 secondi non si riprende dal punto: si riparte dall'inizio
 const val RESUME_MIN = 30L
 
+// "Salta sigla" del telecomando: va avanti di tanto da dove si è, perché la sigla non parte sempre allo stesso punto
+// (scelta di Pippo, 2026-10-24). Le sigle degli anime durano quasi sempre 1:30 e il tasto si preme a sigla già partita,
+// quindi un po' meno. Si cambia tenendolo premuto e vale per la serie, o per tutti i video se non è di una serie nota
+const val DEFAULT_INTRO = 85
+val INTRO_CHOICES = listOf(30, 45, 60, 75, 80, 85, 90, 95, 100, 110, 120)
+
 // Eseguito nella pagina di un episodio (non AnimeUnity, che la dà con EPISODE_INFO_JS): l'immagine di anteprima che il
 // sito dichiara per la condivisione (og:image), di solito la copertina della serie. Stringa vuota se non c'è
 const val PAGE_IMAGE_JS = """(function () {
@@ -53,6 +59,7 @@ data class Show(
     val next: Episode? = null,
     val image: String? = null,
     val updated: Long = 0,
+    val intro: Int? = null,
 ) {
     // L'ultimo mandato o visto su Kodi
     val current: Episode get() = episodes.filter { it.seen > 0 }.maxByOrNull { it.seen } ?: episodes.last()
@@ -154,6 +161,7 @@ fun withSent(
         next = if (playing && next != null) Episode(next.season, next.number, next.path) else old?.next,
         image = image ?: old?.image,
         updated = now,
+        intro = old?.intro,
     )
     return (listOf(show) + shows.filter { it.key != page.key }).take(MAX_SHOWS)
 }
@@ -221,6 +229,29 @@ fun withSaved(shows: List<Show>, file: String, time: Long, total: Long, played: 
     }
     return if (changed) result else null
 }
+
+// La serie del video che Kodi sta riproducendo, se è stato mandato dall'app
+fun showOfFile(shows: List<Show>, file: String?): Show? {
+    val key = file?.let { queueKey(it) } ?: return null
+    return shows.firstOrNull { s -> s.episodes.any { it.file != null && queueKey(it.file) == key } }
+}
+
+// Di quanto salta "Salta sigla" con questo video: quello della serie, se no general (l'impostazione per tutti)
+fun introOf(shows: List<Show>, file: String?, general: Int): Int = showOfFile(shows, file)?.intro ?: general
+
+fun withIntro(shows: List<Show>, key: String, seconds: Int): List<Show> = shows.map { if (it.key == key) it.copy(intro = seconds) else it }
+
+// ⏭ del telecomando con la coda finita: l'episodio dopo quello che Kodi sta riproducendo (file), se l'app lo conosce
+fun episodeAfter(show: Show, file: String?): Episode? {
+    val key = file?.let { queueKey(it) } ?: return null
+    val playing = show.episodes.firstOrNull { it.file != null && queueKey(it.file) == key } ?: return null
+    val number = playing.number ?: return null
+    if (show.count != null && playing.season == null && number >= show.count) return null
+    return show.episodes.firstOrNull { it.season == playing.season && it.number == number + 1 }
+        ?: show.next?.takeIf { it.season == playing.season && it.number == number + 1 }
+}
+
+fun introLabel(seconds: Int): String = "Salta sigla (+${clockLabel(seconds.toLong())})"
 
 fun withoutShow(shows: List<Show>, key: String): List<Show> = shows.filter { it.key != key }
 
@@ -296,7 +327,7 @@ fun showsToJson(shows: List<Show>): String = JSONArray(shows.map { s ->
     JSONObject().put("key", s.key).put("site", s.site).put("host", s.host).put("title", s.title)
         .put("episodes", JSONArray(s.episodes.map { episodeJson(it) }))
         .putOpt("count", s.count).putOpt("next", s.next?.let { episodeJson(it) })
-        .putOpt("image", s.image).put("updated", s.updated)
+        .putOpt("image", s.image).put("updated", s.updated).putOpt("intro", s.intro)
 }).toString()
 
 private fun episodeJson(e: Episode) = JSONObject().putOpt("season", e.season).putOpt("number", e.number).put("path", e.path)
@@ -314,6 +345,7 @@ fun showsFromJson(text: String?): List<Show> = try {
             next = o.optJSONObject("next")?.let { episodeOf(it) },
             image = o.optString("image").ifEmpty { null },
             updated = o.optLong("updated"),
+            intro = if (o.has("intro")) o.getInt("intro") else null,
         )
     }
 } catch (e: Exception) {
