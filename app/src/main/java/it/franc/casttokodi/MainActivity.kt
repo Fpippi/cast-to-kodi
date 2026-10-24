@@ -1767,7 +1767,8 @@ class MainActivity : Activity() {
             setOnClickListener { video { kodi, id -> kodi.playPause(id) } }
         }
 
-        // "Salta sigla": avanti di quanto vale per la serie in corso (introOf), da dove si è. Tenuto premuto si cambia
+        // "Salta sigla": avanti di quanto vale per la serie in corso (introOf), da dove si è. "Cambia" accanto (o la
+        // pressione lunga) sceglie quanto, anche un tempo scritto a mano
         val intro = TextView(this).apply {
             textSize = 15f
             typeface = Typeface.DEFAULT_BOLD
@@ -1791,6 +1792,24 @@ class MainActivity : Activity() {
                 chooseIntro(now?.file) { seconds -> text = introLabel(seconds) }
                 true
             }
+        }
+        val introEdit = TextView(this).apply {
+            text = "Cambia"
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setTextColor(onSurfaceVariant)
+            setPadding(dp(16), 0, dp(16), 0)
+            background = RippleDrawable(ColorStateList.valueOf(0x33808080), GradientDrawable().apply {
+                cornerRadius = dp(22).toFloat()
+                setStroke(dp(1), sys(R.color.system_neutral2_400, R.color.system_neutral2_600))
+            }, null)
+            contentDescription = "Cambia di quanto salta la sigla"
+            setOnClickListener { chooseIntro(now?.file) { seconds -> intro.text = introLabel(seconds) } }
+        }
+        val introRow = LinearLayout(this).apply {
+            gravity = Gravity.CENTER
+            addView(intro, LinearLayout.LayoutParams(-2, -1))
+            addView(introEdit, LinearLayout.LayoutParams(-2, -1).apply { marginStart = dp(8) })
         }
 
         fun show(playing: NowPlaying?, problem: String?) {
@@ -1982,7 +2001,7 @@ class MainActivity : Activity() {
                 gap(bar, 16, height = 24),
                 gap(times, 2),
                 gap(transport, 16),
-                gap(intro, 16, width = -2, height = 44, gravity = Gravity.CENTER_HORIZONTAL),
+                gap(introRow, 16, width = -2, height = 44, gravity = Gravity.CENTER_HORIZONTAL),
                 gap(dpad, 24, 216, 216, Gravity.CENTER_HORIZONTAL),
                 gap(keys, 24),
                 gap(volume, 4),
@@ -2438,17 +2457,55 @@ class MainActivity : Activity() {
     private fun chooseIntro(file: String?, done: (Int) -> Unit) {
         val show = showOfFile(loadShows(), file)
         val current = show?.intro ?: generalIntro()
-        val labels = INTRO_CHOICES.map { if (it < 60) "$it secondi" else clockLabel(it.toLong()) }.toTypedArray()
+        val title = if (show != null) "Salta sigla: ${show.title}" else "Salta sigla"
+        fun save(seconds: Int) {
+            if (show != null) updateShows { withIntro(it, show.key, seconds) } else prefs.edit().putInt("intro", seconds).apply()
+            done(seconds)
+        }
+        // In fondo il tempo scritto a mano: con quello attuale se non è tra i soliti
+        val custom = if (current in INTRO_CHOICES) "Altro tempo…" else "Altro tempo: ${introTime(current)}"
+        val labels = (INTRO_CHOICES.map { introTime(it) } + custom).toTypedArray()
+        val checked = INTRO_CHOICES.indexOf(current).takeIf { it >= 0 } ?: INTRO_CHOICES.size
         AlertDialog.Builder(this)
-            .setTitle(if (show != null) "Salta sigla: ${show.title}" else "Salta sigla")
-            .setSingleChoiceItems(labels, INTRO_CHOICES.indexOf(current)) { dialog, i ->
-                val seconds = INTRO_CHOICES[i]
-                if (show != null) updateShows { withIntro(it, show.key, seconds) } else prefs.edit().putInt("intro", seconds).apply()
-                done(seconds)
+            .setTitle(title)
+            .setSingleChoiceItems(labels, checked) { dialog, i ->
                 dialog.dismiss()
+                if (i < INTRO_CHOICES.size) save(INTRO_CHOICES[i]) else askIntro(title, current, ::save)
             }
             .setNegativeButton("Annulla", null)
             .show()
+    }
+
+    private fun askIntro(title: String, current: Int, done: (Int) -> Unit) {
+        val field = EditText(this).apply {
+            hint = "es. 1:25 o 85"
+            setText(clockLabel(current.toLong()))
+            selectAll()
+            isSingleLine = true
+            inputType = InputType.TYPE_CLASS_DATETIME or InputType.TYPE_DATETIME_VARIATION_TIME
+            imeOptions = EditorInfo.IME_ACTION_DONE
+        }
+        lateinit var dialog: AlertDialog
+        val go = {
+            val seconds = parseIntro(field.text.toString())
+            if (seconds == null) toast("Scrivi minuti:secondi (1:25) o i secondi (85), fino a ${clockLabel(MAX_INTRO.toLong())}")
+            else {
+                done(seconds)
+                dialog.dismiss()
+            }
+        }
+        dialog = AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage("Di quanto va avanti il tasto.")
+            .setView(section(field).apply { setPadding(dp(24), dp(8), dp(24), 0) })
+            .setPositiveButton("Salva", null)
+            .setNegativeButton("Annulla", null)
+            .create()
+        field.setOnEditorActionListener { _, _, _ -> go(); true }
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { go() }
+        field.requestFocus()
     }
 
     private fun chooseTempo(done: (Double) -> Unit) {
