@@ -7,6 +7,19 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.2.0
+
+- **Continua a guardare** nella pagina iniziale: una scheda per ogni serie mandata a Kodi, ferma all'episodio e al minuto
+  giusti (*Ep. 12 · fermo a 12:40*). Un episodio è visto quando Kodi passa il 95% o mancano meno di 2 minuti (la sigla),
+  e la scheda passa al prossimo. Una serie finita resta con **Finita** finché non la togli.
+- Toccando una serie: episodio prima, in corso e prossimo, **Riprendi su Kodi** (AnimeUnity: parte senza aprire la
+  pagina, dal minuto in cui eri) e **Apri qui**. Rimandando un episodio a metà da qualunque sito, Kodi riparte da lì.
+- La **✕** sulla scheda chiede conferma (la scheda diventa rossa per 4 secondi), poi c'è ancora **Annulla**.
+- **Ultima pagina** con la ✕ per toglierla, al posto di "Riprendi" che non si poteva cancellare.
+- Sul sito, se apri un altro episodio di una serie che stai guardando: **Eri all'episodio 12** con **Vai**.
+- La serie si riconosce anche quando il sito cambia dominio, e si riapre sull'ultimo dominio visto.
+- **Impostazioni → Cronologia**: *Ricorda dove sono arrivato* e *Cancella la cronologia*.
+
 ## 2.1.2
 
 - **Condividi → Couch Cast**: da Chrome, WhatsApp o un'altra app un link si apre nell'app, dove il video si trova come
