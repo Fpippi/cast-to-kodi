@@ -7,6 +7,14 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.2.2
+
+- **Continua a guardare**: la scheda della serie ha la copertina presa dal sito (AnimeUnity dalla pagina della serie,
+  gli altri siti dall'immagine di anteprima della pagina). Il fotogramma del video resta solo se la copertina manca.
+- I preferiti non prendono più l'icona di Google quando si salvano appena arrivati da una ricerca, e quelli che
+  l'avevano presa si correggono alla prossima visita del sito.
+- Il nome di pagine e video non comincia più con "AnimeUnity ~" (ultima pagina, barra di Kodi, coda, nuovi preferiti).
+
 ## 2.2.1
 
 - **Continua a guardare** su AnimeUnity: la serie non compariva. Il sito cambia episodio senza caricare una pagina nuova,

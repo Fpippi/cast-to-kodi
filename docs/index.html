@@ -1,0 +1,130 @@
+<!doctype html>
+<!-- Pagina di GitHub Pages (Settings → Pages → main /docs): serve a far trovare il progetto su Google.
+     Testi in inglese e italiano, da tenere allineati con README.md e README.it.md. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Couch Cast – send videos from your Android phone to Kodi on Fire TV</title>
+<meta name="description" content="Couch Cast is a free Android app without ads: open a streaming site on your phone and the video plays on Kodi on your Fire TV. Queue, remote, keep watching. Couch Cast: dal telefono Android a Kodi sulla Fire TV, gratis e senza pubblicità.">
+<link rel="canonical" href="https://fpippi.github.io/cast-to-kodi/">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Couch Cast – from your phone to Kodi on Fire TV">
+<meta property="og:description" content="Free Android app without ads: open the site on your phone, the video plays on Kodi.">
+<meta property="og:url" content="https://fpippi.github.io/cast-to-kodi/">
+<meta property="og:image" content="https://fpippi.github.io/cast-to-kodi/img/manda-a-kodi.gif">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Couch Cast",
+  "alternateName": "cast-to-kodi",
+  "operatingSystem": "Android 13+",
+  "applicationCategory": "MultimediaApplication",
+  "description": "Send videos from streaming sites on your Android phone to Kodi on Fire TV.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+  "downloadUrl": "https://github.com/Fpippi/cast-to-kodi/releases/latest/download/CastToKodi.apk",
+  "url": "https://fpippi.github.io/cast-to-kodi/",
+  "sameAs": "https://github.com/Fpippi/cast-to-kodi"
+}
+</script>
+<style>
+  :root { --bg: #f6f8f8; --card: #ffffff; --text: #17262a; --muted: #50656a; --accent: #0D5563; --on-accent: #ffffff; --line: #d9e2e3; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1a1c; --card: #172629; --text: #e6eeef; --muted: #9db2b6; --accent: #5fb3c2; --on-accent: #0f1a1c; --line: #29393c; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 48px; }
+  header { text-align: center; }
+  header img.icon { width: 104px; height: 104px; }
+  h1 { font-size: 2.2rem; margin: 12px 0 4px; }
+  h2 { font-size: 1.3rem; margin: 36px 0 8px; }
+  .tagline { color: var(--muted); font-size: 1.1rem; margin: 0 0 20px; }
+  .lang { position: absolute; top: 12px; right: 16px; }
+  .lang button { background: none; border: 1px solid var(--line); color: var(--text); border-radius: 999px; padding: 4px 12px; font: inherit; font-size: .9rem; cursor: pointer; }
+  .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn { display: inline-block; padding: 12px 22px; border-radius: 999px; text-decoration: none; font-weight: 600; border: 2px solid var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); color: var(--on-accent); }
+  .demo { display: block; width: 100%; max-width: 640px; height: auto; margin: 28px auto 4px; border-radius: 16px; }
+  .note { text-align: center; color: var(--muted); font-size: .85rem; margin: 0; }
+  ul { padding-left: 1.2em; }
+  li { margin: 6px 0; }
+  code { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1px 5px; font-size: .9em; }
+  a { color: var(--accent); }
+  footer { margin-top: 40px; text-align: center; color: var(--muted); font-size: .9rem; }
+  html[lang="en"] [lang="it"], html[lang="it"] [lang="en"] { display: none; }
+</style>
+</head>
+<body>
+<div class="lang"><button type="button" id="lang" aria-label="Italiano / English"></button></div>
+<main>
+  <header>
+    <img class="icon" src="icon.svg" alt="Couch Cast icon: a phone in front of a TV with a play button">
+    <h1>Couch Cast</h1>
+    <p class="tagline" lang="en">From your Android phone to Kodi on the Fire TV, free and without ads.</p>
+    <p class="tagline" lang="it">Dal telefono Android a Kodi sulla Fire TV, gratis e senza pubblicità.</p>
+    <div class="buttons">
+      <a class="btn primary" href="https://github.com/Fpippi/cast-to-kodi/releases/latest/download/CastToKodi.apk"><span lang="en">Download the APK</span><span lang="it">Scarica l'APK</span></a>
+      <a class="btn" href="https://github.com/Fpippi/cast-to-kodi"><span lang="en">Source on GitHub</span><span lang="it">Codice su GitHub</span></a>
+    </div>
+  </header>
+
+  <img class="demo" src="img/manda-a-kodi.gif" width="640" alt="Animation: Google search, opening the episode, starting the player, Manda a Kodi and the video on the TV">
+  <p class="note" lang="en">A drawing of the interface, not a recording.</p>
+  <p class="note" lang="it">Un disegno dell'interfaccia, non una registrazione.</p>
+
+  <section lang="en">
+    <h2>How it works</h2>
+    <p>The phone is the browser: open the streaming site in the app and start the player. Couch Cast picks up the video stream (<code>.m3u8</code> / <code>.mp4</code>) and sends it to <b>Kodi</b>, which plays it directly. The video does not go through the phone, so you get full quality and the phone can be locked.</p>
+    <ul>
+      <li>Popups, <code>window.open</code> and jumps to other domains are blocked: they are almost all of the ads on those sites.</li>
+      <li>Episode queue in Kodi's playlist, with the time each episode starts.</li>
+      <li>Keep watching: the app remembers which episode of each series you reached and at what minute.</li>
+      <li>Kodi remote inside the app, and a button that turns on the TV through ADB and HDMI-CEC.</li>
+      <li>Share a link from Chrome or any app to Couch Cast to open it or send it straight to Kodi.</li>
+    </ul>
+    <h2>What you need</h2>
+    <ul>
+      <li>An Android phone with Android 13 or later. The app's interface is in Italian.</li>
+      <li>Kodi with "Allow remote control via HTTP" turned on: Fire TV with Fire OS, Android TV, Nvidia Shield, a PC, a Raspberry Pi and more. Fire TV models with Vega OS cannot install Kodi.</li>
+      <li>Phone and TV on the same Wi-Fi network.</li>
+    </ul>
+    <p>Step-by-step guide: <a href="https://github.com/Fpippi/cast-to-kodi/blob/main/docs/TUTORIAL.en.md">How to use Couch Cast</a>.</p>
+  </section>
+
+  <section lang="it">
+    <h2>Come funziona</h2>
+    <p>Il telefono fa da browser: apri il sito di streaming nell'app e avvii il player. Couch Cast intercetta il flusso video (<code>.m3u8</code> / <code>.mp4</code>) e lo manda a <b>Kodi</b>, che lo riproduce direttamente. Il video non passa dal telefono: qualità piena e telefono che si può bloccare.</p>
+    <ul>
+      <li>Popup, <code>window.open</code> e salti verso altri domini vengono bloccati: sono quasi tutta la pubblicità di quei siti.</li>
+      <li>Coda degli episodi nella playlist di Kodi, con l'ora in cui parte ognuno.</li>
+      <li>Continua a guardare: l'app ricorda a che episodio di ogni serie sei arrivato e a che minuto.</li>
+      <li>Telecomando di Kodi nell'app e un pulsante che accende la TV con ADB e HDMI-CEC.</li>
+      <li>Condividi un link da Chrome o da un'altra app verso Couch Cast per aprirlo o mandarlo subito a Kodi.</li>
+    </ul>
+    <h2>Cosa serve</h2>
+    <ul>
+      <li>Un telefono con Android 13 o successivo.</li>
+      <li>Kodi con "Consenti il controllo remoto via HTTP" attivo: Fire TV con Fire OS, Android TV, Nvidia Shield, un PC, un Raspberry Pi e altri. Le Fire TV con Vega OS non permettono di installare Kodi.</li>
+      <li>Telefono e TV sulla stessa rete Wi-Fi.</li>
+    </ul>
+    <p>Guida passo passo: <a href="https://github.com/Fpippi/cast-to-kodi/blob/main/docs/TUTORIAL.md">Come si usa Couch Cast</a>.</p>
+  </section>
+
+  <footer>
+    <span lang="en">Personal open source project, no tracking.</span>
+    <span lang="it">Progetto personale open source, nessun tracciamento.</span>
+    · <a href="https://github.com/Fpippi/cast-to-kodi">github.com/Fpippi/cast-to-kodi</a>
+  </footer>
+</main>
+<script>
+  // Italiano se il browser è in italiano, altrimenti inglese; il pulsante in alto cambia lingua.
+  const html = document.documentElement, button = document.getElementById("lang");
+  function show(lang) { html.lang = lang; button.textContent = lang === "it" ? "English" : "Italiano"; }
+  show((navigator.language || "").toLowerCase().startsWith("it") ? "it" : "en");
+  button.addEventListener("click", () => show(html.lang === "it" ? "en" : "it"));
+</script>
+</body>
+</html>

@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Fpippi/cast-to-kodi/releases/latest/download/CastToKodi.apk"><b>📥 Scarica l'APK</b></a> · <a href="docs/TUTORIAL.md"><b>📖 Come si usa</b></a>
+  <a href="https://github.com/Fpippi/cast-to-kodi/releases/latest/download/CastToKodi.apk"><b>📥 Scarica l'APK</b></a> · <a href="docs/TUTORIAL.md"><b>📖 Come si usa</b></a> · <a href="https://fpippi.github.io/cast-to-kodi/"><b>🌐 Sito</b></a>
 </p>
 
 ---
