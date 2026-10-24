@@ -858,7 +858,18 @@ class MainActivity : Activity() {
                 // Con Kodi fermo "+ Coda" fa partire il video: anche lui diventa quello in corso
                 val playing = !queued || sent.message.startsWith("Inviato")
                 val file = sentFile
-                if (episode != null && file != null) recordSent(episode, pageUri.host.orEmpty(), file, playing, video, page)
+                // 2.2.1: su AnimeUnity la serie non compariva e dal codice non si capisce perché. Finché non è chiaro,
+                // l'app dice cosa è andato storto invece di tacere
+                if (episode != null && file != null) {
+                    try {
+                        recordSent(episode, pageUri.host.orEmpty(), file, playing, video, page)
+                        if (loadShows().none { it.key == episode.key }) notice("Continua a guardare non ha salvato", "Serie non ritrovata dopo il salvataggio\n\n$page")
+                    } catch (e: Exception) {
+                        notice("Continua a guardare non ha salvato", "$e\n\n$page")
+                    }
+                } else if (historyOn() && domainOf(pageUri.host).startsWith("animeunity.")) {
+                    notice("Continua a guardare non ha salvato", "Episodio: ${episode != null}, video: ${file != null}\n\n$page")
+                }
                 if (resume != null && playing && file != null) {
                     toast("${sent.message}: riparte da ${clockLabel(resume)}")
                     thread { runCatching { kodi.resumeAt(file, resume) } }
