@@ -308,6 +308,31 @@ class Kodi(val host: String, val auth: String) {
         call("Input.$key")
     }
 
+    // "Riprendi su Kodi" (Continua a guardare): appena il video file è partito ed è lungo quanto basta, si va al
+    // secondo dove ci si era fermati. Si aspetta fino a tries volte, wait ms tra una e l'altra: sulla Fire TV un video
+    // ci mette anche 20 secondi a partire. Non lo riapre mai (vedi la nota su Player.Open nel README). true se ha saltato
+    fun resumeAt(file: String, seconds: Long, tries: Int = 60, wait: Long = 1000): Boolean {
+        repeat(tries) {
+            val playing = nowPlaying()
+            val id = playing.playerId
+            if (id != null && queueKey(playing.file) == queueKey(file) && playing.total > seconds) {
+                seekTo(id, seconds)
+                return true
+            }
+            Thread.sleep(wait)
+        }
+        return false
+    }
+
+    // Il punto che Kodi ha salvato per un video già riprodotto (posizione e durata in secondi) e se l'ha visto tutto.
+    // Serve quando l'app era chiusa mentre l'episodio andava. null se Kodi non lo conosce
+    fun savedPoint(file: String): Triple<Long, Long, Boolean>? {
+        val params = JSONObject().put("file", file).put("media", "video").put("properties", JSONArray(listOf("resume", "playcount")))
+        val details = (call("Files.GetFileDetails", params) as? JSONObject)?.optJSONObject("filedetails") ?: return null
+        val resume = details.optJSONObject("resume")
+        return Triple(resume?.optDouble("position", 0.0)?.toLong() ?: 0, resume?.optDouble("total", 0.0)?.toLong() ?: 0, details.optInt("playcount") > 0)
+    }
+
     // Testo nel campo che Kodi ha aperto (la ricerca, un nome): con done Kodi lo conferma come con OK
     fun sendText(text: String) {
         call("Input.SendText", JSONObject().put("text", text).put("done", true))

@@ -35,6 +35,9 @@ class FakeKodi(private val login: String? = null) : AutoCloseable {
     var currentSubtitle = 0
     var subtitlesOn = false
     var text: String? = null
+    // Il punto salvato da Kodi per i video già riprodotti (posizione, durata) e quelli visti tutti
+    val saved = mutableMapOf<String, Pair<Long, Long>>()
+    val played = mutableSetOf<String>()
 
     private val server = TinyHttp { serve(it) }
 
@@ -214,6 +217,15 @@ class FakeKodi(private val login: String? = null) : AutoCloseable {
                 time = 0
             }
             "OK"
+        }
+        // Come Kodi: un file mai riprodotto non c'è nel suo database
+        "Files.GetFileDetails" -> {
+            val file = params.getString("file")
+            val point = saved[file] ?: if (file in played) 0L to 0L else throw Refusal(-32602, "Invalid params.")
+            JSONObject().put("filedetails", JSONObject()
+                .put("file", file)
+                .put("playcount", if (file in played) 1 else 0)
+                .put("resume", JSONObject().put("position", point.first.toDouble()).put("total", point.second.toDouble())))
         }
         else -> throw Refusal(-32601, "Method not found.")
     }

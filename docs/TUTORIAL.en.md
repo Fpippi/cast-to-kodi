@@ -54,11 +54,11 @@ on the phone, start the video, press a button and the video plays on the TV. The
 | **🛡 with a number** | Shows up when the app blocked popups or jumps to other sites on this page. Tap it to see which ones and open one, if you needed it. |
 | **★** | Your favourite sites. Filled if the open page is already a favourite. |
 | **Kodi bar** (at the bottom) | Always there, as soon as the app knows where Kodi is. It shows what is playing, with the time, play/pause and a thin line at the bottom that moves forward. The dot next to the status is lit if Kodi answers. If Kodi is on but idle it says *Acceso, niente in riproduzione* (On, nothing playing); if it is off or not answering there is the **⏻** button to turn the TV on. The button on the right, or a tap on the bar, opens the remote with the queue. |
-| **⋮** | A small menu: *Telecomando* (Remote), *Coda di Kodi* (Kodi queue), *Pagina iniziale* (Home page), *Impostazioni* (Settings: where Kodi is, power on, AnimeUnity, Kodi log, guide, version). |
+| **⋮** | A small menu: *Telecomando* (Remote), *Coda di Kodi* (Kodi queue), *Pagina iniziale* (Home page), *Impostazioni* (Settings: where Kodi is, power on, AnimeUnity, history, Kodi log, guide, version). |
 | **Manda a Kodi** (Send to Kodi) | Plays the page's video on the TV right away. It shows up at the bottom right, over the site, only when a video starts on the page. |
 | **+ Coda** (+ Queue: the round icon with lines and a +, next to *Manda a Kodi*) | Puts the video at the end of Kodi's queue, without interrupting what you are watching. Long-press it to open the queue. |
 
-On launch the **home page** opens: Kodi at the top (on, off or what it is playing, with an *Accendi* (Turn on) or *Telecomando* (Remote) button), then **Riprendi** (Resume) with the last page you watched and your favourites as icons. You get back to it with Back from a site's first page or with **⋮ → Pagina iniziale** (Home page).
+On launch the **home page** opens: Kodi at the top (on, off or what it is playing, with an *Accendi* (Turn on) or *Telecomando* (Remote) button), then **Continua a guardare** (Keep watching) with the series you are following, the **Ultima pagina** (Last page) you opened and your favourites as icons (see [Keep watching](#keep-watching)). You get back to it with Back from a site's first page or with **⋮ → Pagina iniziale** (Home page).
 
 Short messages ("Aggiunto alla coda", "Kodi è pronto"…) appear at the bottom of the screen, over the site.
 
@@ -259,7 +259,36 @@ With the **⋮** next to a video pick **Riproduci ora** (Play now) or **Togli da
   **Rinomina** (Rename) or **Togli** (Remove).
 - The **★** at the top is filled when the open page is already a favourite.
 
-The last page you watched is in **Riprendi** (Resume), on the home page.
+### Keep watching
+
+When you send an episode to Kodi, the app remembers it. On the home page, below Kodi, you find **Continua a guardare**
+(Keep watching): a row that scrolls sideways, with a card for each series, the most recent on the left.
+
+- The card says which episode you are at and the minute you stopped at (e.g. *Ep. 12 · fermo a 12:40*, stopped at
+  12:40), with a line showing how much you have watched. When Kodi passes 95% of the episode, or there are less than 2
+  minutes to the end (the ending theme), the episode counts as watched and the card moves to the next one
+  (*Visto il 12 · tocca al 13*, watched 12, 13 is next).
+- **Tap it**: a panel slides up with the previous episode, the current one and the next one. **Riprendi su Kodi**
+  (Resume on Kodi) sends the episode without opening the page and Kodi resumes from the minute you stopped at
+  (AnimeUnity only). **Apri qui** (Open here) opens the episode page: on other sites start the player, press
+  *Manda a Kodi* and Kodi still resumes from where you were. From the panel you can also mark the episode as watched.
+- A series that reached its last episode stays faded, marked **Finita** (Finished), until you remove it.
+- **Remove a series**: the **✕** at the top right of the card. The card turns red and asks *Togli …?* (Remove …?): tap
+  **Togli** (Remove) (if you tap nothing, it goes back to normal after 4 seconds). Right after, you can still press
+  **Annulla** (Undo) in the notice at the bottom.
+- Below is the **Ultima pagina** (Last page) you opened, if it is not already an episode in the row: the ✕ removes it
+  with one tap, with *Annulla* (Undo).
+- If you open from the site (or from Google) a series you are watching but on another episode, below the bar you see
+  **Eri all'episodio 12** (You were at episode 12) with **Vai** (Go).
+- Sites change domain often: the app recognises the series from the site's name and the part of the address that stays
+  the same, and reopens it on the last domain it saw working.
+- **⋮ → Impostazioni → Cronologia** (Settings → History): *Ricorda dove sono arrivato* (Remember where I got to; when
+  off the app saves nothing and the home page shows no series and no last page) and *Cancella la cronologia*
+  (Clear history).
+
+The app reads the minute from Kodi while it is open; if the phone was locked, when you go back to the home page it asks
+Kodi, which usually remembers it. On AnimeUnity series and number come from the address and the player; on other sites
+from the page title ("Episodio 5", "S2E5"): if the title doesn't say them, the page is only kept as the last page.
 
 ---
 
