@@ -893,7 +893,11 @@ class MainActivity : Activity() {
                 }
                 if (resume != null && playing && file != null) {
                     toast("${sent.message}: riparte da ${clockLabel(resume)}")
-                    thread { runCatching { kodi.resumeAt(file, resume) } }
+                    thread {
+                        val failed = runCatching { kodi.resumeAt(file, resume) }.getOrElse { it.message ?: it.javaClass.simpleName }
+                        // 2.2.5: la ripresa non funzionava sulla Fire TV vera; finché non è provata, l'app dice perché
+                        if (failed != null) runOnUiThread { notice("Non riparte da ${clockLabel(resume)}", "$failed.\n\nPuoi andare al minuto dal telecomando.") }
+                    }
                 } else {
                     toast(sent.message)
                 }
