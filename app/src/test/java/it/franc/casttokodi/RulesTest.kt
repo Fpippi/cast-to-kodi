@@ -183,6 +183,7 @@ class RulesTest {
         assertEquals("Guarda JoJo Episodio 3 Streaming SUB ITA",
             suggestedName("Guarda JoJo Episodio 3 Streaming SUB ITA - AnimeUnity", "www.animeunity.so"))
         assertEquals("Film", suggestedName("  Film  |  Sito ", "sito.it"))
+        assertEquals("Fire Force (ITA)", suggestedName("AnimeUnity ~ Fire Force (ITA) - Episodio 1", "www.animeunity.co"))
         assertEquals("animeunity.so", suggestedName("   ", "www.animeunity.so"))
         assertEquals("animeunity.so", suggestedName(null, "www.animeunity.so"))
         assertEquals("- Solo trattino", suggestedName("- Solo trattino", "x.it"))

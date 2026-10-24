@@ -134,7 +134,8 @@ data class Favorite(val title: String, val url: String, val icon: String? = null
 // Nome proposto quando si aggiunge una pagina: il titolo senza il nome del sito in coda
 // ("Guarda JoJo Episodio 3 - AnimeUnity" -> "Guarda JoJo Episodio 3"), o il dominio se non c'è titolo
 fun suggestedName(pageTitle: String?, host: String?): String {
-    val title = pageTitle.orEmpty().replace(Regex("\\s+"), " ").trim()
+    // Alcuni siti mettono il loro nome davanti con una tilde: "AnimeUnity ~ Fire Force (ITA) Streaming"
+    val title = pageTitle.orEmpty().replace(Regex("\\s+"), " ").trim().replace(Regex("^[^~]{1,30} ~ (?=\\S)"), "")
     val short = title.split(" - ", " | ", " – ", " — ").first().trim()
     return short.ifEmpty { title }.ifEmpty { shortHost(host) }
 }
