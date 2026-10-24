@@ -21,6 +21,18 @@ const val RESUME_MIN = 30L
 // quindi un po' meno. Si cambia tenendolo premuto e vale per la serie, o per tutti i video se non è di una serie nota
 const val DEFAULT_INTRO = 85
 val INTRO_CHOICES = listOf(30, 45, 60, 75, 80, 85, 90, 95, 100, 110, 120)
+const val MAX_INTRO = 600
+
+// Il tempo scritto a mano per "Salta sigla": "1:25" o solo i secondi ("85", non minuti come in "Vai al minuto").
+// null se non è un tempo o se è fuori da 1 secondo – 10 minuti
+fun parseIntro(input: String): Int? {
+    val text = input.trim().replace('.', ':').replace(',', ':')
+    val seconds = text.toIntOrNull() ?: parseClock(text)?.takeIf { ':' in text }?.toInt() ?: return null
+    return seconds.takeIf { it in 1..MAX_INTRO }
+}
+
+// "45 secondi", "1:25" nell'elenco di Salta sigla
+fun introTime(seconds: Int): String = if (seconds < 60) "$seconds secondi" else clockLabel(seconds.toLong())
 
 // Eseguito nella pagina di un episodio (non AnimeUnity, che la dà con EPISODE_INFO_JS): l'immagine di anteprima che il
 // sito dichiara per la condivisione (og:image), di solito la copertina della serie. Stringa vuota se non c'è

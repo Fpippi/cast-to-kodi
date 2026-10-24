@@ -7,6 +7,11 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.2.7
+
+- **Salta sigla**: accanto c'è il pulsante **Cambia** per scegliere quanto salta, anche con un tempo scritto a mano
+  (*Altro tempo…*, es. `1:12` o `72` secondi). Prima si cambiava solo tenendo premuto il tasto.
+
 ## 2.2.6
 
 - **Riprendi su Kodi** salta al minuto solo quando il video sta già andando, poi controlla che Kodi ci sia arrivato

@@ -99,6 +99,14 @@ class WatchingTest {
         shows = withSent(shows, jojo(13), "www.animeunity.so", "http://cdn/13.m3u8", 2000, playing = true)
         assertEquals(55, introOf(shows, "http://cdn/13.m3u8", DEFAULT_INTRO))
         assertEquals("Salta sigla (+1:25)", introLabel(85))
+        // Tempo scritto a mano: un numero solo sono secondi
+        assertEquals(85, parseIntro("85"))
+        assertEquals(72, parseIntro(" 1:12 "))
+        assertEquals(72, parseIntro("1.12"))
+        assertNull(parseIntro("0"))
+        assertNull(parseIntro("11:00"))
+        assertNull(parseIntro("sigla"))
+        assertEquals("45 secondi", introTime(45))
     }
 
     @Test
