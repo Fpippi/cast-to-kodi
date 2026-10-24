@@ -1772,8 +1772,8 @@ class MainActivity : Activity() {
             setOnClickListener { video { kodi, id -> kodi.playPause(id) } }
         }
 
-        // "Salta sigla": avanti di quanto vale per la serie in corso (introOf), da dove si è. "Cambia" accanto (o la
-        // pressione lunga) sceglie quanto, anche un tempo scritto a mano
+        // "Salta sigla": avanti di quanto vale per la serie in corso (introOf), da dove si è. Al primo tocco su una serie
+        // senza tempo si sceglie quanto (scelta di Pippo); la pressione lunga lo cambia, anche con un tempo scritto a mano
         val intro = TextView(this).apply {
             textSize = 15f
             typeface = Typeface.DEFAULT_BOLD
@@ -1790,31 +1790,18 @@ class MainActivity : Activity() {
             contentDescription = "Salta la sigla. Tieni premuto per cambiare di quanto"
             tooltipText = contentDescription
             setOnClickListener {
+                if (now?.playerId == null) return@setOnClickListener toast("Kodi non sta riproducendo niente")
                 val seconds = introOf(loadShows(), now?.file, generalIntro())
-                video { kodi, id -> kodi.skip(id, seconds) }
+                if (seconds != null) video { kodi, id -> kodi.skip(id, seconds) }
+                else chooseIntro(now?.file) { chosen ->
+                    text = introLabel(chosen)
+                    video { kodi, id -> kodi.skip(id, chosen) }
+                }
             }
             setOnLongClickListener {
                 chooseIntro(now?.file) { seconds -> text = introLabel(seconds) }
                 true
             }
-        }
-        val introEdit = TextView(this).apply {
-            text = "Cambia"
-            textSize = 14f
-            gravity = Gravity.CENTER
-            setTextColor(onSurfaceVariant)
-            setPadding(dp(16), 0, dp(16), 0)
-            background = RippleDrawable(ColorStateList.valueOf(0x33808080), GradientDrawable().apply {
-                cornerRadius = dp(22).toFloat()
-                setStroke(dp(1), sys(R.color.system_neutral2_400, R.color.system_neutral2_600))
-            }, null)
-            contentDescription = "Cambia di quanto salta la sigla"
-            setOnClickListener { chooseIntro(now?.file) { seconds -> intro.text = introLabel(seconds) } }
-        }
-        val introRow = LinearLayout(this).apply {
-            gravity = Gravity.CENTER
-            addView(intro, LinearLayout.LayoutParams(-2, -1))
-            addView(introEdit, LinearLayout.LayoutParams(-2, -1).apply { marginStart = dp(8) })
         }
 
         fun show(playing: NowPlaying?, problem: String?) {
@@ -2006,7 +1993,7 @@ class MainActivity : Activity() {
                 gap(bar, 16, height = 24),
                 gap(times, 2),
                 gap(transport, 16),
-                gap(introRow, 16, width = -2, height = 44, gravity = Gravity.CENTER_HORIZONTAL),
+                gap(intro, 16, width = -2, height = 44, gravity = Gravity.CENTER_HORIZONTAL),
                 gap(dpad, 24, 216, 216, Gravity.CENTER_HORIZONTAL),
                 gap(keys, 24),
                 gap(volume, 4),
@@ -2456,26 +2443,27 @@ class MainActivity : Activity() {
         field.requestFocus()
     }
 
-    private fun generalIntro(): Int = prefs.getInt("intro", DEFAULT_INTRO)
+    // Il tempo per i video che non sono di una serie nota; null finché non lo si sceglie
+    private fun generalIntro(): Int? = if (prefs.contains("intro")) prefs.getInt("intro", DEFAULT_INTRO) else null
 
     // Di quanto salta "Salta sigla": per la serie del video in corso, o per tutti se il video non è di una serie nota
     private fun chooseIntro(file: String?, done: (Int) -> Unit) {
         val show = showOfFile(loadShows(), file)
-        val current = show?.intro ?: generalIntro()
+        val current = if (show != null) show.intro else generalIntro()
         val title = if (show != null) "Salta sigla: ${show.title}" else "Salta sigla"
         fun save(seconds: Int) {
             if (show != null) updateShows { withIntro(it, show.key, seconds) } else prefs.edit().putInt("intro", seconds).apply()
             done(seconds)
         }
         // In fondo il tempo scritto a mano: con quello attuale se non è tra i soliti
-        val custom = if (current in INTRO_CHOICES) "Altro tempo…" else "Altro tempo: ${introTime(current)}"
+        val custom = if (current == null || current in INTRO_CHOICES) "Altro tempo…" else "Altro tempo: ${introTime(current)}"
         val labels = (INTRO_CHOICES.map { introTime(it) } + custom).toTypedArray()
-        val checked = INTRO_CHOICES.indexOf(current).takeIf { it >= 0 } ?: INTRO_CHOICES.size
+        val checked = if (current == null) -1 else INTRO_CHOICES.indexOf(current).takeIf { it >= 0 } ?: INTRO_CHOICES.size
         AlertDialog.Builder(this)
             .setTitle(title)
             .setSingleChoiceItems(labels, checked) { dialog, i ->
                 dialog.dismiss()
-                if (i < INTRO_CHOICES.size) save(INTRO_CHOICES[i]) else askIntro(title, current, ::save)
+                if (i < INTRO_CHOICES.size) save(INTRO_CHOICES[i]) else askIntro(title, current ?: DEFAULT_INTRO, ::save)
             }
             .setNegativeButton("Annulla", null)
             .show()

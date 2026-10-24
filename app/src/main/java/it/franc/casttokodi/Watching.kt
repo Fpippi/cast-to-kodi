@@ -18,7 +18,8 @@ const val RESUME_MIN = 30L
 
 // "Salta sigla" del telecomando: va avanti di tanto da dove si è, perché la sigla non parte sempre allo stesso punto
 // (scelta di Pippo, 2026-10-24). Le sigle degli anime durano quasi sempre 1:30 e il tasto si preme a sigla già partita,
-// quindi un po' meno. Si cambia tenendolo premuto e vale per la serie, o per tutti i video se non è di una serie nota
+// quindi un po' meno: è il primo proposto quando si scrive il tempo a mano. Il tempo vale per la serie, o per tutti i
+// video se non è di una serie nota, e si sceglie al primo tocco
 const val DEFAULT_INTRO = 85
 val INTRO_CHOICES = listOf(30, 45, 60, 75, 80, 85, 90, 95, 100, 110, 120)
 const val MAX_INTRO = 600
@@ -266,8 +267,12 @@ fun showOfFile(shows: List<Show>, file: String?): Show? {
     return shows.firstOrNull { s -> s.episodes.any { it.file != null && queueKey(it.file) == key } }
 }
 
-// Di quanto salta "Salta sigla" con questo video: quello della serie, se no general (l'impostazione per tutti)
-fun introOf(shows: List<Show>, file: String?, general: Int): Int = showOfFile(shows, file)?.intro ?: general
+// Di quanto salta "Salta sigla" con questo video: quello della serie, o general (per tutti) se il video non è di una
+// serie nota. null se non è ancora stato scelto: il tasto lo chiede
+fun introOf(shows: List<Show>, file: String?, general: Int?): Int? {
+    val show = showOfFile(shows, file) ?: return general
+    return show.intro
+}
 
 fun withIntro(shows: List<Show>, key: String, seconds: Int): List<Show> = shows.map { if (it.key == key) it.copy(intro = seconds) else it }
 
@@ -281,7 +286,7 @@ fun episodeAfter(show: Show, file: String?): Episode? {
         ?: show.next?.takeIf { it.season == playing.season && it.number == number + 1 }
 }
 
-fun introLabel(seconds: Int): String = "Salta sigla (+${clockLabel(seconds.toLong())})"
+fun introLabel(seconds: Int?): String = if (seconds == null) "Salta sigla" else "Salta sigla (+${clockLabel(seconds.toLong())})"
 
 fun withoutShow(shows: List<Show>, key: String): List<Show> = shows.filter { it.key != key }
 

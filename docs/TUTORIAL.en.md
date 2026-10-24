@@ -181,10 +181,10 @@ dragging down. At the top right there is Kodi's name with a lit dot if it answer
 - **⏭ when the queue is over**: if nothing is queued after the video playing, on anime sites with the VixCloud player
   ⏭ sends Kodi the next episode of the same series (the phone prepares it in a couple of seconds, like *Riprendi su
   Kodi*). On other sites the app tells you which episode to open. It does not turn on automatic queueing.
-- **Salta sigla** (Skip intro): when the opening starts, tap it and the video jumps 1:25 forward from where it is. If
-  a series' opening is longer or shorter, tap **Cambia** (Change) next to it (or long-press it) and pick how much, or
-  type the exact time with *Altro tempo…* (Other time, e.g. `1:12` or `72`): it applies to that series (or to every
-  video, if the video is not from a series in *Continua a guardare*). It never skips on its own: the opening does not
+- **Salta sigla** (Skip intro): when the opening starts, tap it and the video jumps forward from where it is. The
+  first time for each series the app asks how much (30 seconds to 2 minutes, or *Altro tempo…* (Other time) to type
+  it, e.g. `1:12` or `72`) and then remembers it: one series can skip 1:30 and another 45 seconds. Long-press it to
+  change it. Videos that are not from a series in *Continua a guardare* share a single time. It never skips on its own: the opening does not
   always start at the same minute.
 - **The round D-pad with OK** and below it **Back**, **Home**, **volume down** and **volume up** (Kodi's volume, not
   the TV's): to move around Kodi's menus.
