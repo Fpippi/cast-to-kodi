@@ -789,8 +789,9 @@ class MainActivity : Activity() {
     // Durata in secondi e un fotogramma piccolo, per riconoscere l'episodio da un trailer o da una pubblicità.
     // Da un thread di background. MP4: li legge MediaMetadataRetriever dal sito. HLS: Streams.preview scarica un pezzo
     // della qualità più leggera (già decifrato) e il fotogramma si prende da lì. Video protetti: niente immagine.
-    // width: larghezza massima del fotogramma in pixel (quella delle anteprime nell'elenco dei video, se non detta)
-    private fun videoPreview(video: Video, userAgent: String, width: Int = dp(224)): Pair<Long?, Bitmap?> {
+    // width: larghezza massima del fotogramma in pixel (quella delle anteprime nell'elenco dei video, se non detta).
+    // failed: perché il fotogramma non c'è, se manca
+    private fun videoPreview(video: Video, userAgent: String, width: Int = dp(224), failed: (String) -> Unit = {}): Pair<Long?, Bitmap?> {
         val headers = streamHeaders(video.url, video.referer, userAgent)
         val retriever = MediaMetadataRetriever()
         var file: File? = null
@@ -801,7 +802,7 @@ class MainActivity : Activity() {
             } else {
                 val preview = streams.preview(video.url, headers)
                 seconds = preview.seconds
-                val sample = preview.sample ?: return seconds to null
+                val sample = preview.sample ?: return (seconds to null).also { failed(preview.error ?: "pezzo del video non scaricato") }
                 file = File.createTempFile("anteprima", ".ts", cacheDir).apply { writeBytes(sample) }
                 retriever.setDataSource(file.path)
             }
@@ -809,8 +810,11 @@ class MainActivity : Activity() {
             if (seconds == null) seconds = length?.let { it / 1000 }
             // Per un MP4 al 10% (l'inizio spesso è nero), per un pezzo HLS a metà
             val at = if (file == null) minOf((length ?: 0) / 10, 90_000) else (length ?: 0) / 2
-            seconds to retriever.getScaledFrameAtTime(at * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, width, width * 9 / 16)
+            val frame = retriever.getScaledFrameAtTime(at * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, width, width * 9 / 16)
+            if (frame == null) failed("il telefono non legge il fotogramma dal pezzo")
+            seconds to frame
         } catch (e: Exception) {
+            failed(e.message ?: e.javaClass.simpleName)
             seconds to null
         } finally {
             retriever.release()
@@ -1768,8 +1772,8 @@ class MainActivity : Activity() {
             setOnClickListener { video { kodi, id -> kodi.playPause(id) } }
         }
 
-        // "Salta sigla": avanti di quanto vale per la serie in corso (introOf), da dove si è. "Cambia" accanto (o la
-        // pressione lunga) sceglie quanto, anche un tempo scritto a mano
+        // "Salta sigla": avanti di quanto vale per la serie in corso (introOf), da dove si è. Al primo tocco su una serie
+        // senza tempo si sceglie quanto (scelta di Pippo); la pressione lunga lo cambia, anche con un tempo scritto a mano
         val intro = TextView(this).apply {
             textSize = 15f
             typeface = Typeface.DEFAULT_BOLD
@@ -1786,31 +1790,18 @@ class MainActivity : Activity() {
             contentDescription = "Salta la sigla. Tieni premuto per cambiare di quanto"
             tooltipText = contentDescription
             setOnClickListener {
+                if (now?.playerId == null) return@setOnClickListener toast("Kodi non sta riproducendo niente")
                 val seconds = introOf(loadShows(), now?.file, generalIntro())
-                video { kodi, id -> kodi.skip(id, seconds) }
+                if (seconds != null) video { kodi, id -> kodi.skip(id, seconds) }
+                else chooseIntro(now?.file) { chosen ->
+                    text = introLabel(chosen)
+                    video { kodi, id -> kodi.skip(id, chosen) }
+                }
             }
             setOnLongClickListener {
                 chooseIntro(now?.file) { seconds -> text = introLabel(seconds) }
                 true
             }
-        }
-        val introEdit = TextView(this).apply {
-            text = "Cambia"
-            textSize = 14f
-            gravity = Gravity.CENTER
-            setTextColor(onSurfaceVariant)
-            setPadding(dp(16), 0, dp(16), 0)
-            background = RippleDrawable(ColorStateList.valueOf(0x33808080), GradientDrawable().apply {
-                cornerRadius = dp(22).toFloat()
-                setStroke(dp(1), sys(R.color.system_neutral2_400, R.color.system_neutral2_600))
-            }, null)
-            contentDescription = "Cambia di quanto salta la sigla"
-            setOnClickListener { chooseIntro(now?.file) { seconds -> intro.text = introLabel(seconds) } }
-        }
-        val introRow = LinearLayout(this).apply {
-            gravity = Gravity.CENTER
-            addView(intro, LinearLayout.LayoutParams(-2, -1))
-            addView(introEdit, LinearLayout.LayoutParams(-2, -1).apply { marginStart = dp(8) })
         }
 
         fun show(playing: NowPlaying?, problem: String?) {
@@ -2002,7 +1993,7 @@ class MainActivity : Activity() {
                 gap(bar, 16, height = 24),
                 gap(times, 2),
                 gap(transport, 16),
-                gap(introRow, 16, width = -2, height = 44, gravity = Gravity.CENTER_HORIZONTAL),
+                gap(intro, 16, width = -2, height = 44, gravity = Gravity.CENTER_HORIZONTAL),
                 gap(dpad, 24, 216, 216, Gravity.CENTER_HORIZONTAL),
                 gap(keys, 24),
                 gap(volume, 4),
@@ -2452,26 +2443,27 @@ class MainActivity : Activity() {
         field.requestFocus()
     }
 
-    private fun generalIntro(): Int = prefs.getInt("intro", DEFAULT_INTRO)
+    // Il tempo per i video che non sono di una serie nota; null finché non lo si sceglie
+    private fun generalIntro(): Int? = if (prefs.contains("intro")) prefs.getInt("intro", DEFAULT_INTRO) else null
 
     // Di quanto salta "Salta sigla": per la serie del video in corso, o per tutti se il video non è di una serie nota
     private fun chooseIntro(file: String?, done: (Int) -> Unit) {
         val show = showOfFile(loadShows(), file)
-        val current = show?.intro ?: generalIntro()
+        val current = if (show != null) show.intro else generalIntro()
         val title = if (show != null) "Salta sigla: ${show.title}" else "Salta sigla"
         fun save(seconds: Int) {
             if (show != null) updateShows { withIntro(it, show.key, seconds) } else prefs.edit().putInt("intro", seconds).apply()
             done(seconds)
         }
         // In fondo il tempo scritto a mano: con quello attuale se non è tra i soliti
-        val custom = if (current in INTRO_CHOICES) "Altro tempo…" else "Altro tempo: ${introTime(current)}"
+        val custom = if (current == null || current in INTRO_CHOICES) "Altro tempo…" else "Altro tempo: ${introTime(current)}"
         val labels = (INTRO_CHOICES.map { introTime(it) } + custom).toTypedArray()
-        val checked = INTRO_CHOICES.indexOf(current).takeIf { it >= 0 } ?: INTRO_CHOICES.size
+        val checked = if (current == null) -1 else INTRO_CHOICES.indexOf(current).takeIf { it >= 0 } ?: INTRO_CHOICES.size
         AlertDialog.Builder(this)
             .setTitle(title)
             .setSingleChoiceItems(labels, checked) { dialog, i ->
                 dialog.dismiss()
-                if (i < INTRO_CHOICES.size) save(INTRO_CHOICES[i]) else askIntro(title, current, ::save)
+                if (i < INTRO_CHOICES.size) save(INTRO_CHOICES[i]) else askIntro(title, current ?: DEFAULT_INTRO, ::save)
             }
             .setNegativeButton("Annulla", null)
             .show()
@@ -2879,7 +2871,10 @@ class MainActivity : Activity() {
         val small = previews[video.url]
         val width = resources.displayMetrics.widthPixels.coerceIn(480, 1280)
         thread {
-            val frame = videoPreview(video, userAgent, width).second ?: small ?: return@thread
+            var reason = ""
+            val frame = videoPreview(video, userAgent, width) { reason = it }.second ?: small
+            // 2.2.8: con la 2.2.7 l'immagine non cambiava e non si sa perché; finché non è chiaro l'app lo dice
+            if (frame == null) return@thread runOnUiThread { toast("Immagine dell'episodio non presa: $reason") }
             val name = saveFrame(episode.key, frame)
             runOnUiThread { setFrame(episode.key, file, name) }
         }

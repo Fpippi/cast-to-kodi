@@ -176,10 +176,10 @@ In alto a destra c'è il nome di Kodi con un pallino acceso se risponde. Nella s
 - **⏭ a coda finita**: se dopo il video in corso la coda è vuota, sui siti di anime con player VixCloud ⏭ manda a Kodi
   l'episodio dopo della stessa serie (lo prepara il telefono in un paio di secondi, come *Riprendi su Kodi*). Sugli
   altri siti l'app dice quale episodio aprire. Non accende l'accodamento automatico.
-- **Salta sigla**: quando parte la sigla, toccalo e il video va avanti di 1:25 da dov'è. Se la sigla di una serie dura
-  di più o di meno, tocca **Cambia** accanto (o tienilo premuto) e scegli quanto, o scrivi il tempo esatto con
-  *Altro tempo…* (es. `1:12` o `72`): vale per quella serie (o per tutti i video, se il video non è
-  di una serie di *Continua a guardare*). Non salta da solo: la sigla non parte sempre allo stesso minuto.
+- **Salta sigla**: quando parte la sigla, toccalo e il video va avanti da dov'è. La prima volta per ogni serie l'app
+  chiede di quanto (da 30 secondi a 2 minuti, o *Altro tempo…* per scriverlo, es. `1:12` o `72`) e poi se lo ricorda:
+  JoJo può saltare 1:30 e Fire Force 45 secondi. Per cambiarlo tienilo premuto. I video che non sono di una serie di
+  *Continua a guardare* hanno un tempo unico per tutti. Non salta da solo: la sigla non parte sempre allo stesso minuto.
 - **La croce tonda con OK** e sotto **Indietro**, **Home**, **volume giù** e **volume su** (il volume di Kodi, non
   quello della TV): per muoverti nei menu di Kodi.
 - In una fila che scorre di lato: **Accendi la TV**, **−30 s**, **+30 s**, **Vai al minuto**, **Audio**,

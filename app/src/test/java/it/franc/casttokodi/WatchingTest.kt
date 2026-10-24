@@ -89,9 +89,11 @@ class WatchingTest {
     @Test
     fun saltaSigla() {
         var shows = withSent(emptyList(), jojo(12), "www.animeunity.so", "http://cdn/12.m3u8|Referer=x", 1000, playing = true)
-        // Finché la serie non ha il suo, vale quello per tutti
-        assertEquals(DEFAULT_INTRO, introOf(shows, "http://cdn/12.m3u8|Referer=y", DEFAULT_INTRO))
+        // Finché la serie non ha il suo, si chiede al primo tocco (anche se ce n'è uno per gli altri video)
+        assertNull(introOf(shows, "http://cdn/12.m3u8|Referer=y", 60))
         assertEquals(60, introOf(shows, "http://altro/video.mp4", 60))
+        assertNull(introOf(shows, "http://altro/video.mp4", null))
+        assertEquals("Salta sigla", introLabel(null))
         shows = withIntro(shows, shows[0].key, 55)
         assertEquals(55, introOf(shows, "http://cdn/12.m3u8", DEFAULT_INTRO))
         // Resta dopo il salvataggio e con l'episodio dopo
