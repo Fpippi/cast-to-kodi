@@ -35,7 +35,7 @@ on the phone, start the video, press a button and the video plays on the TV. The
 
 ```
 ┌──────────────────────────────────────────────┐
-│ (🌐 animeunity.so                🛡3)   ★  ⋮  │  ← top bar
+│ (🌐 animetv.example              🛡3)   ★  ⋮  │  ← top bar
 │▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬                            │  ← page loading
 │                                              │
 │                 site page                    │
@@ -50,11 +50,11 @@ on the phone, start the video, press a button and the video plays on the TV. The
 
 | Button | What it does |
 |---|---|
-| **Address bar** ("Cerca o scrivi un indirizzo") | Type a site (`animeunity.so`) or a search (`jojo animeunity`, goes to Google). The site's icon is on the left. Until you tap it, it shows only the site's name; tapping it brings back the full address. |
+| **Address bar** ("Cerca o scrivi un indirizzo") | Type a site (`wikipedia.org`) or a search (`jojo episode 1`, goes to Google). The site's icon is on the left. Until you tap it, it shows only the site's name; tapping it brings back the full address. |
 | **🛡 with a number** | Shows up when the app blocked popups or jumps to other sites on this page. Tap it to see which ones and open one, if you needed it. |
 | **★** | Your favourite sites. Filled if the open page is already a favourite. |
 | **Kodi bar** (at the bottom) | Always there, as soon as the app knows where Kodi is. It shows what is playing, with the time, play/pause and a thin line at the bottom that moves forward. The dot next to the status is lit if Kodi answers. If Kodi is on but idle it says *Acceso, niente in riproduzione* (On, nothing playing); if it is off or not answering there is the **⏻** button to turn the TV on. The button on the right, or a tap on the bar, opens the remote with the queue. |
-| **⋮** | A small menu: *Telecomando* (Remote), *Coda di Kodi* (Kodi queue), *Pagina iniziale* (Home page), *Impostazioni* (Settings: where Kodi is, power on, AnimeUnity, history, Kodi log, guide, version). |
+| **⋮** | A small menu: *Telecomando* (Remote), *Coda di Kodi* (Kodi queue), *Pagina iniziale* (Home page), *Impostazioni* (Settings: where Kodi is, power on, next episodes, history, Kodi log, guide, version). |
 | **Manda a Kodi** (Send to Kodi) | Plays the page's video on the TV right away. It shows up at the bottom right, over the site, only when a video starts on the page. |
 | **+ Coda** (+ Queue: the round icon with lines and a +, next to *Manda a Kodi*) | Puts the video at the end of Kodi's queue, without interrupting what you are watching. Long-press it to open the queue. |
 
@@ -129,8 +129,8 @@ With the TV off (in standby) press **⏻** in the Kodi bar at the bottom (or *Ac
 <p align="center"><img src="img/manda-a-kodi.gif" width="640" alt="Animation: Google search, opening the episode, starting the player, Manda a Kodi and the video on the TV"></p>
 
 1. Tap the **top bar** and type the site or a search, then press Enter.
-   - `animeunity.so` → opens the site.
-   - `jojo animeunity` → searches Google; from Google results you can open any site.
+   - `wikipedia.org` → opens the site.
+   - `jojo episode 1` → searches Google; from Google results you can open any site.
 2. Go to the episode or movie page.
 3. **Start the player** (press play on the video). This step is essential: the app only sees the video once it starts.
 4. At the bottom right, over the site, **Manda a Kodi** and the round **+ Coda** button show up. Now you can also pause
@@ -212,10 +212,10 @@ next one by itself. The app never clears it.
 3. Open episode 3, start the player, press **+ Coda**.
 4. Put the phone down: the TV goes on by itself 1 → 2 → 3.
 
-### On AnimeUnity it can do it by itself (if you turn it on)
+### On anime sites with the VixCloud player it can do it by itself (if you turn it on)
 
-On AnimeUnity the app can queue the following episodes by itself, so you don't have to press **+ Coda** for each one.
-**It is off by default.** To turn it on: **⋮ → Impostazioni → AnimeUnity: episodi successivi** (Settings, next episodes) and pick how many
+On the anime site it knows (VixCloud player) the app can queue the following episodes by itself, so you don't have to press **+ Coda** for each one.
+**It is off by default.** To turn it on: **⋮ → Impostazioni →** the **episodi successivi** item (Settings, next episodes) and pick how many
 episodes to queue (at most 3).
 
 From then on, after **Manda a Kodi** (or **+ Coda**) the app queues the following episodes and says
@@ -270,7 +270,7 @@ When you send an episode to Kodi, the app remembers it. On the home page, below 
   (*Visto il 12 · tocca al 13*, watched 12, 13 is next).
 - **Tap it**: a panel slides up with the previous episode, the current one and the next one. **Riprendi su Kodi**
   (Resume on Kodi) sends the episode without opening the page and Kodi resumes from the minute you stopped at
-  (AnimeUnity only). **Apri qui** (Open here) opens the episode page: on other sites start the player, press
+  (only on the anime site with the VixCloud player). **Apri qui** (Open here) opens the episode page: on other sites start the player, press
   *Manda a Kodi* and Kodi still resumes from where you were. From the panel you can also mark the episode as watched.
 - A series that reached its last episode stays faded, marked **Finita** (Finished), until you remove it.
 - **Remove a series**: the **✕** at the top right of the card. The card turns red and asks *Togli …?* (Remove …?): tap
@@ -287,7 +287,7 @@ When you send an episode to Kodi, the app remembers it. On the home page, below 
   (Clear history).
 
 The app reads the minute from Kodi while it is open; if the phone was locked, when you go back to the home page it asks
-Kodi, which usually remembers it. On AnimeUnity series and number come from the address and the player; on other sites
+Kodi, which usually remembers it. On that site series and number come from the address and the player; on other sites
 from the page title ("Episodio 5", "S2E5"): if the title doesn't say them, the page is only kept as the last page.
 
 ---

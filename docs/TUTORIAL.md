@@ -32,7 +32,7 @@ _Le animazioni di questa guida sono disegni dell'interfaccia della versione 2.1,
 
 ```
 ┌──────────────────────────────────────────────┐
-│ (🌐 animeunity.so                🛡3)   ★  ⋮  │  ← barra in alto
+│ (🌐 animetv.example              🛡3)   ★  ⋮  │  ← barra in alto
 │▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬                            │  ← caricamento della pagina
 │                                              │
 │              pagina del sito                 │
@@ -47,11 +47,11 @@ _Le animazioni di questa guida sono disegni dell'interfaccia della versione 2.1,
 
 | Pulsante | A cosa serve |
 |---|---|
-| **Barra degli indirizzi** | Scrivi un sito (`animeunity.so`) o una ricerca (`jojo animeunity`, va su Google). A sinistra l'icona del sito. Finché non la tocchi mostra solo il nome del sito; toccandola torna l'indirizzo intero. |
+| **Barra degli indirizzi** | Scrivi un sito (`wikipedia.org`) o una ricerca (`jojo episodio 1`, va su Google). A sinistra l'icona del sito. Finché non la tocchi mostra solo il nome del sito; toccandola torna l'indirizzo intero. |
 | **🛡 con un numero** | Compare quando l'app ha bloccato popup o salti verso altri siti su questa pagina. Toccalo per vedere quali e aprirne uno, se serviva. |
 | **★** | I tuoi siti preferiti. Piena se la pagina aperta è già tra i preferiti. |
 | **Barra di Kodi** (in fondo) | C'è sempre, appena l'app sa dov'è Kodi. Mostra cosa riproduce, con il tempo, play/pausa e una linea sottile in basso che avanza. Il pallino accanto allo stato è acceso se Kodi risponde. Se Kodi è acceso ma fermo scrive *Acceso, niente in riproduzione*; se è spento o non risponde c'è il pulsante **⏻** per accendere la TV. Il pulsante a destra, o un tocco sulla barra, apre il telecomando con la coda. |
-| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Pagina iniziale*, *Impostazioni* (dov'è Kodi, accensione, AnimeUnity, cronologia, log di Kodi, guida, versione). |
+| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Pagina iniziale*, *Impostazioni* (dov'è Kodi, accensione, episodi successivi, cronologia, log di Kodi, guida, versione). |
 | **Manda a Kodi** | Fa partire subito sulla TV il video della pagina. Compare in basso a destra, sopra il sito, solo quando sulla pagina parte un video. |
 | **+ Coda** (l'icona tonda con le righe e il +, accanto a *Manda a Kodi*) | Mette il video in fondo alla coda di Kodi, senza interrompere quello che stai guardando. Tenendola premuta si apre la coda. |
 
@@ -126,8 +126,8 @@ Con la TV spenta (in standby) premi **⏻** nella barra di Kodi in fondo (o *Acc
 <p align="center"><img src="img/manda-a-kodi.gif" width="640" alt="Animazione: ricerca su Google, apertura dell'episodio, avvio del player, Manda a Kodi e video sulla TV"></p>
 
 1. Tocca la **barra in alto** e scrivi il sito o una ricerca, poi premi Invio.
-   - `animeunity.so` → apre il sito.
-   - `jojo animeunity` → cerca su Google; dai risultati di Google puoi aprire qualunque sito.
+   - `wikipedia.org` → apre il sito.
+   - `jojo episodio 1` → cerca su Google; dai risultati di Google puoi aprire qualunque sito.
 2. Vai alla pagina dell'episodio o del film.
 3. **Avvia il player** (premi play sul video). Questo passaggio è indispensabile: l'app vede il video solo quando parte.
 4. In basso a destra, sopra il sito, compaiono **Manda a Kodi** e il pulsante tondo **+ Coda**. Ora puoi anche mettere
@@ -206,10 +206,10 @@ al successivo. L'app non la cancella mai.
 3. Apri l'episodio 3, avvia il player, premi **+ Coda**.
 4. Metti giù il telefono: la TV va avanti da sola 1 → 2 → 3.
 
-### Su AnimeUnity può fare da sola (se la accendi)
+### Sui siti di anime con player VixCloud può fare da sola (se la accendi)
 
-Su AnimeUnity l'app può mettere in coda da sola gli episodi successivi, così non devi premere **+ Coda** per ognuno.
-**Di default è spenta.** Per accenderla: **⋮ → Impostazioni → AnimeUnity: episodi successivi** e scegli quanti episodi accodare (massimo 3).
+Sul sito di anime che conosce (player VixCloud) l'app può mettere in coda da sola gli episodi successivi, così non devi premere **+ Coda** per ognuno.
+**Di default è spenta.** Per accenderla: **⋮ → Impostazioni →** la voce degli **episodi successivi** e scegli quanti episodi accodare (massimo 3).
 
 Da quel momento, dopo **Manda a Kodi** (o **+ Coda**) l'app accoda gli episodi dopo e scrive
 *"In coda anche: episodio …"*. Se il sito cambia e l'app non ci riesce, te lo dice: in quel caso usa **+ Coda** a mano.
@@ -258,7 +258,7 @@ una fila che scorre di lato, con una scheda per ogni serie, la più recente a si
   mostra quanto ne hai visto. Quando Kodi passa il 95% dell'episodio, o mancano meno di 2 minuti alla fine (la sigla),
   l'episodio è visto e la scheda passa al prossimo (*Visto il 12 · tocca al 13*).
 - **Toccala**: sale un pannello con l'episodio prima, quello in corso e il prossimo. **Riprendi su Kodi** manda
-  l'episodio senza aprire la pagina e Kodi riparte dal minuto in cui eri (solo AnimeUnity). **Apri qui** apre la pagina
+  l'episodio senza aprire la pagina e Kodi riparte dal minuto in cui eri (solo sul sito di anime con player VixCloud). **Apri qui** apre la pagina
   dell'episodio: sugli altri siti avvii il player, premi *Manda a Kodi* e Kodi riparte comunque da dove eri. Dal
   pannello puoi anche segnare l'episodio come visto.
 - Una serie arrivata all'ultimo episodio resta sbiadita, con scritto **Finita**, finché non la togli.
@@ -275,7 +275,7 @@ una fila che scorre di lato, con una scheda per ogni serie, la più recente a si
   non mostra serie né ultima pagina) e *Cancella la cronologia*.
 
 Il minuto l'app lo legge da Kodi mentre è aperta; se il telefono era bloccato, quando torni alla pagina iniziale lo
-chiede a Kodi, che di solito se lo ricorda. Su AnimeUnity serie e numero vengono dall'indirizzo e dal player; sugli
+chiede a Kodi, che di solito se lo ricorda. Su quel sito serie e numero vengono dall'indirizzo e dal player; sugli
 altri siti dal titolo della pagina ("Episodio 5", "S2E5"): se il titolo non li dice, la pagina resta solo come ultima
 pagina.
 
