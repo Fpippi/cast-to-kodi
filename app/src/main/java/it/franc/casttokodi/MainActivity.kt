@@ -114,7 +114,8 @@ Oppure passa a "Manuale" e scrivi IP:porta."""
 private const val POPUP_SINK_MS = 10_000L
 
 // Inizio del nome dei file delle copertine prese dal sito, che valgono più dei fotogrammi del video
-private const val COVER_PREFIX = "cover-"
+// "copertina-" dalla 2.2.4: le copertine "cover-" della 2.2.3 erano salvate troppo piccole e così si riscaricano
+private const val COVER_PREFIX = "copertina-"
 
 // Alias nell'Android Keystore della chiave che cifra le password di Kodi
 private const val LOGIN_KEY = "kodi-login"
@@ -480,6 +481,13 @@ class MainActivity : Activity() {
 
             override fun onPageFinished(view: WebView, url: String) {
                 pageVisible = true
+                // onReceivedIcon spesso arriva prima che il sito si veda e viene scartato: a pagina finita l'icona del
+                // WebView è quella del sito
+                view.favicon?.let { icon ->
+                    pageIcon = icon
+                    showSiteIcon(icon)
+                    fillMissingIcon(url, icon)
+                }
                 pageShown(url, view.title)
             }
 
@@ -2796,11 +2804,14 @@ class MainActivity : Activity() {
     // Le immagini delle serie stanno in file a parte; quelle che iniziano con COVER_PREFIX sono copertine del sito, così prefs["shows"] resta piccolo (si rilegge ogni 3 secondi)
     private fun framesDir() = File(filesDir, "serie").apply { mkdirs() }
 
+    // Si rimpicciolisce solo finché copre ancora la scheda (larga quanto lo schermo, 16:9) dopo il taglio: le
+    // copertine del sito sono spesso strisce larghe e basse, e portarle a 480 di larghezza le lasciava alte 100 pixel
     private fun saveFrame(key: String, picture: Bitmap, prefix: String = ""): String {
         val name = "$prefix${Integer.toHexString(key.hashCode())}-${System.currentTimeMillis()}.jpg"
-        val width = minOf(480, picture.width)
-        val scaled = Bitmap.createScaledBitmap(picture, width, (width * picture.height / picture.width.coerceAtLeast(1)).coerceAtLeast(1), true)
-        File(framesDir(), name).outputStream().use { scaled.compress(Bitmap.CompressFormat.JPEG, 80, it) }
+        val width = resources.displayMetrics.widthPixels.coerceIn(480, 1280)
+        val scale = minOf(1f, maxOf(width.toFloat() / picture.width.coerceAtLeast(1), width * 9f / 16 / picture.height.coerceAtLeast(1)))
+        val scaled = Bitmap.createScaledBitmap(picture, (picture.width * scale).toInt().coerceAtLeast(1), (picture.height * scale).toInt().coerceAtLeast(1), true)
+        File(framesDir(), name).outputStream().use { scaled.compress(Bitmap.CompressFormat.JPEG, 90, it) }
         return name
     }
 
@@ -3354,14 +3365,15 @@ class MainActivity : Activity() {
 
     // L'icona dei preferiti si rinfresca a ogni visita del loro sito: così la prendono anche quelli salvati senza
     // (prima di #25, o pagina non ancora caricata) e si corregge quella sbagliata (fino alla 2.2.1 poteva restare
-    // quella di Google, se il preferito si salvava appena arrivati da una ricerca)
+    // quella di Google, se il preferito si salvava appena arrivati da una ricerca). Conta il nome del sito, non il
+    // dominio: il preferito salvato su animeunity.so prende l'icona anche visitando animeunity.co
     private fun fillMissingIcon(url: String?, icon: Bitmap) {
-        val domain = domainOf(Uri.parse(url ?: return).host).ifEmpty { return }
+        val site = siteOf(Uri.parse(url ?: return).host).ifEmpty { return }
         val encoded = encodeIcon(icon)
         val list = loadFavorites()
         var changed = false
         list.indices.forEach { i ->
-            if (domainOf(Uri.parse(list[i].url).host) == domain && list[i].icon != encoded) {
+            if (siteOf(Uri.parse(list[i].url).host) == site && list[i].icon != encoded) {
                 list[i] = list[i].copy(icon = encoded)
                 changed = true
             }
