@@ -16,6 +16,13 @@ const val MAX_EPISODES = 6
 // Sotto i 30 secondi non si riprende dal punto: si riparte dall'inizio
 const val RESUME_MIN = 30L
 
+// Eseguito nella pagina di un episodio (non AnimeUnity, che la dà con EPISODE_INFO_JS): l'immagine di anteprima che il
+// sito dichiara per la condivisione (og:image), di solito la copertina della serie. Stringa vuota se non c'è
+const val PAGE_IMAGE_JS = """(function () {
+  var m = document.querySelector('meta[property="og:image"], meta[name="og:image"], meta[name="twitter:image"]');
+  return m ? m.content : '';
+})()"""
+
 // Un episodio come lo dice la pagina. key è la serie: il nome del sito senza dominio (i siti pirata lo cambiano spesso)
 // più, su AnimeUnity, la parte dell'indirizzo che resta uguale ("/anime/1234-jojo"), sugli altri siti il nome della
 // serie letto dal titolo. path è l'indirizzo senza dominio, con la query (StreamingCommunity: /watch/12?e=34).

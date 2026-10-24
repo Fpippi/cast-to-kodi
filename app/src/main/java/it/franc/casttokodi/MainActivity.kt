@@ -113,6 +113,9 @@ Oppure passa a "Manuale" e scrivi IP:porta."""
 // Dopo quanto chiudere la finestra finta data ai popup
 private const val POPUP_SINK_MS = 10_000L
 
+// Inizio del nome dei file delle copertine prese dal sito, che valgono più dei fotogrammi del video
+private const val COVER_PREFIX = "cover-"
+
 // Alias nell'Android Keystore della chiave che cifra le password di Kodi
 private const val LOGIN_KEY = "kodi-login"
 
@@ -173,6 +176,7 @@ class MainActivity : Activity() {
     // Dominio da cui la pagina principale può navigare: tutto il resto è considerato redirect pubblicitario
     private var allowedDomain = ""
     @Volatile private var pageUrl = ""
+    private var pageVisible = false
 
     // "IP:porta" -> nome annunciato via mDNS, per riconoscere lo stesso Kodi quando cambia IP
     private val kodiNames = HashMap<String, String>()
@@ -436,6 +440,9 @@ class MainActivity : Activity() {
             }
 
             override fun onReceivedIcon(view: WebView, icon: Bitmap) {
+                // Passando da Google a un sito, l'icona di Google può arrivare quando il sito è già partito: finché
+                // il sito non si vede, l'icona è ancora della pagina di prima
+                if (!pageVisible) return
                 pageIcon = icon
                 showSiteIcon(icon)
                 fillMissingIcon(view.url, icon)
@@ -450,7 +457,12 @@ class MainActivity : Activity() {
                 return if (blocked) block(url) else false
             }
 
+            override fun onPageCommitVisible(view: WebView, url: String) {
+                pageVisible = true
+            }
+
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+                pageVisible = false
                 pageUrl = url
                 pageIcon = favicon
                 showSiteIcon(favicon)
@@ -467,6 +479,7 @@ class MainActivity : Activity() {
             }
 
             override fun onPageFinished(view: WebView, url: String) {
+                pageVisible = true
                 pageShown(url, view.title)
             }
 
@@ -2705,6 +2718,7 @@ class MainActivity : Activity() {
     // prende una dal video se la serie non ce l'ha ancora
     private fun recordSent(episode: EpisodePage, host: String, file: String, playing: Boolean, video: Video?, page: String? = null) {
         val known = loadShows().firstOrNull { it.key == episode.key }
+        val hasCover = known?.image?.startsWith(COVER_PREFIX) == true
         updateShows { withSent(it, episode, host, file, System.currentTimeMillis(), playing) }
         if (!playing) return
         val uri = page?.let { Uri.parse(it) }
@@ -2720,26 +2734,59 @@ class MainActivity : Activity() {
                         count = info.optInt("count").takeIf { c -> c > 0 }, next = next,
                         path = episode.path, number = info.optString("number").toIntOrNull(), at = at)
                 }
+                if (!hasCover) info.optString("image").takeIf { it.isNotBlank() }?.let { fetchCover(episode.key, it, page!!) }
+            }
+        } else if (page != null && page == web.url && !hasCover) {
+            web.evaluateJavascript(PAGE_IMAGE_JS) { result ->
+                val image = runCatching { JSONTokener(result).nextValue() as String }.getOrNull()
+                if (!image.isNullOrBlank()) fetchCover(episode.key, image, page)
             }
         }
+        // Senza copertina, un fotogramma del video (con VixCloud di solito non si riesce: è protetto)
+        if (hasCover) return
         val picture = video?.let { previews[it.url] }
         if (picture != null) {
-            updateShows { withDetails(it, episode.key, image = saveFrame(episode.key, picture)) }
+            setFrame(episode.key, saveFrame(episode.key, picture))
         } else if (video != null && known?.image == null) {
             val userAgent = web.settings.userAgentString
             thread {
                 val frame = videoPreview(video, userAgent).second ?: return@thread
                 val name = saveFrame(episode.key, frame)
-                runOnUiThread { updateShows { withDetails(it, episode.key, image = name) } }
+                runOnUiThread { setFrame(episode.key, name) }
             }
         }
     }
 
-    // Le immagini delle serie stanno in file a parte, così prefs["shows"] resta piccolo (si rilegge ogni 3 secondi)
+    // Un fotogramma non prende il posto di una copertina, anche se arriva dopo
+    private fun setFrame(key: String, name: String) = updateShows { shows ->
+        if (shows.firstOrNull { it.key == key }?.image?.startsWith(COVER_PREFIX) == true) null else withDetails(shows, key, image = name)
+    }
+
+    // La copertina della serie dall'indirizzo dato dal sito, scaricata con i cookie e lo User-Agent del WebView
+    private fun fetchCover(key: String, image: String, page: String) {
+        val url = runCatching { URL(URL(page), image).toString() }.getOrNull()?.takeIf { it.startsWith("http") } ?: return
+        val userAgent = web.settings.userAgentString
+        val cookie = CookieManager.getInstance().getCookie(url)
+        thread {
+            val picture = runCatching {
+                val conn = URL(url).openConnection() as HttpURLConnection
+                conn.connectTimeout = 10_000
+                conn.readTimeout = 10_000
+                conn.setRequestProperty("User-Agent", userAgent)
+                conn.setRequestProperty("Referer", page)
+                if (!cookie.isNullOrBlank()) conn.setRequestProperty("Cookie", cookie)
+                conn.inputStream.use { BitmapFactory.decodeStream(it) }
+            }.getOrNull() ?: return@thread
+            val name = saveFrame(key, picture, COVER_PREFIX)
+            runOnUiThread { updateShows { withDetails(it, key, image = name) } }
+        }
+    }
+
+    // Le immagini delle serie stanno in file a parte; quelle che iniziano con COVER_PREFIX sono copertine del sito, così prefs["shows"] resta piccolo (si rilegge ogni 3 secondi)
     private fun framesDir() = File(filesDir, "serie").apply { mkdirs() }
 
-    private fun saveFrame(key: String, picture: Bitmap): String {
-        val name = "${Integer.toHexString(key.hashCode())}-${System.currentTimeMillis()}.jpg"
+    private fun saveFrame(key: String, picture: Bitmap, prefix: String = ""): String {
+        val name = "$prefix${Integer.toHexString(key.hashCode())}-${System.currentTimeMillis()}.jpg"
         val width = minOf(480, picture.width)
         val scaled = Bitmap.createScaledBitmap(picture, width, (width * picture.height / picture.width.coerceAtLeast(1)).coerceAtLeast(1), true)
         File(framesDir(), name).outputStream().use { scaled.compress(Bitmap.CompressFormat.JPEG, 80, it) }
@@ -2972,7 +3019,7 @@ class MainActivity : Activity() {
     // L'ultima pagina aperta, con la ✕: un tocco la toglie, "Annulla" la rimette (è una pagina, non serve la conferma)
     private fun lastPageCard(url: String): View {
         val host = Uri.parse(url).host
-        val title = prefs.getString("lastTitle", null)?.takeIf { it.isNotBlank() } ?: shortHost(host)
+        val title = suggestedName(prefs.getString("lastTitle", null), host)
         val at = prefs.getLong("lastAt", 0)
         val saved = loadFavorites().firstOrNull { Uri.parse(it.url).host == host }
         val icon = saved?.let { favoriteIcon(it) } ?: ImageView(this).apply {
@@ -3294,13 +3341,21 @@ class MainActivity : Activity() {
         return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
     }
 
-    // I preferiti salvati senza icona (prima di #25, o pagina non ancora caricata) la prendono alla prossima visita
+    // L'icona dei preferiti si rinfresca a ogni visita del loro sito: così la prendono anche quelli salvati senza
+    // (prima di #25, o pagina non ancora caricata) e si corregge quella sbagliata (fino alla 2.2.1 poteva restare
+    // quella di Google, se il preferito si salvava appena arrivati da una ricerca)
     private fun fillMissingIcon(url: String?, icon: Bitmap) {
+        val domain = domainOf(Uri.parse(url ?: return).host).ifEmpty { return }
+        val encoded = encodeIcon(icon)
         val list = loadFavorites()
-        val i = list.indexOfFirst { it.url == url && it.icon == null }
-        if (i < 0) return
-        list[i] = list[i].copy(icon = encodeIcon(icon))
-        saveFavorites(list)
+        var changed = false
+        list.indices.forEach { i ->
+            if (domainOf(Uri.parse(list[i].url).host) == domain && list[i].icon != encoded) {
+                list[i] = list[i].copy(icon = encoded)
+                changed = true
+            }
+        }
+        if (changed) saveFavorites(list)
     }
 
     // Lista dei preferiti: in cima il pulsante per aggiungere la pagina aperta, poi una riga per sito.
