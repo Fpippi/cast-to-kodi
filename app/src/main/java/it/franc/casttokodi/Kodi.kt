@@ -2,6 +2,7 @@ package it.franc.casttokodi
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Base64
@@ -313,7 +314,19 @@ class Kodi(val host: String, val auth: String) {
     // ci mette anche 20 secondi a partire. Non lo riapre mai (vedi la nota su Player.Open nel README). true se ha saltato
     fun resumeAt(file: String, seconds: Long, tries: Int = 60, wait: Long = 1000): Boolean {
         repeat(tries) {
-            val playing = nowPlaying()
+            // Mentre apre il video (sulla Fire TV anche 30 secondi) Kodi può rispondere con un errore o non rispondere:
+            // si riprova al giro dopo invece di rinunciare alla ripresa
+            val playing = try {
+                nowPlaying()
+            } catch (e: KodiError) {
+                null
+            } catch (e: IOException) {
+                null
+            }
+            if (playing == null) {
+                Thread.sleep(wait)
+                return@repeat
+            }
             val id = playing.playerId
             if (id != null && queueKey(playing.file) == queueKey(file) && playing.total > seconds) {
                 seekTo(id, seconds)

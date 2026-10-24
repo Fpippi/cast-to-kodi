@@ -7,6 +7,12 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.2.3
+
+- **Riprendi su Kodi** e il rinvio di un episodio a metà ripartono dal minuto anche quando Kodi, mentre apre il video,
+  per qualche secondo risponde con un errore (prima la ripresa si arrendeva al primo errore).
+- Se la copertina della serie non arriva, l'app dice perché (pagina che non la indica, scaricamento fallito).
+
 ## 2.2.2
 
 - **Continua a guardare**: la scheda della serie ha la copertina presa dal sito (i siti di anime con player VixCloud dalla pagina della serie,
