@@ -11,6 +11,7 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 
 - **Salta sigla**: al primo tocco su una serie l'app chiede di quanto saltare e poi se lo ricorda per quella serie.
   Il pulsante **Cambia** non c'è più: per cambiare il tempo si tiene premuto il tasto.
+- Se l'immagine di un episodio non si riesce a prendere dal video, l'app lo dice e spiega perché.
 
 ## 2.2.7
 

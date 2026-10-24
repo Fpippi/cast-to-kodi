@@ -789,8 +789,9 @@ class MainActivity : Activity() {
     // Durata in secondi e un fotogramma piccolo, per riconoscere l'episodio da un trailer o da una pubblicità.
     // Da un thread di background. MP4: li legge MediaMetadataRetriever dal sito. HLS: Streams.preview scarica un pezzo
     // della qualità più leggera (già decifrato) e il fotogramma si prende da lì. Video protetti: niente immagine.
-    // width: larghezza massima del fotogramma in pixel (quella delle anteprime nell'elenco dei video, se non detta)
-    private fun videoPreview(video: Video, userAgent: String, width: Int = dp(224)): Pair<Long?, Bitmap?> {
+    // width: larghezza massima del fotogramma in pixel (quella delle anteprime nell'elenco dei video, se non detta).
+    // failed: perché il fotogramma non c'è, se manca
+    private fun videoPreview(video: Video, userAgent: String, width: Int = dp(224), failed: (String) -> Unit = {}): Pair<Long?, Bitmap?> {
         val headers = streamHeaders(video.url, video.referer, userAgent)
         val retriever = MediaMetadataRetriever()
         var file: File? = null
@@ -801,7 +802,7 @@ class MainActivity : Activity() {
             } else {
                 val preview = streams.preview(video.url, headers)
                 seconds = preview.seconds
-                val sample = preview.sample ?: return seconds to null
+                val sample = preview.sample ?: return (seconds to null).also { failed(preview.error ?: "pezzo del video non scaricato") }
                 file = File.createTempFile("anteprima", ".ts", cacheDir).apply { writeBytes(sample) }
                 retriever.setDataSource(file.path)
             }
@@ -809,8 +810,11 @@ class MainActivity : Activity() {
             if (seconds == null) seconds = length?.let { it / 1000 }
             // Per un MP4 al 10% (l'inizio spesso è nero), per un pezzo HLS a metà
             val at = if (file == null) minOf((length ?: 0) / 10, 90_000) else (length ?: 0) / 2
-            seconds to retriever.getScaledFrameAtTime(at * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, width, width * 9 / 16)
+            val frame = retriever.getScaledFrameAtTime(at * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, width, width * 9 / 16)
+            if (frame == null) failed("il telefono non legge il fotogramma dal pezzo")
+            seconds to frame
         } catch (e: Exception) {
+            failed(e.message ?: e.javaClass.simpleName)
             seconds to null
         } finally {
             retriever.release()
@@ -2867,7 +2871,10 @@ class MainActivity : Activity() {
         val small = previews[video.url]
         val width = resources.displayMetrics.widthPixels.coerceIn(480, 1280)
         thread {
-            val frame = videoPreview(video, userAgent, width).second ?: small ?: return@thread
+            var reason = ""
+            val frame = videoPreview(video, userAgent, width) { reason = it }.second ?: small
+            // 2.2.8: con la 2.2.7 l'immagine non cambiava e non si sa perché; finché non è chiaro l'app lo dice
+            if (frame == null) return@thread runOnUiThread { toast("Immagine dell'episodio non presa: $reason") }
             val name = saveFrame(episode.key, frame)
             runOnUiThread { setFrame(episode.key, file, name) }
         }
