@@ -8,7 +8,7 @@
 
 <p align="center">
   Dal telefono alla Fire TV, gratis e senza pubblicità.<br>
-  Apri il sito sul Pixel, il video parte su <b>Kodi</b>.
+  Apri il sito sul telefono, il video parte su <b>Kodi</b>.
 </p>
 
 <p align="center">
@@ -25,19 +25,19 @@
 
 ---
 
-App Android personale (Pixel 9 Pro XL) per guardare i video dei siti di streaming sulla Fire TV. Sul telefono si chiama **Couch Cast**; repo, release e APK (`CastToKodi.apk`) mantengono il vecchio nome, così aggiornamenti e Obtainium continuano a funzionare.
+App Android personale (Android 13 o più recente) per guardare i video dei siti di streaming sulla Fire TV. Sul telefono si chiama **Couch Cast**; repo, release e APK (`CastToKodi.apk`) mantengono il vecchio nome, così aggiornamenti e Obtainium continuano a funzionare.
 
 ## ✨ Come funziona
 
 ```
-📱 Pixel (browser + telecomando)  ──link del video──▶  📺 Kodi sulla Fire TV  ──▶  🌐 sito di streaming
+📱 Telefono (browser + telecomando)  ──link del video──▶  📺 Kodi sulla Fire TV  ──▶  🌐 sito di streaming
 ```
 
 - 🔎 Il telefono fa da browser: apri il sito nell'app e avvii il player.
 - 🎯 L'app intercetta il flusso video (`.m3u8` / `.mp4`) e lo manda a **Kodi**, che lo riproduce direttamente.
 - 🔋 Il video non passa dal telefono: qualità piena e telefono che si può bloccare. Solo all'avvio il telefono passa a Kodi la playlist e la chiave, che la Fire TV da sola scarica troppo lentamente.
 - 🚫 Popup, `window.open` e salti verso altri domini vengono bloccati: sono quasi tutta la pubblicità di quei siti. Lo scudo 🛡 nella barra in alto conta i blocchi e, toccandolo, apre quello che serviva.
-- 📋 Coda degli episodi nella playlist di Kodi, e su AnimeUnity, se vuoi, gli episodi successivi si accodano da soli.
+- 📋 Coda degli episodi nella playlist di Kodi, e su alcuni siti di anime, se vuoi, gli episodi successivi si accodano da soli.
 - ⏯️ **Continua a guardare**: l'app ricorda a che episodio di ogni serie sei arrivato e a che minuto, anche quando il sito cambia dominio.
 - 🎮 Telecomando di Kodi nell'app: la barra di Kodi in fondo c'è sempre e lo apre a schermo intero, con la coda accanto.
 
@@ -80,7 +80,7 @@ L'app parla con **Kodi**, non con la TV: funziona su qualunque dispositivo dove 
 
 ### 📱 App sul telefono, senza PC
 
-1. A ogni push su `main` GitHub Actions compila l'APK e lo pubblica come release "Versione X.Y.Z" (tag `vX.Y.Z`), con l'elenco delle novità preso da [CHANGELOG.md](CHANGELOG.md). Dal Pixel apri [releases/latest](https://github.com/Fpippi/cast-to-kodi/releases/latest) e scarica `CastToKodi.apk`.
+1. A ogni push su `main` GitHub Actions compila l'APK e lo pubblica come release "Versione X.Y.Z" (tag `vX.Y.Z`), con l'elenco delle novità preso da [CHANGELOG.md](CHANGELOG.md). Dal telefono apri [releases/latest](https://github.com/Fpippi/cast-to-kodi/releases/latest) e scarica `CastToKodi.apk`.
 2. Le build sono firmate con una chiave fissa (secrets `KEYSTORE_BASE64` e `KEYSTORE_PASSWORD` del repo; l'originale non è nel repo), quindi ogni APK si installa sopra il precedente. Se la chiave si perde, ne serve una nuova e va disinstallata l'app una volta.
 3. 🔔 All'avvio l'app avvisa se c'è una build nuova. Per aggiornare con un tocco si può usare **Obtainium** con l'indirizzo del repo.
 
@@ -91,7 +91,7 @@ L'app parla con **Kodi**, non con la TV: funziona su qualunque dispositivo dove 
 1. Installa Android Studio (developer.android.com/studio). Al primo avvio scarica da solo SDK e JDK.
 2. *File → Open* sulla cartella del progetto e aspetta la sincronizzazione Gradle.
 
-**Pixel**
+**Telefono**
 1. *Impostazioni → Info sul telefono*: tocca 7 volte "Numero build" per sbloccare le Opzioni sviluppatore.
 2. *Impostazioni → Sistema → Opzioni sviluppatore*: attiva **Debug USB**.
 3. Collega il telefono via USB, sceglilo in Android Studio e premi ▶️ Run.
@@ -105,7 +105,7 @@ L'app parla con **Kodi**, non con la TV: funziona su qualunque dispositivo dove 
 
 1. 📡 Al primo avvio si apre **Dov'è Kodi?**: in *Automatico* l'app cerca Kodi in rete e lo selezioni; in *Manuale* scrivi `IP:porta` (es. `192.168.1.50:8080`). Sotto, utente e password se impostati in Kodi (se mancano, l'app li chiede al primo invio). Si cambia dopo con **⋮ → Impostazioni → Kodi**. Se la Fire TV cambia IP, all'invio l'app la ritrova da sola. Le credenziali restano sul telefono, con la password cifrata, legate a quel Kodi e alla rete di casa: su un'altra rete si richiedono.
 2. 🔌 Con la TV spenta premi il **pulsante di accensione** nella barra di Kodi in fondo (o *Accendi* nella pagina iniziale): l'app trova da sola la Fire TV in rete (anche senza Kodi aperto), la sveglia, la TV si accende e dopo qualche secondo passa sul suo ingresso, poi si apre Kodi; quando risponde l'app scrive "Kodi è pronto". La prima volta la TV chiede di consentire il debug da questo telefono: spunta *Consenti sempre* e premi OK. Se la Fire TV è in sonno profondo non risponde in rete: lì servono Alexa o il telecomando.
-3. 🏠 All'avvio si apre la **pagina iniziale**: lo stato di Kodi con il pulsante per accenderlo o aprire il telecomando, **Continua a guardare** con una scheda per ogni serie, ferma all'episodio e al minuto giusti (la ✕ la toglie, con conferma), l'**ultima pagina** aperta (anche lei con la ✕) e i preferiti come icone (pressione lunga per rinominarli o toglierli). Come funziona la fila delle serie: [guida](docs/TUTORIAL.md#continua-a-guardare). Ci si torna con indietro dalla prima pagina di un sito o con **⋮ → Pagina iniziale**. Nella barra in alto scrivi un indirizzo o una ricerca (es. `jojo animeunity`, va su Google). Con **★** salvi la pagina nei preferiti (con un nome a scelta) e li riapri; con **⋮** accanto a un preferito lo rinomini o lo togli.
+3. 🏠 All'avvio si apre la **pagina iniziale**: lo stato di Kodi con il pulsante per accenderlo o aprire il telecomando, **Continua a guardare** con una scheda per ogni serie, ferma all'episodio e al minuto giusti (la ✕ la toglie, con conferma), l'**ultima pagina** aperta (anche lei con la ✕) e i preferiti come icone (pressione lunga per rinominarli o toglierli). Come funziona la fila delle serie: [guida](docs/TUTORIAL.md#continua-a-guardare). Ci si torna con indietro dalla prima pagina di un sito o con **⋮ → Pagina iniziale**. Nella barra in alto scrivi un indirizzo o una ricerca (es. `jojo episodio 1`, va su Google). Con **★** salvi la pagina nei preferiti (con un nome a scelta) e li riapri; con **⋮** accanto a un preferito lo rinomini o lo togli.
 4. 🎬 Vai all'episodio e **avvia il player** (il flusso si rileva solo quando parte). Se la pagina l'hai trovata in Chrome o in un'altra app, **Condividi → Couch Cast** la apre qui; se il link è già un video (`.m3u8`, `.mp4`) l'app propone di mandarlo subito a Kodi. Poi in basso a destra, sopra il sito, compaiono **Manda a Kodi** e il pulsante tondo **+ Coda**.
 5. 📤 Premi **Manda a Kodi**. La pubblicità è già scartata; se restano più video si apre un pannello dal basso con un'immagine grande presa da ognuno e la durata sopra, così un episodio si distingue da un trailer (sui video protetti l'immagine può mancare). Il primo, "Video completo", è quasi sempre quello giusto ed è già scelto, con *Manda* e *In coda* sotto; i video sotto il minuto sono sbiaditi e le singole qualità dello stesso video non compaiono a parte.
 6. 📋 **Coda**: tutto passa dalla playlist video di Kodi e non viene mai cancellata. *Manda a Kodi* inserisce il video subito dopo quello in corso e parte; **+ Coda** lo mette in fondo. Se l'episodio non potrebbe partire (video in corso non avviato dall'app, link che scade prima del suo turno) l'app non lo accoda e spiega perché. La vedi nella scheda **Coda** del telecomando (o tenendo premuto **+ Coda**): il video in corso (▶) e quando finisce, quelli già visti, l'ora in cui parte ognuno e, in rosso, i link che scadono prima del loro turno; con ⋮ accanto a un video lo fai partire o lo togli, **Svuota la coda** toglie tutto tranne quello in corso. Se Kodi sta riproducendo un video partito fuori dalla coda, compare in cima con il motivo per cui la coda non lo segue.
@@ -119,13 +119,13 @@ L'app parla con **Kodi**, non con la TV: funziona su qualunque dispositivo dove 
 
 Funzioni in più che valgono solo per alcuni siti o player. Il resto dell'app funziona su qualunque sito che serve `.m3u8` o `.mp4`.
 
-### ⏭️ AnimeUnity
+### ⏭️ Siti di anime con player VixCloud
 
-- Se lo accendi, dopo l'invio l'app accoda da sola gli episodi successivi (fino a 3, si sceglie in **⋮ → Impostazioni**; 0 = spento, ed è così di default). Solo sulle pagine degli episodi di `animeunity.*`.
+- Se lo accendi, dopo l'invio l'app accoda da sola gli episodi successivi (fino a 3, si sceglie in **⋮ → Impostazioni**; 0 = spento, ed è così di default). Solo sulle pagine degli episodi del sito di anime che l'app conosce.
 - Legge l'elenco degli episodi dalla pagina e il link di ognuno dal player VixCloud: se il sito cambia struttura l'app avvisa e resta **+ Coda** a mano.
 - In **Continua a guardare** la serie si riconosce dall'indirizzo (`/anime/1234-jojo`, uguale su ogni dominio) e **Riprendi su Kodi** manda l'episodio senza aprire la pagina, dal minuto in cui eri.
 
-### 🎞️ Player VixCloud (AnimeUnity, StreamingCommunity e altri siti che lo usano)
+### 🎞️ Player VixCloud (su qualunque sito lo usi)
 
 - Riconosce la playlist anche senza `.m3u8` (`/playlist/<id>`) e scarta i suoi pezzi (audio, video, singole qualità), così resta solo la playlist principale.
 - Il link ha un token che scade (`expires=`): **+ Coda** e l'accodamento automatico non mettono in coda un episodio che partirebbe dopo la scadenza.
