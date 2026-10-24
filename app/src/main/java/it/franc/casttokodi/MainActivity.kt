@@ -789,7 +789,8 @@ class MainActivity : Activity() {
     // Durata in secondi e un fotogramma piccolo, per riconoscere l'episodio da un trailer o da una pubblicità.
     // Da un thread di background. MP4: li legge MediaMetadataRetriever dal sito. HLS: Streams.preview scarica un pezzo
     // della qualità più leggera (già decifrato) e il fotogramma si prende da lì. Video protetti: niente immagine.
-    private fun videoPreview(video: Video, userAgent: String): Pair<Long?, Bitmap?> {
+    // width: larghezza massima del fotogramma in pixel (quella delle anteprime nell'elenco dei video, se non detta)
+    private fun videoPreview(video: Video, userAgent: String, width: Int = dp(224)): Pair<Long?, Bitmap?> {
         val headers = streamHeaders(video.url, video.referer, userAgent)
         val retriever = MediaMetadataRetriever()
         var file: File? = null
@@ -808,7 +809,7 @@ class MainActivity : Activity() {
             if (seconds == null) seconds = length?.let { it / 1000 }
             // Per un MP4 al 10% (l'inizio spesso è nero), per un pezzo HLS a metà
             val at = if (file == null) minOf((length ?: 0) / 10, 90_000) else (length ?: 0) / 2
-            seconds to retriever.getScaledFrameAtTime(at * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, dp(224), dp(126))
+            seconds to retriever.getScaledFrameAtTime(at * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, width, width * 9 / 16)
         } catch (e: Exception) {
             seconds to null
         } finally {
@@ -2836,8 +2837,8 @@ class MainActivity : Activity() {
     }
 
     // Un episodio appena mandato (playing) o messo in coda. Se è partito, da AnimeUnity si leggono anche il nome vero
-    // della serie, il numero, quanti episodi sono e quello dopo; l'immagine è quella della scelta del video, o se ne
-    // prende una dal video se la serie non ce l'ha ancora
+    // della serie, il numero, quanti episodi sono e quello dopo; la copertina della serie dal sito e, per ogni episodio,
+    // un fotogramma dal suo video
     private fun recordSent(episode: EpisodePage, host: String, file: String, playing: Boolean, video: Video?, page: String? = null) {
         val known = loadShows().firstOrNull { it.key == episode.key }
         val hasCover = known?.image?.startsWith(COVER_PREFIX) == true
@@ -2871,24 +2872,24 @@ class MainActivity : Activity() {
                 if (!image.isNullOrBlank()) fetchCover(episode.key, image, page)
             }
         }
-        // Senza copertina, un fotogramma del video (con VixCloud di solito non si riesce: è protetto)
-        if (hasCover) return
-        val picture = video?.let { previews[it.url] }
-        if (picture != null) {
-            setFrame(episode.key, saveFrame(episode.key, picture))
-        } else if (video != null && known?.image == null) {
-            val userAgent = web.settings.userAgentString
-            thread {
-                val frame = videoPreview(video, userAgent).second ?: return@thread
-                val name = saveFrame(episode.key, frame)
-                runOnUiThread { setFrame(episode.key, name) }
-            }
+        // Un fotogramma per ogni episodio, grande quanto la scheda; se non arriva resta l'anteprima piccola dell'elenco
+        // dei video, se c'è, o la copertina della serie (con VixCloud non sempre si riesce: il video è protetto)
+        if (video == null) return
+        val userAgent = web.settings.userAgentString
+        val small = previews[video.url]
+        val width = resources.displayMetrics.widthPixels.coerceIn(480, 1280)
+        thread {
+            val frame = videoPreview(video, userAgent, width).second ?: small ?: return@thread
+            val name = saveFrame(episode.key, frame)
+            runOnUiThread { setFrame(episode.key, file, name) }
         }
     }
 
-    // Un fotogramma non prende il posto di una copertina, anche se arriva dopo
-    private fun setFrame(key: String, name: String) = updateShows { shows ->
-        if (shows.firstOrNull { it.key == key }?.image?.startsWith(COVER_PREFIX) == true) null else withDetails(shows, key, image = name)
+    // Il fotogramma va all'episodio e, se la serie non ha una copertina del sito, anche alla serie
+    private fun setFrame(key: String, file: String, name: String) = updateShows { shows ->
+        val withEpisode = withEpisodeImage(shows, file, name) ?: shows
+        if (withEpisode.firstOrNull { it.key == key }?.image?.startsWith(COVER_PREFIX) == true) withEpisode
+        else withDetails(withEpisode, key, image = name)
     }
 
     // La copertina della serie dall'indirizzo dato dal sito, scaricata con i cookie e lo User-Agent del WebView
@@ -2933,7 +2934,7 @@ class MainActivity : Activity() {
 
     // All'avvio: via le immagini delle serie tolte (non subito, così "Annulla" le ritrova)
     private fun cleanFrames() {
-        val used = loadShows().mapNotNull { it.image }.toSet()
+        val used = usedImages(loadShows())
         framesDir().listFiles()?.forEach { if (it.name !in used) it.delete() }
     }
 
@@ -2988,7 +2989,7 @@ class MainActivity : Activity() {
     private fun showTile(show: Show, width: Int): View {
         val white = sys(R.color.system_neutral1_10, R.color.system_neutral1_10)
         val image = ImageView(this).apply {
-            val frame = show.image?.let { loadFrame(it) }
+            val frame = (show.picture?.let { loadFrame(it) } ?: show.image?.let { loadFrame(it) })
             if (frame != null) {
                 setImageBitmap(frame)
                 scaleType = ImageView.ScaleType.CENTER_CROP

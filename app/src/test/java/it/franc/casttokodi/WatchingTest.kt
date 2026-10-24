@@ -309,4 +309,26 @@ class WatchingTest {
         assertTrue(withSaved(shows, "f12", 0, 0, true)!![0].current.watched)
         assertNotNull(runCatching { kodi.savedPoint("mai visto") }.exceptionOrNull())
     }
+
+    @Test
+    fun immagineDiOgniEpisodio() {
+        var shows = withSent(emptyList(), jojo(12), "animeunity.so", "f12|Referer=x", 1000, playing = true)
+        shows = withDetails(shows, shows[0].key, image = "copertina-1.jpg")
+        assertEquals("copertina-1.jpg", shows[0].picture)
+        // Il fotogramma va all'episodio di quel video, anche se il link arriva con altri header
+        shows = withEpisodeImage(shows, "f12|Referer=y", "e12.jpg")!!
+        assertEquals("e12.jpg", shows[0].current.image)
+        assertEquals("e12.jpg", shows[0].picture)
+        assertNull(withEpisodeImage(shows, "altro", "x.jpg"))
+        // L'episodio dopo, ancora senza fotogramma: la scheda torna alla copertina finché non arriva il suo
+        shows = withSent(shows, jojo(13), "animeunity.so", "f13", 2000, playing = true)
+        assertEquals("copertina-1.jpg", shows[0].picture)
+        shows = withEpisodeImage(shows, "f13", "e13.jpg")!!
+        assertEquals("e13.jpg", shows[0].picture)
+        // Rimandato con un link nuovo, l'episodio tiene il suo fotogramma finché non ne arriva un altro
+        shows = withSent(shows, jojo(12), "animeunity.so", "f12bis", 3000, playing = true)
+        assertEquals("e12.jpg", shows[0].picture)
+        assertEquals(shows, showsFromJson(showsToJson(shows)))
+        assertEquals(setOf("copertina-1.jpg", "e12.jpg", "e13.jpg"), usedImages(shows))
+    }
 }
