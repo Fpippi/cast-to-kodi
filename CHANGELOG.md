@@ -7,6 +7,11 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.2.10
+
+- **Continua a guardare**: l'immagine dell'episodio si prende da un punto a caso tra il 25% e il 60% del video, dopo la
+  sigla, e se viene quasi nera se ne prova un'altra. Prima veniva spesso dalla sigla e sembravano tutte uguali.
+
 ## 2.2.9
 
 - La barra di Kodi in fondo e il telecomando mostrano l'immagine della serie (o dell'episodio) che sta andando, al

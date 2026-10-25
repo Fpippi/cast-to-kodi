@@ -414,4 +414,26 @@ s2.ts
         assertEquals(0, tsStart(ByteArray(1000)))
         assertEquals(0, tsStart(ByteArray(10)))
     }
+
+    @Test
+    fun puntoDellImmagine() {
+        // Elenco dei video: al 10%, al massimo a 1:30
+        assertEquals(30.0, previewPoint(300.0), 0.001)
+        assertEquals(90.0, previewPoint(1440.0), 0.001)
+        // Episodio: dopo la sigla, tra il 25% e il 60%
+        assertEquals(720.0, previewPoint(1440.0, 0.5), 0.001)
+        val points = episodeFramePoints(kotlin.random.Random(7), 50)
+        assertEquals(50, points.size)
+        assertTrue(points.all { it in FRAME_FROM..FRAME_TO })
+        assertTrue(points.distinct().size > 1)
+    }
+
+    @Test
+    fun fotogrammaScuro() {
+        assertEquals(0.0, brightness(IntArray(10) { 0xff000000.toInt() }), 0.001)
+        assertEquals(255.0, brightness(IntArray(10) { 0xffffffff.toInt() }), 0.01)
+        assertTrue(brightness(IntArray(10) { 0xff101010.toInt() }) < DARK_FRAME)
+        assertTrue(brightness(IntArray(10) { 0xff808080.toInt() }) >= DARK_FRAME)
+        assertEquals(0.0, brightness(IntArray(0)), 0.001)
+    }
 }

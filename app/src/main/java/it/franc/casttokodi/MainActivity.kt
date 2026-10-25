@@ -796,7 +796,7 @@ class MainActivity : Activity() {
     // della qualità più leggera (già decifrato) e il fotogramma si prende da lì. Video protetti: niente immagine.
     // width: larghezza massima del fotogramma in pixel (quella delle anteprime nell'elenco dei video, se non detta).
     // failed: perché il fotogramma non c'è, se manca
-    private fun videoPreview(video: Video, userAgent: String, width: Int = dp(224), failed: (String) -> Unit = {}): Pair<Long?, Bitmap?> {
+    private fun videoPreview(video: Video, userAgent: String, width: Int = dp(224), fraction: Double? = null, failed: (String) -> Unit = {}): Pair<Long?, Bitmap?> {
         val headers = streamHeaders(video.url, video.referer, userAgent)
         val retriever = MediaMetadataRetriever()
         var file: File? = null
@@ -805,7 +805,7 @@ class MainActivity : Activity() {
             if (Uri.parse(video.url).path.orEmpty().lowercase().endsWith(".mp4")) {
                 retriever.setDataSource(video.url, headers.toMap())
             } else {
-                val preview = streams.preview(video.url, headers)
+                val preview = streams.preview(video.url, headers, fraction = fraction)
                 seconds = preview.seconds
                 val sample = preview.sample ?: return (seconds to null).also { failed(preview.error ?: "pezzo del video non scaricato") }
                 // Senza gli eventuali byte finti davanti al pezzo (2.2.9: con la 2.2.8 il telefono non leggeva il fotogramma)
@@ -815,8 +815,8 @@ class MainActivity : Activity() {
             }
             val length = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
             if (seconds == null) seconds = length?.let { it / 1000 }
-            // Per un MP4 al 10% (l'inizio spesso è nero), per un pezzo HLS a metà
-            val at = if (file == null) minOf((length ?: 0) / 10, 90_000) else (length ?: 0) / 2
+            // Per un MP4 il punto scelto (previewPoint), per un pezzo HLS a metà del pezzo
+            val at = if (file == null) (previewPoint((length ?: 0) / 1000.0, fraction) * 1000).toLong() else (length ?: 0) / 2
             // Nei pezzi HLS il tempo non parte da 0 e cercare un punto può fallire: allora un fotogramma qualunque
             // (tempo negativo), e se no si decodifica il primo fotogramma del pezzo a mano
             val frame = retriever.getScaledFrameAtTime(at * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, width, width * 9 / 16)
@@ -831,6 +831,14 @@ class MainActivity : Activity() {
             retriever.release()
             file?.delete()
         }
+    }
+
+    // Luminosità di un fotogramma, da una copia piccola
+    private fun frameBrightness(picture: Bitmap): Double {
+        val small = Bitmap.createScaledBitmap(picture, 32, 18, true)
+        val pixels = IntArray(32 * 18)
+        small.getPixels(pixels, 0, 32, 0, 0, 32, 18)
+        return brightness(pixels)
     }
 
     // Il primo fotogramma di un pezzo di video, decodificato con MediaCodec senza cercare un punto: un pezzo HLS
@@ -2977,7 +2985,17 @@ class MainActivity : Activity() {
         val width = resources.displayMetrics.widthPixels.coerceIn(480, 1280)
         thread {
             var reason = ""
-            val frame = videoPreview(video, userAgent, width) { reason = it }.second ?: small
+            // Dopo la sigla: il primo punto che non dà un fotogramma quasi nero, se no il più chiaro (2.2.10, Pippo:
+            // al 10% venivano tutte immagini della sigla)
+            var frame: Bitmap? = null
+            var light = -1.0
+            for (point in episodeFramePoints()) {
+                val picture = videoPreview(video, userAgent, width, point) { reason = it }.second ?: continue
+                val level = frameBrightness(picture)
+                if (level > light) { frame = picture; light = level }
+                if (level >= DARK_FRAME) break
+            }
+            frame = frame ?: small
             // 2.2.8: con la 2.2.7 l'immagine non cambiava e non si sa perché; finché non è chiaro l'app lo dice
             if (frame == null) return@thread runOnUiThread { toast("Immagine dell'episodio non presa: $reason") }
             val name = saveFrame(episode.key, frame)
