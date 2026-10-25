@@ -402,4 +402,16 @@ s2.ts
         val stopped = KodiState(playerId = null, fromQueue = true, position = 1, remaining = 0, episode = 0, queueLength = 5)
         assertEquals("In coda", queueNote(stopped, 3, null, now, utc).text)
     }
+
+    @Test
+    fun inizioDelPezzoTs() {
+        val ts = ByteArray(188 * 4) { if (it % 188 == 0) 0x47 else 1 }
+        assertEquals(0, tsStart(ts))
+        // Byte finti davanti (un'immagine PNG), anche con qualche 0x47 isolato in mezzo
+        val junk = byteArrayOf(0x89.toByte(), 'P'.code.toByte(), 'N'.code.toByte(), 'G'.code.toByte(), 0x47, 0, 0x47) + ByteArray(50)
+        assertEquals(junk.size, tsStart(junk + ts))
+        // Niente che somigli a un TS: si lascia com'è
+        assertEquals(0, tsStart(ByteArray(1000)))
+        assertEquals(0, tsStart(ByteArray(10)))
+    }
 }

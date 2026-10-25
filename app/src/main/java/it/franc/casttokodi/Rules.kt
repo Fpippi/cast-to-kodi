@@ -192,6 +192,15 @@ fun durationLabel(seconds: Long): String = when {
 // init è il pezzo d'inizio dei video fMP4 (#EXT-X-MAP), da mettere davanti.
 class Segment(val url: String, val key: String?, val iv: ByteArray?, val init: String?)
 
+// Dove inizia davvero un pezzo MPEG-TS: alcuni siti mettono davanti dei byte finti (un'immagine) e il lettore del
+// telefono non lo riconosce più. Il primo byte 0x47 seguito da altri due a 188 e 376 byte; 0 se non lo trova
+fun tsStart(data: ByteArray): Int {
+    for (i in 0 until minOf(data.size - 376, 65_536)) {
+        if (data[i] == 0x47.toByte() && data[i + 188] == 0x47.toByte() && data[i + 376] == 0x47.toByte()) return i
+    }
+    return 0
+}
+
 // Il pezzo che contiene il secondo `at` (l'ultimo se il video è più corto): l'inizio spesso è nero.
 // null se non si può decifrare (SAMPLE-AES, DRM) o se non ci sono pezzi.
 fun segmentAt(media: String, mediaUrl: String, at: Double): Segment? {

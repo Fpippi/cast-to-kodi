@@ -267,6 +267,13 @@ fun showOfFile(shows: List<Show>, file: String?): Show? {
     return shows.firstOrNull { s -> s.episodes.any { it.file != null && queueKey(it.file) == key } }
 }
 
+// L'immagine del video in riproduzione, per il mini-player e il telecomando: quella del suo episodio, se no della serie
+fun pictureOfFile(shows: List<Show>, file: String?): String? {
+    val show = showOfFile(shows, file) ?: return null
+    val key = queueKey(file!!)
+    return show.episodes.firstOrNull { it.file != null && queueKey(it.file) == key }?.image ?: show.image
+}
+
 // Di quanto salta "Salta sigla" con questo video: quello della serie, o general (per tutti) se il video non è di una
 // serie nota. null se non è ancora stato scelto: il tasto lo chiede
 fun introOf(shows: List<Show>, file: String?, general: Int?): Int? {
