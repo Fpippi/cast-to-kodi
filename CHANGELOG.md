@@ -7,6 +7,13 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.2.9
+
+- La barra di Kodi in fondo e il telecomando mostrano l'immagine della serie (o dell'episodio) che sta andando, al
+  posto del quadrato con ▶.
+- **Continua a guardare**: l'immagine dell'episodio ora si legge anche dai video che il telefono prima non riusciva ad
+  aprire (pezzi con dati in più all'inizio, o dove il punto scelto non si trova).
+
 ## 2.2.8
 
 - **Salta sigla**: al primo tocco su una serie l'app chiede di quanto saltare e poi se lo ricorda per quella serie.

@@ -332,5 +332,10 @@ class WatchingTest {
         assertEquals("e12.jpg", shows[0].picture)
         assertEquals(shows, showsFromJson(showsToJson(shows)))
         assertEquals(setOf("copertina-1.jpg", "e12.jpg", "e13.jpg"), usedImages(shows))
+        // Mini-player e telecomando: l'immagine dell'episodio in riproduzione, se no della serie
+        assertEquals("e12.jpg", pictureOfFile(shows, "f12bis|Referer=z"))
+        assertEquals("e13.jpg", pictureOfFile(shows, "f13"))
+        assertNull(pictureOfFile(shows, "altro"))
+        assertNull(pictureOfFile(shows, null))
     }
 }

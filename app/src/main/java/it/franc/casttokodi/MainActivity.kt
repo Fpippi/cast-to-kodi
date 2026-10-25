@@ -17,6 +17,11 @@ import android.graphics.ColorMatrixColorFilter
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
+import android.media.Image
+import android.media.MediaCodec
+import android.media.MediaCodecInfo
+import android.media.MediaExtractor
+import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.net.nsd.NsdManager
@@ -803,14 +808,20 @@ class MainActivity : Activity() {
                 val preview = streams.preview(video.url, headers)
                 seconds = preview.seconds
                 val sample = preview.sample ?: return (seconds to null).also { failed(preview.error ?: "pezzo del video non scaricato") }
-                file = File.createTempFile("anteprima", ".ts", cacheDir).apply { writeBytes(sample) }
+                // Senza gli eventuali byte finti davanti al pezzo (2.2.9: con la 2.2.8 il telefono non leggeva il fotogramma)
+                val start = tsStart(sample)
+                file = File.createTempFile("anteprima", ".ts", cacheDir).apply { writeBytes(if (start > 0) sample.copyOfRange(start, sample.size) else sample) }
                 retriever.setDataSource(file.path)
             }
             val length = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
             if (seconds == null) seconds = length?.let { it / 1000 }
             // Per un MP4 al 10% (l'inizio spesso è nero), per un pezzo HLS a metà
             val at = if (file == null) minOf((length ?: 0) / 10, 90_000) else (length ?: 0) / 2
+            // Nei pezzi HLS il tempo non parte da 0 e cercare un punto può fallire: allora un fotogramma qualunque
+            // (tempo negativo), e se no si decodifica il primo fotogramma del pezzo a mano
             val frame = retriever.getScaledFrameAtTime(at * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, width, width * 9 / 16)
+                ?: retriever.getScaledFrameAtTime(-1, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, width, width * 9 / 16)
+                ?: file?.let { firstFrame(it.path, width) }
             if (frame == null) failed("il telefono non legge il fotogramma dal pezzo")
             seconds to frame
         } catch (e: Exception) {
@@ -820,6 +831,93 @@ class MainActivity : Activity() {
             retriever.release()
             file?.delete()
         }
+    }
+
+    // Il primo fotogramma di un pezzo di video, decodificato con MediaCodec senza cercare un punto: un pezzo HLS
+    // inizia sempre con un fotogramma completo. null se il telefono non ha il decoder o il pezzo non si legge
+    private fun firstFrame(path: String, width: Int): Bitmap? {
+        val extractor = MediaExtractor()
+        var codec: MediaCodec? = null
+        return try {
+            extractor.setDataSource(path)
+            val track = (0 until extractor.trackCount).firstOrNull {
+                extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true
+            } ?: return null
+            extractor.selectTrack(track)
+            val format = extractor.getTrackFormat(track)
+            format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)
+            codec = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
+            codec.configure(format, null, null, 0)
+            codec.start()
+            val info = MediaCodec.BufferInfo()
+            var inputDone = false
+            val deadline = System.currentTimeMillis() + 5000
+            while (System.currentTimeMillis() < deadline) {
+                if (!inputDone) {
+                    val input = codec.dequeueInputBuffer(10_000)
+                    if (input >= 0) {
+                        val size = extractor.readSampleData(codec.getInputBuffer(input)!!, 0)
+                        if (size < 0) {
+                            codec.queueInputBuffer(input, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            inputDone = true
+                        } else {
+                            codec.queueInputBuffer(input, 0, size, extractor.sampleTime, 0)
+                            extractor.advance()
+                        }
+                    }
+                }
+                val output = codec.dequeueOutputBuffer(info, 10_000)
+                if (output < 0) continue
+                val picture = if (info.size > 0) codec.getOutputImage(output)?.use { yuvBitmap(it) } else null
+                codec.releaseOutputBuffer(output, false)
+                if (picture != null) {
+                    val height = (width.toLong() * picture.height / picture.width.coerceAtLeast(1)).toInt().coerceAtLeast(1)
+                    return if (picture.width > width) Bitmap.createScaledBitmap(picture, width, height, true) else picture
+                }
+                if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) return null
+            }
+            null
+        } catch (e: Exception) {
+            null
+        } finally {
+            codec?.let { runCatching { it.stop() }; it.release() }
+            extractor.release()
+        }
+    }
+
+    // Un fotogramma YUV del decoder in Bitmap, passando da NV21 e JPEG (YuvImage)
+    private fun yuvBitmap(image: Image): Bitmap? {
+        val crop = image.cropRect
+        val w = crop.width() and 1.inv()
+        val h = crop.height() and 1.inv()
+        if (w <= 0 || h <= 0) return null
+        val nv21 = ByteArray(w * h * 3 / 2)
+        val (y, u, v) = image.planes
+        for (row in 0 until h) for (col in 0 until w) {
+            nv21[row * w + col] = y.buffer.get((crop.top + row) * y.rowStride + (crop.left + col) * y.pixelStride)
+        }
+        for (row in 0 until h / 2) for (col in 0 until w / 2) {
+            val at = w * h + row * w + col * 2
+            nv21[at] = v.buffer.get((crop.top / 2 + row) * v.rowStride + (crop.left / 2 + col) * v.pixelStride)
+            nv21[at + 1] = u.buffer.get((crop.top / 2 + row) * u.rowStride + (crop.left / 2 + col) * u.pixelStride)
+        }
+        val out = java.io.ByteArrayOutputStream()
+        android.graphics.YuvImage(nv21, android.graphics.ImageFormat.NV21, w, h, null).compressToJpeg(android.graphics.Rect(0, 0, w, h), 90, out)
+        return BitmapFactory.decodeByteArray(out.toByteArray(), 0, out.size())
+    }
+
+    // L'immagine dell'episodio in riproduzione (o della serie) in thumb, al posto del ▶; false se non c'è. Le
+    // immagini lette restano in memoria: il mini-player e il telecomando le chiedono ogni pochi secondi
+    private val thumbCache = HashMap<String, Bitmap?>()
+
+    private fun showPicture(thumb: ImageView, file: String?): Boolean {
+        val name = pictureOfFile(loadShows(), file) ?: return false
+        val picture = thumbCache.getOrPut(name) { loadFrame(name) } ?: return false
+        thumb.setImageBitmap(picture)
+        thumb.imageTintList = null
+        thumb.scaleType = ImageView.ScaleType.CENTER_CROP
+        thumb.clipToOutline = true
+        return true
     }
 
     // Tutto passa dalla playlist video di Kodi, così "+ Coda" e gli episodi successivi seguono quello in corso.
@@ -1824,6 +1922,10 @@ class MainActivity : Activity() {
                 return
             }
             title.text = queueLabel(playing.file, playing.title, loadTitles())
+            if (!showPicture(thumb, playing.file)) {
+                thumb.scaleType = ImageView.ScaleType.CENTER
+                thumb.setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_play, sys(R.color.system_accent1_50, R.color.system_accent1_100)))
+            }
             intro.text = introLabel(introOf(loadShows(), playing.file, generalIntro()))
             val end = if (playing.total > 0) "fino alle ${clockAt(System.currentTimeMillis() / 1000 + playing.total - playing.time)}" else "in diretta"
             status.text = if (playing.paused) "In pausa · $end" else end
@@ -2376,7 +2478,9 @@ class MainActivity : Activity() {
         mini.visibility = View.VISIBLE
         val onSurface = sys(R.color.system_neutral1_900, R.color.system_neutral1_100)
         val video = playing?.playerId != null
-        // Immagine: colorata con ▶ se c'è un video, altrimenti tonda neutra con il telecomando
+        // Immagine: quella della serie se il video è di una serie nota, se no colorata con ▶ se c'è un video,
+        // altrimenti tonda neutra con il telecomando
+        miniThumb.scaleType = ImageView.ScaleType.CENTER
         miniThumb.setImageDrawable(icon(
             if (video) it.franc.casttokodi.R.drawable.ic_play else it.franc.casttokodi.R.drawable.ic_remote,
             if (video) sys(R.color.system_accent1_50, R.color.system_accent1_100) else sys(R.color.system_neutral2_700, R.color.system_neutral2_200),
@@ -2385,6 +2489,7 @@ class MainActivity : Activity() {
             sys(R.color.system_accent1_400, R.color.system_accent1_600),
             sys(R.color.system_accent2_700, R.color.system_accent2_900),
         )).apply { cornerRadius = dp(10).toFloat() } else circle(sys(R.color.system_neutral2_200, R.color.system_neutral2_700))
+        if (video) showPicture(miniThumb, playing?.file)
         // Pallino: acceso se Kodi risponde, spento se no
         val dot = if (playing != null) sys(R.color.system_accent1_500, R.color.system_accent1_200) else sys(R.color.system_neutral2_400, R.color.system_neutral2_500)
         miniStatus.setCompoundDrawablesRelativeWithIntrinsicBounds(circle(dot).apply { setSize(dp(8), dp(8)) }, null, null, null)
