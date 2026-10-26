@@ -155,3 +155,7 @@ The app's rules that don't depend on Android (address bar, jump blocking, recogn
 2. *Settings → Rules → Rulesets → New branch ruleset*, targeting `develop` and `main`: turn on **Restrict deletions**, **Require a pull request before merging** and **Require status checks to pass** with the **test** check. This way a PR with red tests can't be merged and nobody pushes directly to the two branches.
 
 </details>
+
+---
+
+<sub>Couch Cast is not affiliated with or endorsed by Kodi or the XBMC Foundation. Kodi® is a registered trademark of the XBMC Foundation. Fire TV is a trademark of Amazon.</sub>

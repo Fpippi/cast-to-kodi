@@ -152,3 +152,7 @@ Le regole dell'app che non dipendono da Android (barra degli indirizzi, blocco d
 2. *Settings → Rules → Rulesets → New branch ruleset*, con target `develop` e `main`: attiva **Restrict deletions**, **Require a pull request before merging** e **Require status checks to pass** con il controllo **test**. Così una PR con i test rossi non si può unire e nessuno pusha direttamente sui due branch.
 
 </details>
+
+---
+
+<sub>Couch Cast non è affiliato né approvato da Kodi o dalla XBMC Foundation. Kodi® è un marchio registrato della XBMC Foundation. Fire TV è un marchio di Amazon.</sub>
