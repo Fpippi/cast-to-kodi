@@ -338,4 +338,38 @@ class WatchingTest {
         assertNull(pictureOfFile(shows, "altro"))
         assertNull(pictureOfFile(shows, null))
     }
+
+    @Test
+    fun sfondoDellaSerie() {
+        var shows = withSent(emptyList(), jojo(12), "animeunity.so", "f12", 1000, playing = true)
+        shows = withDetails(shows, shows[0].key, image = "copertina-1.jpg")
+        shows = withEpisodeImage(shows, "f12", "e12.jpg")!!
+        val key = shows[0].key
+        // Di default l'immagine dell'episodio, tra il 25% e il 60%
+        assertEquals("e12.jpg", shows[0].picture)
+        assertEquals(25 to 60, shows[0].frameRange)
+        assertEquals("Immagine a caso tra 25% e 60%", backgroundLabel(shows[0]))
+        // Copertina: anche nel mini-player, e resta dopo un nuovo invio
+        shows = withBackground(shows, key, cover = true)
+        assertEquals("copertina-1.jpg", shows[0].picture)
+        assertEquals("copertina-1.jpg", pictureOfFile(shows, "f12"))
+        assertEquals("Copertina", backgroundLabel(shows[0]))
+        shows = withSent(shows, jojo(13), "animeunity.so", "f13", 2000, playing = true)
+        assertTrue(shows[0].cover)
+        // Di nuovo l'episodio, con un intervallo scelto
+        shows = withBackground(shows, key, cover = false, range = 40 to 70)
+        assertEquals(40 to 70, shows[0].frameRange)
+        assertEquals("e12.jpg", pictureOfFile(shows, "f12"))
+        assertEquals(shows, showsFromJson(showsToJson(shows)))
+    }
+
+    @Test
+    fun intervalloScrittoAMano() {
+        assertEquals(20 to 50, parseFrameRange("20", "50"))
+        assertEquals(20 to 50, parseFrameRange(" 20% ", "50%"))
+        assertNull(parseFrameRange("50", "20"))
+        assertNull(parseFrameRange("30", "33"))
+        assertNull(parseFrameRange("10", "100"))
+        assertNull(parseFrameRange("", "50"))
+    }
 }

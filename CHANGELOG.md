@@ -11,6 +11,8 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 
 - **Continua a guardare**: l'immagine dell'episodio si prende da un punto a caso tra il 25% e il 60% del video, dopo la
   sigla, e se viene quasi nera se ne prova un'altra. Prima veniva spesso dalla sigla e sembravano tutte uguali.
+- Nel pannello di ogni serie c'è **Sfondo**: la copertina oppure l'immagine dell'episodio, con l'intervallo da cui
+  prenderla che puoi cambiare (*Cambia intervallo…*).
 
 ## 2.2.9
 

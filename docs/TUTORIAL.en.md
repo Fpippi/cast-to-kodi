@@ -280,6 +280,10 @@ When you send an episode to Kodi, the app remembers it. On the home page, below 
   (Resume on Kodi) sends the episode without opening the page and Kodi resumes from the minute you stopped at
   (only on the anime site with the VixCloud player). **Apri qui** (Open here) opens the episode page: on other sites start the player, press
   *Manda a Kodi* and Kodi still resumes from where you were. From the panel you can also mark the episode as watched.
+- **Card background**: from the panel, *Sfondo* (Background) picks between the series **copertina** (cover) and an
+  **episode image**, taken at random between 25% and 60% of the video (after the opening theme). With *Cambia
+  intervallo…* (Change range) you choose where to take it from, in percent. The same image shows in the Kodi bar at
+  the bottom.
 - A series that reached its last episode stays faded, marked **Finita** (Finished), until you remove it.
 - **Remove a series**: the **✕** at the top right of the card. The card turns red and asks *Togli …?* (Remove …?): tap
   **Togli** (Remove) (if you tap nothing, it goes back to normal after 4 seconds). Right after, you can still press

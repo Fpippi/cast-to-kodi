@@ -426,6 +426,7 @@ s2.ts
         assertEquals(50, points.size)
         assertTrue(points.all { it in FRAME_FROM..FRAME_TO })
         assertTrue(points.distinct().size > 1)
+        assertTrue(episodeFramePoints(kotlin.random.Random(7), 20, 0.4, 0.7).all { it in 0.4..0.7 })
     }
 
     @Test

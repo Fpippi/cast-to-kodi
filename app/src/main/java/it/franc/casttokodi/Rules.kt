@@ -202,8 +202,9 @@ fun previewPoint(seconds: Double, fraction: Double? = null): Double =
 const val FRAME_FROM = 0.25
 const val FRAME_TO = 0.6
 
-fun episodeFramePoints(random: kotlin.random.Random = kotlin.random.Random.Default, count: Int = 3): List<Double> =
-    List(count) { FRAME_FROM + random.nextDouble() * (FRAME_TO - FRAME_FROM) }
+fun episodeFramePoints(
+    random: kotlin.random.Random = kotlin.random.Random.Default, count: Int = 3, from: Double = FRAME_FROM, to: Double = FRAME_TO,
+): List<Double> = List(count) { from + random.nextDouble() * (to - from) }
 
 // Luminosità media (0-255) di pixel ARGB, per scartare i fotogrammi quasi neri
 fun brightness(pixels: IntArray): Double {

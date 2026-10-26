@@ -2560,6 +2560,62 @@ class MainActivity : Activity() {
     private fun generalIntro(): Int? = if (prefs.contains("intro")) prefs.getInt("intro", DEFAULT_INTRO) else null
 
     // Di quanto salta "Salta sigla": per la serie del video in corso, o per tutti se il video non è di una serie nota
+    // Sfondo della scheda di una serie: la copertina, l'immagine dell'episodio o l'intervallo da cui prenderla
+    private fun chooseBackground(key: String) {
+        val show = loadShows().firstOrNull { it.key == key } ?: return
+        val (from, to) = show.frameRange
+        val labels = arrayOf("Copertina", "Immagine a caso tra $from% e $to%", "Cambia intervallo…")
+        AlertDialog.Builder(this)
+            .setTitle("Sfondo: ${show.title}")
+            .setSingleChoiceItems(labels, if (show.cover) 0 else 1) { dialog, i ->
+                dialog.dismiss()
+                when (i) {
+                    0 -> updateShows { withBackground(it, key, cover = true) }
+                    1 -> updateShows { withBackground(it, key, cover = false) }
+                    else -> askFrameRange(show) { range -> updateShows { withBackground(it, key, cover = false, range = range) } }
+                }
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+
+    private fun askFrameRange(show: Show, done: (Pair<Int, Int>) -> Unit) {
+        fun field(value: Int, label: String) = EditText(this).apply {
+            hint = label
+            setText(value.toString())
+            isSingleLine = true
+            inputType = InputType.TYPE_CLASS_NUMBER
+        }
+        val (from, to) = show.frameRange
+        val start = field(from, "da %")
+        val end = field(to, "a %")
+        val row = LinearLayout(this).apply {
+            addView(start, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(TextView(this@MainActivity).apply { text = "–"; setPadding(dp(12), 0, dp(12), 0) })
+            addView(end, LinearLayout.LayoutParams(0, -2, 1f))
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        lateinit var dialog: AlertDialog
+        val go = {
+            val range = parseFrameRange(start.text.toString(), end.text.toString())
+            if (range == null) toast("Scrivi due percentuali, la seconda almeno 5 più della prima, fino a 95")
+            else {
+                done(range)
+                dialog.dismiss()
+            }
+        }
+        dialog = AlertDialog.Builder(this)
+            .setTitle("Intervallo dell'immagine")
+            .setMessage("Da che punto a che punto dell'episodio prendere l'immagine, in percentuale. Vale dal prossimo invio.")
+            .setView(section(row).apply { setPadding(dp(24), dp(8), dp(24), 0) })
+            .setPositiveButton("Salva", null)
+            .setNegativeButton("Annulla", null)
+            .create()
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { go() }
+        start.requestFocus()
+    }
+
     private fun chooseIntro(file: String?, done: (Int) -> Unit) {
         val show = showOfFile(loadShows(), file)
         val current = if (show != null) show.intro else generalIntro()
@@ -2980,6 +3036,10 @@ class MainActivity : Activity() {
         // Un fotogramma per ogni episodio, grande quanto la scheda; se non arriva resta l'anteprima piccola dell'elenco
         // dei video, se c'è, o la copertina della serie (con VixCloud non sempre si riesce: il video è protetto)
         if (video == null) return
+        // Con lo sfondo "Copertina" (pannello della serie) l'immagine dell'episodio non serve: niente pezzi da scaricare
+        val show = loadShows().firstOrNull { it.key == episode.key }
+        if (show?.cover == true) return
+        val (from, to) = show?.frameRange ?: ((FRAME_FROM * 100).toInt() to (FRAME_TO * 100).toInt())
         val userAgent = web.settings.userAgentString
         val small = previews[video.url]
         val width = resources.displayMetrics.widthPixels.coerceIn(480, 1280)
@@ -2989,7 +3049,7 @@ class MainActivity : Activity() {
             // al 10% venivano tutte immagini della sigla)
             var frame: Bitmap? = null
             var light = -1.0
-            for (point in episodeFramePoints()) {
+            for (point in episodeFramePoints(from = from / 100.0, to = to / 100.0)) {
                 val picture = videoPreview(video, userAgent, width, point) { reason = it }.second ?: continue
                 val level = frameBrightness(picture)
                 if (level > light) { frame = picture; light = level }
@@ -3368,6 +3428,10 @@ class MainActivity : Activity() {
                 updateShows { withCurrentWatched(it, key) }
             })
         }
+        content.addView(settingsRow(it.franc.casttokodi.R.drawable.ic_article, "Sfondo", backgroundLabel(show)) {
+            dialog.dismiss()
+            chooseBackground(key)
+        })
         var armed = false
         lateinit var remove: View
         remove = settingsRow(it.franc.casttokodi.R.drawable.ic_delete, "Togli da Continua a guardare", show.title) {

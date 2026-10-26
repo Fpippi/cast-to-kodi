@@ -268,6 +268,9 @@ una fila che scorre di lato, con una scheda per ogni serie, la più recente a si
   l'episodio senza aprire la pagina e Kodi riparte dal minuto in cui eri (solo sul sito di anime con player VixCloud). **Apri qui** apre la pagina
   dell'episodio: sugli altri siti avvii il player, premi *Manda a Kodi* e Kodi riparte comunque da dove eri. Dal
   pannello puoi anche segnare l'episodio come visto.
+- **Sfondo della scheda**: dal pannello, *Sfondo* sceglie tra la **copertina** della serie e un'**immagine
+  dell'episodio**, presa a caso tra il 25% e il 60% del video (dopo la sigla). Con *Cambia intervallo…* scegli tu da
+  che punto a che punto prenderla, in percentuale. La stessa immagine compare nella barra di Kodi in fondo.
 - Una serie arrivata all'ultimo episodio resta sbiadita, con scritto **Finita**, finché non la togli.
 - **Togliere una serie**: la **✕** in alto a destra sulla scheda. La scheda diventa rossa e chiede *Togli …?*: tocca
   **Togli** (se non tocchi niente, dopo 4 secondi torna com'era). Subito dopo puoi ancora premere **Annulla**
