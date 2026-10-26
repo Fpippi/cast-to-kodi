@@ -38,15 +38,14 @@ class Streams(private val relay: Relay, private val localIp: () -> String?) {
 
     // Durata e un pezzo della qualità più leggera, per riconoscere il video giusto nell'elenco. Da un thread di
     // background. Le playlist lette restano in copia: l'invio non rifà la richiesta (token monouso di vidxgo).
-    fun preview(url: String, headers: List<Pair<String, String>>, limit: Int = 8_000_000): Preview {
+    fun preview(url: String, headers: List<Pair<String, String>>, limit: Int = 8_000_000, fraction: Double? = null): Preview {
         var (body, mediaUrl) = playlist(url, headers)
         lowestVariant(String(body), mediaUrl)?.let { variant -> playlist(variant, headers).let { body = it.first; mediaUrl = it.second } }
         val media = String(body)
         val seconds = playlistSeconds(media)
         var error: String? = null
         val sample = try {
-            // Al 10% del video, al massimo a un minuto e mezzo: l'inizio spesso è nero
-            val segment = segmentAt(media, mediaUrl, minOf((seconds ?: 0.0) * 0.1, 90.0))
+            val segment = segmentAt(media, mediaUrl, previewPoint(seconds ?: 0.0, fraction))
             if (segment == null) error = "nessun pezzo leggibile nella playlist (protetto?)"
             segment?.let { sample(it, headers, limit) }
         } catch (e: Exception) {

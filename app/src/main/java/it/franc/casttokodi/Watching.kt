@@ -75,12 +75,25 @@ data class Show(
     val image: String? = null,
     val updated: Long = 0,
     val intro: Int? = null,
+    // Sfondo della scheda (scelta di Pippo, 2026-10-26): cover = sempre la copertina, se no l'immagine dell'episodio,
+    // presa a caso tra frameFrom% e frameTo% del video (null = FRAME_FROM/FRAME_TO)
+    val cover: Boolean = false,
+    val frameFrom: Int? = null,
+    val frameTo: Int? = null,
+    // Impostazioni della serie (2026-10-26): renamed = il nome l'ha scritto Pippo e il sito non lo cambia più;
+    // rewind = secondi prima del punto da cui riprendere; autoNext = episodi accodati da soli (null = come in Impostazioni)
+    val renamed: Boolean = false,
+    val rewind: Int = 0,
+    val autoNext: Int? = null,
 ) {
     // L'ultimo mandato o visto su Kodi
     val current: Episode get() = episodes.filter { it.seen > 0 }.maxByOrNull { it.seen } ?: episodes.last()
 
     // Immagine della scheda: il fotogramma dell'episodio a cui si è (scelta di Pippo, 2026-10-24), se no quella della serie
-    val picture: String? get() = current.image ?: image
+    val picture: String? get() = if (cover) image ?: current.image else current.image ?: image
+
+    // Dove prendere l'immagine dell'episodio, in percentuale del video
+    val frameRange: Pair<Int, Int> get() = (frameFrom ?: (FRAME_FROM * 100).toInt()) to (frameTo ?: (FRAME_TO * 100).toInt())
 
     // Visto l'ultimo episodio: resta in fila con "Finita" finché non la si toglie (scelta di Pippo)
     val finished: Boolean get() = current.let { it.watched && it.season == null && it.number != null && count != null && it.number >= count }
@@ -180,6 +193,12 @@ fun withSent(
         image = image ?: old?.image,
         updated = now,
         intro = old?.intro,
+        cover = old?.cover ?: false,
+        frameFrom = old?.frameFrom,
+        frameTo = old?.frameTo,
+        renamed = old?.renamed ?: false,
+        rewind = old?.rewind ?: 0,
+        autoNext = old?.autoNext,
     )
     return (listOf(show) + shows.filter { it.key != page.key }).take(MAX_SHOWS)
 }
@@ -197,7 +216,7 @@ fun withDetails(
 ): List<Show> = shows.map { show ->
     if (show.key != key) show
     else show.copy(
-        title = title?.takeIf { it.isNotBlank() } ?: show.title,
+        title = title?.takeIf { it.isNotBlank() && !show.renamed } ?: show.title,
         image = image ?: show.image,
         count = count ?: show.count,
         next = next ?: show.next,
@@ -271,8 +290,40 @@ fun showOfFile(shows: List<Show>, file: String?): Show? {
 fun pictureOfFile(shows: List<Show>, file: String?): String? {
     val show = showOfFile(shows, file) ?: return null
     val key = queueKey(file!!)
-    return show.episodes.firstOrNull { it.file != null && queueKey(it.file) == key }?.image ?: show.image
+    val episode = show.episodes.firstOrNull { it.file != null && queueKey(it.file) == key }?.image
+    return if (show.cover) show.image ?: episode else episode ?: show.image
 }
+
+// Sfondo scelto nel pannello della serie
+fun withBackground(shows: List<Show>, key: String, cover: Boolean, range: Pair<Int, Int>? = null): List<Show> = shows.map {
+    if (it.key != key) it else it.copy(cover = cover, frameFrom = range?.first ?: it.frameFrom, frameTo = range?.second ?: it.frameTo)
+}
+
+// L'intervallo scritto a mano, in percentuale: almeno 5 punti di distanza, dentro il video; null se non va
+fun parseFrameRange(from: String, to: String): Pair<Int, Int>? {
+    val a = from.trim().removeSuffix("%").trim().toIntOrNull() ?: return null
+    val b = to.trim().removeSuffix("%").trim().toIntOrNull() ?: return null
+    return (a to b).takeIf { a >= 0 && b <= 95 && b - a >= 5 }
+}
+
+fun withTitle(shows: List<Show>, key: String, title: String): List<Show> = shows.map {
+    if (it.key != key || title.isBlank()) it else it.copy(title = title.trim(), renamed = true)
+}
+
+// "Riprendi qualche secondo prima": le scelte del pannello della serie
+val REWIND_CHOICES = listOf(0, 5, 10, 15, 30)
+
+fun rewindLabel(seconds: Int): String = if (seconds <= 0) "Dal punto esatto" else "$seconds secondi prima"
+
+fun withRewind(shows: List<Show>, key: String, seconds: Int): List<Show> = shows.map { if (it.key == key) it.copy(rewind = seconds) else it }
+
+// Episodi successivi accodati da soli per questa serie: la sua scelta o quella generale (general) delle Impostazioni
+fun autoNextOf(shows: List<Show>, key: String?, general: Int): Int = shows.firstOrNull { it.key == key }?.autoNext ?: general
+
+fun withAutoNext(shows: List<Show>, key: String, count: Int?): List<Show> = shows.map { if (it.key == key) it.copy(autoNext = count) else it }
+
+fun backgroundLabel(show: Show): String =
+    if (show.cover) "Copertina" else show.frameRange.let { (a, b) -> "Immagine a caso tra $a% e $b%" }
 
 // Di quanto salta "Salta sigla" con questo video: quello della serie, o general (per tutti) se il video non è di una
 // serie nota. null se non è ancora stato scelto: il tasto lo chiede
@@ -304,8 +355,10 @@ fun withCurrentWatched(shows: List<Show>, key: String): List<Show> = shows.map {
 
 // Da dove riprendere un episodio che si sta per mandare: il punto se era a metà, altrimenti null (dall'inizio)
 fun resumePoint(shows: List<Show>, site: String, path: String): Long? {
-    val episode = shows.filter { it.site == site }.flatMap { it.episodes }.firstOrNull { it.path == path } ?: return null
+    val show = shows.filter { it.site == site }.firstOrNull { s -> s.episodes.any { it.path == path } } ?: return null
+    val episode = show.episodes.first { it.path == path }
     return episode.time.takeIf { !episode.watched && it >= RESUME_MIN && (episode.total == 0L || it < episode.total) }
+        ?.let { (it - show.rewind).coerceAtLeast(0) }
 }
 
 // L'indirizzo per riaprire un episodio: con l'ultimo dominio del sito che ha funzionato (hosts: sito -> dominio,
@@ -370,6 +423,8 @@ fun showsToJson(shows: List<Show>): String = JSONArray(shows.map { s ->
         .put("episodes", JSONArray(s.episodes.map { episodeJson(it) }))
         .putOpt("count", s.count).putOpt("next", s.next?.let { episodeJson(it) })
         .putOpt("image", s.image).put("updated", s.updated).putOpt("intro", s.intro)
+        .put("cover", s.cover).putOpt("frameFrom", s.frameFrom).putOpt("frameTo", s.frameTo)
+        .put("renamed", s.renamed).put("rewind", s.rewind).putOpt("autoNext", s.autoNext)
 }).toString()
 
 private fun episodeJson(e: Episode) = JSONObject().putOpt("season", e.season).putOpt("number", e.number).put("path", e.path)
@@ -389,6 +444,12 @@ fun showsFromJson(text: String?): List<Show> = try {
             image = o.optString("image").ifEmpty { null },
             updated = o.optLong("updated"),
             intro = if (o.has("intro")) o.getInt("intro") else null,
+            cover = o.optBoolean("cover"),
+            frameFrom = if (o.has("frameFrom")) o.getInt("frameFrom") else null,
+            frameTo = if (o.has("frameTo")) o.getInt("frameTo") else null,
+            renamed = o.optBoolean("renamed"),
+            rewind = o.optInt("rewind"),
+            autoNext = if (o.has("autoNext")) o.getInt("autoNext") else null,
         )
     }
 } catch (e: Exception) {

@@ -7,6 +7,18 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.2.10
+
+- **Continua a guardare**: l'immagine dell'episodio si prende da un punto a caso tra il 25% e il 60% del video, dopo la
+  sigla, e se viene quasi nera se ne prova un'altra. Prima veniva spesso dalla sigla e sembravano tutte uguali.
+- Nel pannello di ogni serie ci sono le **Impostazioni della serie**:
+  - **Nome**, da scrivere a mano;
+  - **Sfondo**: la copertina oppure l'immagine dell'episodio, con l'intervallo da cui prenderla (*Cambia intervallo…*);
+  - **Salta sigla**, il tempo di quella serie;
+  - **Riprendi** dal punto esatto o qualche secondo prima;
+  - **Episodi successivi** accodati da soli per quella serie (sui siti di anime con player VixCloud).
+- Le scelte (Sfondo, Salta sigla) si aprono in un pannello dal basso, con le immagini da confrontare per lo sfondo.
+
 ## 2.2.9
 
 - La barra di Kodi in fondo e il telecomando mostrano l'immagine della serie (o dell'episodio) che sta andando, al
