@@ -80,6 +80,11 @@ data class Show(
     val cover: Boolean = false,
     val frameFrom: Int? = null,
     val frameTo: Int? = null,
+    // Impostazioni della serie (2026-10-26): renamed = il nome l'ha scritto Pippo e il sito non lo cambia più;
+    // rewind = secondi prima del punto da cui riprendere; autoNext = episodi accodati da soli (null = come in Impostazioni)
+    val renamed: Boolean = false,
+    val rewind: Int = 0,
+    val autoNext: Int? = null,
 ) {
     // L'ultimo mandato o visto su Kodi
     val current: Episode get() = episodes.filter { it.seen > 0 }.maxByOrNull { it.seen } ?: episodes.last()
@@ -191,6 +196,9 @@ fun withSent(
         cover = old?.cover ?: false,
         frameFrom = old?.frameFrom,
         frameTo = old?.frameTo,
+        renamed = old?.renamed ?: false,
+        rewind = old?.rewind ?: 0,
+        autoNext = old?.autoNext,
     )
     return (listOf(show) + shows.filter { it.key != page.key }).take(MAX_SHOWS)
 }
@@ -208,7 +216,7 @@ fun withDetails(
 ): List<Show> = shows.map { show ->
     if (show.key != key) show
     else show.copy(
-        title = title?.takeIf { it.isNotBlank() } ?: show.title,
+        title = title?.takeIf { it.isNotBlank() && !show.renamed } ?: show.title,
         image = image ?: show.image,
         count = count ?: show.count,
         next = next ?: show.next,
@@ -298,6 +306,22 @@ fun parseFrameRange(from: String, to: String): Pair<Int, Int>? {
     return (a to b).takeIf { a >= 0 && b <= 95 && b - a >= 5 }
 }
 
+fun withTitle(shows: List<Show>, key: String, title: String): List<Show> = shows.map {
+    if (it.key != key || title.isBlank()) it else it.copy(title = title.trim(), renamed = true)
+}
+
+// "Riprendi qualche secondo prima": le scelte del pannello della serie
+val REWIND_CHOICES = listOf(0, 5, 10, 15, 30)
+
+fun rewindLabel(seconds: Int): String = if (seconds <= 0) "Dal punto esatto" else "$seconds secondi prima"
+
+fun withRewind(shows: List<Show>, key: String, seconds: Int): List<Show> = shows.map { if (it.key == key) it.copy(rewind = seconds) else it }
+
+// Episodi successivi accodati da soli per questa serie: la sua scelta o quella generale (general) delle Impostazioni
+fun autoNextOf(shows: List<Show>, key: String?, general: Int): Int = shows.firstOrNull { it.key == key }?.autoNext ?: general
+
+fun withAutoNext(shows: List<Show>, key: String, count: Int?): List<Show> = shows.map { if (it.key == key) it.copy(autoNext = count) else it }
+
 fun backgroundLabel(show: Show): String =
     if (show.cover) "Copertina" else show.frameRange.let { (a, b) -> "Immagine a caso tra $a% e $b%" }
 
@@ -331,8 +355,10 @@ fun withCurrentWatched(shows: List<Show>, key: String): List<Show> = shows.map {
 
 // Da dove riprendere un episodio che si sta per mandare: il punto se era a metà, altrimenti null (dall'inizio)
 fun resumePoint(shows: List<Show>, site: String, path: String): Long? {
-    val episode = shows.filter { it.site == site }.flatMap { it.episodes }.firstOrNull { it.path == path } ?: return null
+    val show = shows.filter { it.site == site }.firstOrNull { s -> s.episodes.any { it.path == path } } ?: return null
+    val episode = show.episodes.first { it.path == path }
     return episode.time.takeIf { !episode.watched && it >= RESUME_MIN && (episode.total == 0L || it < episode.total) }
+        ?.let { (it - show.rewind).coerceAtLeast(0) }
 }
 
 // L'indirizzo per riaprire un episodio: con l'ultimo dominio del sito che ha funzionato (hosts: sito -> dominio,
@@ -398,6 +424,7 @@ fun showsToJson(shows: List<Show>): String = JSONArray(shows.map { s ->
         .putOpt("count", s.count).putOpt("next", s.next?.let { episodeJson(it) })
         .putOpt("image", s.image).put("updated", s.updated).putOpt("intro", s.intro)
         .put("cover", s.cover).putOpt("frameFrom", s.frameFrom).putOpt("frameTo", s.frameTo)
+        .put("renamed", s.renamed).put("rewind", s.rewind).putOpt("autoNext", s.autoNext)
 }).toString()
 
 private fun episodeJson(e: Episode) = JSONObject().putOpt("season", e.season).putOpt("number", e.number).put("path", e.path)
@@ -420,6 +447,9 @@ fun showsFromJson(text: String?): List<Show> = try {
             cover = o.optBoolean("cover"),
             frameFrom = if (o.has("frameFrom")) o.getInt("frameFrom") else null,
             frameTo = if (o.has("frameTo")) o.getInt("frameTo") else null,
+            renamed = o.optBoolean("renamed"),
+            rewind = o.optInt("rewind"),
+            autoNext = if (o.has("autoNext")) o.getInt("autoNext") else null,
         )
     }
 } catch (e: Exception) {

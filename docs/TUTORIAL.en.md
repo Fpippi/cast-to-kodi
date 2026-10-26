@@ -224,7 +224,8 @@ next one by itself. The app never clears it.
 
 On the anime site it knows (VixCloud player) the app can queue the following episodes by itself, so you don't have to press **+ Coda** for each one.
 **It is off by default.** To turn it on: **⋮ → Impostazioni →** the **episodi successivi** item (Settings, next episodes) and pick how many
-episodes to queue (at most 3).
+episodes to queue (at most 3). For a single series you change it from its panel in *Continua a guardare* →
+**Episodi successivi** (Next episodes).
 
 From then on, after **Manda a Kodi** (or **+ Coda**) the app queues the following episodes and says
 *"In coda anche: episodio …"* ("Also queued: episode …"). If the site changes and the app can't do it, it tells you:
@@ -280,10 +281,15 @@ When you send an episode to Kodi, the app remembers it. On the home page, below 
   (Resume on Kodi) sends the episode without opening the page and Kodi resumes from the minute you stopped at
   (only on the anime site with the VixCloud player). **Apri qui** (Open here) opens the episode page: on other sites start the player, press
   *Manda a Kodi* and Kodi still resumes from where you were. From the panel you can also mark the episode as watched.
-- **Card background**: from the panel, *Sfondo* (Background) picks between the series **copertina** (cover) and an
-  **episode image**, taken at random between 25% and 60% of the video (after the opening theme). With *Cambia
-  intervallo…* (Change range) you choose where to take it from, in percent. The same image shows in the Kodi bar at
-  the bottom.
+- **Impostazioni della serie** (Series settings), at the bottom of the panel:
+  - **Nome** (Name): you write it and the site no longer changes it.
+  - **Sfondo** (Background): the series **copertina** (cover) or an **episode image**, taken at random between 25% and
+    60% of the video (after the opening theme); with *Cambia intervallo…* (Change range) you choose where to take it
+    from, in percent. The same image shows in the Kodi bar at the bottom.
+  - **Salta sigla** (Skip intro): how far the remote's button jumps for this series.
+  - **Riprendi** (Resume): from the exact point or a few seconds earlier (5, 10, 15, 30), to pick up the thread.
+  - **Episodi successivi** (Next episodes, only on the anime site with the VixCloud player): how many to queue by
+    themselves for this series, or the same as in Settings.
 - A series that reached its last episode stays faded, marked **Finita** (Finished), until you remove it.
 - **Remove a series**: the **✕** at the top right of the card. The card turns red and asks *Togli …?* (Remove …?): tap
   **Togli** (Remove) (if you tap nothing, it goes back to normal after 4 seconds). Right after, you can still press

@@ -124,7 +124,7 @@ Extra features that only apply to some sites or players. The rest of the app wor
 
 ### ⏭️ Anime sites with the VixCloud player
 
-- If you turn it on, after sending the app queues the following episodes by itself (up to 3, set in **⋮ → Impostazioni**; 0 = off, which is the default). Only on the episode pages of the anime site the app knows.
+- If you turn it on, after sending the app queues the following episodes by itself (up to 3, set in **⋮ → Impostazioni** or per series in its panel; 0 = off, which is the default). Only on the episode pages of the anime site the app knows.
 - It reads the episode list from the page and the link of each one from the VixCloud player: if the site changes its structure the app warns you and you're left with manual **+ Coda**.
 - In **Continua a guardare** ("Keep watching") the series is recognised from the address (`/anime/1234-jojo`, the same on every domain) and **Riprendi su Kodi** ("Resume on Kodi") sends the episode without opening the page, from the minute you stopped at.
 

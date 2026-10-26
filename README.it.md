@@ -121,7 +121,7 @@ Funzioni in più che valgono solo per alcuni siti o player. Il resto dell'app fu
 
 ### ⏭️ Siti di anime con player VixCloud
 
-- Se lo accendi, dopo l'invio l'app accoda da sola gli episodi successivi (fino a 3, si sceglie in **⋮ → Impostazioni**; 0 = spento, ed è così di default). Solo sulle pagine degli episodi del sito di anime che l'app conosce.
+- Se lo accendi, dopo l'invio l'app accoda da sola gli episodi successivi (fino a 3, si sceglie in **⋮ → Impostazioni** o per ogni serie nel suo pannello; 0 = spento, ed è così di default). Solo sulle pagine degli episodi del sito di anime che l'app conosce.
 - Legge l'elenco degli episodi dalla pagina e il link di ognuno dal player VixCloud: se il sito cambia struttura l'app avvisa e resta **+ Coda** a mano.
 - In **Continua a guardare** la serie si riconosce dall'indirizzo (`/anime/1234-jojo`, uguale su ogni dominio) e **Riprendi su Kodi** manda l'episodio senza aprire la pagina, dal minuto in cui eri.
 

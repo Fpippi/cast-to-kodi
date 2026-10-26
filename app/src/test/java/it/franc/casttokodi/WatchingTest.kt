@@ -372,4 +372,33 @@ class WatchingTest {
         assertNull(parseFrameRange("10", "100"))
         assertNull(parseFrameRange("", "50"))
     }
+
+    @Test
+    fun impostazioniDellaSerie() {
+        var shows = withSent(emptyList(), jojo(12), "animeunity.so", "f12", 1000, playing = true)
+        val key = shows[0].key
+        // Nome scritto a mano: il sito non lo cambia più, nemmeno dopo un nuovo invio
+        shows = withTitle(shows, key, "  JoJo parte 1 ")
+        assertEquals("JoJo parte 1", shows[0].title)
+        shows = withDetails(shows, key, title = "JoJo's Bizarre Adventure (ITA)")
+        assertEquals("JoJo parte 1", shows[0].title)
+        shows = withSent(shows, jojo(13), "animeunity.so", "f13", 2000, playing = true)
+        assertEquals("JoJo parte 1", shows[0].title)
+        assertEquals("JoJo parte 1", withTitle(shows, key, "  ")[0].title)
+        // Riprendi qualche secondo prima
+        shows = withProgress(shows, "f13", 600, 1440, 3000)!!
+        val path = shows[0].current.path
+        assertEquals(600L, resumePoint(shows, shows[0].site, path))
+        shows = withRewind(shows, key, 10)
+        assertEquals(590L, resumePoint(shows, shows[0].site, path))
+        assertEquals("10 secondi prima", rewindLabel(10))
+        assertEquals("Dal punto esatto", rewindLabel(0))
+        // Episodi successivi: la scelta della serie, se no quella generale
+        assertEquals(0, autoNextOf(shows, key, 0))
+        shows = withAutoNext(shows, key, 2)
+        assertEquals(2, autoNextOf(shows, key, 0))
+        assertEquals(1, autoNextOf(shows, "altra", 1))
+        assertEquals(3, autoNextOf(withAutoNext(shows, key, null), key, 3))
+        assertEquals(shows, showsFromJson(showsToJson(shows)))
+    }
 }

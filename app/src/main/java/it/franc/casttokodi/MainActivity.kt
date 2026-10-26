@@ -1080,11 +1080,12 @@ class MainActivity : Activity() {
     // AnimeUnity: dopo l'invio si accodano da soli gli N episodi successivi, subito dopo quello mandato.
     // L'elenco degli episodi e il player di ognuno si leggono dalla pagina del sito, il link video dal player.
     private fun queueNextEpisodes(kodi: Kodi, page: String, after: Int, userAgent: String, title: String) {
-        val count = prefs.getInt("autoNext", DEFAULT_AUTO_NEXT)
         val uri = Uri.parse(page)
+        val sentEpisode = if (historyOn()) episodeFromPage(uri.host, uri.path, uri.encodedQuery, title) else null
+        // Quanti: la scelta della serie (pannello della serie), se no quella di ⋮ → Impostazioni
+        val count = autoNextOf(loadShows(), sentEpisode?.key, prefs.getInt("autoNext", DEFAULT_AUTO_NEXT))
         if (count <= 0 || !isAnimeUnityEpisode(uri.host, uri.path)) return
         if (web.url != page) return
-        val sentEpisode = if (historyOn()) episodeFromPage(uri.host, uri.path, uri.encodedQuery, title) else null
         val base = uri.path.orEmpty().trimEnd('/').substringBeforeLast('/')
         web.evaluateJavascript(NEXT_EPISODES_JS.replace("COUNT", count.toString())) { result ->
             val reply = (JSONTokener(result).nextValue() as? String)?.let { JSONObject(it) }
@@ -2564,19 +2565,112 @@ class MainActivity : Activity() {
     private fun chooseBackground(key: String) {
         val show = loadShows().firstOrNull { it.key == key } ?: return
         val (from, to) = show.frameRange
-        val labels = arrayOf("Copertina", "Immagine a caso tra $from% e $to%", "Cambia intervallo…")
-        AlertDialog.Builder(this)
-            .setTitle("Sfondo: ${show.title}")
-            .setSingleChoiceItems(labels, if (show.cover) 0 else 1) { dialog, i ->
-                dialog.dismiss()
-                when (i) {
-                    0 -> updateShows { withBackground(it, key, cover = true) }
-                    1 -> updateShows { withBackground(it, key, cover = false) }
-                    else -> askFrameRange(show) { range -> updateShows { withBackground(it, key, cover = false, range = range) } }
-                }
+        val episodeImage = show.episodes.lastOrNull { it.image != null }?.image
+        choiceSheet("Sfondo", listOf(
+            Choice("Copertina", "L'immagine della serie presa dal sito", show.image?.let { loadFrame(it) }),
+            Choice("Immagine dell'episodio", "Presa a caso tra $from% e $to% del video, dopo la sigla", episodeImage?.let { loadFrame(it) }),
+            Choice("Cambia intervallo…", "Da che punto a che punto dell'episodio prenderla"),
+        ), if (show.cover) 0 else 1) { i ->
+            when (i) {
+                0 -> updateShows { withBackground(it, key, cover = true) }
+                1 -> updateShows { withBackground(it, key, cover = false) }
+                else -> askFrameRange(show) { range -> updateShows { withBackground(it, key, cover = false, range = range) } }
             }
+            showPanel(key)
+        }
+    }
+
+    // Una scelta di choiceSheet: titolo, riga sotto e, se c'è, un'immagine 16:9 a sinistra
+    private class Choice(val title: String, val detail: String? = null, val image: Bitmap? = null)
+
+    // Pannello dal basso con un elenco di scelte, la spunta su quella attuale (checked, -1 nessuna); al tocco si chiude
+    // e chiama pick con la posizione
+    private fun choiceSheet(title: String, choices: List<Choice>, checked: Int, pick: (Int) -> Unit) {
+        lateinit var dialog: Dialog
+        val list = section().apply { setPadding(dp(16), 0, dp(16), dp(16)) }
+        choices.forEachIndexed { i, choice ->
+            val selected = i == checked
+            val row = LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(56)
+                setPadding(dp(12), dp(8), dp(12), dp(8))
+                background = if (selected) rounded(sys(R.color.system_accent1_100, R.color.system_accent1_800), 16)
+                    else RippleDrawable(ColorStateList.valueOf(0x33808080), null, GradientDrawable().apply { cornerRadius = dp(16).toFloat(); setColor(Color.WHITE) })
+                setOnClickListener { dialog.dismiss(); pick(i) }
+            }
+            choice.image?.let { picture ->
+                row.addView(ImageView(this).apply {
+                    setImageBitmap(picture)
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    background = GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(sys(R.color.system_neutral2_200, R.color.system_neutral2_700)) }
+                    clipToOutline = true
+                }, LinearLayout.LayoutParams(dp(96), dp(54)).apply { marginEnd = dp(16) })
+            }
+            val name = homeText(choice.title, 16f, bold = false).apply {
+                setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50))
+                if (selected) typeface = Typeface.DEFAULT_BOLD
+            }
+            val texts = choice.detail?.let { section(name, homeText(it, 13f, bold = false).apply { maxLines = 2 }) } ?: section(name)
+            row.addView(texts, LinearLayout.LayoutParams(0, -2, 1f))
+            if (selected) row.addView(ImageView(this).apply {
+                setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_check, sys(R.color.system_accent1_600, R.color.system_accent1_200)))
+                scaleType = ImageView.ScaleType.CENTER
+            }, LinearLayout.LayoutParams(dp(32), dp(32)).apply { marginStart = dp(8) })
+            list.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(4) })
+        }
+        dialog = sheet(title, list)
+    }
+
+    // Impostazioni della serie dal suo pannello: tornano al pannello dopo la scelta, così si vede com'è adesso
+    private fun renameShow(show: Show) {
+        val field = EditText(this).apply {
+            setText(show.title)
+            selectAll()
+            isSingleLine = true
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS
+            imeOptions = EditorInfo.IME_ACTION_DONE
+        }
+        lateinit var dialog: AlertDialog
+        val go = {
+            val title = field.text.toString().trim()
+            if (title.isEmpty()) toast("Scrivi un nome")
+            else {
+                updateShows { withTitle(it, show.key, title) }
+                dialog.dismiss()
+                showPanel(show.key)
+            }
+        }
+        dialog = AlertDialog.Builder(this)
+            .setTitle("Nome della serie")
+            .setMessage("Il sito non lo cambierà più.")
+            .setView(section(field).apply { setPadding(dp(24), dp(8), dp(24), 0) })
+            .setPositiveButton("Salva", null)
             .setNegativeButton("Annulla", null)
-            .show()
+            .create()
+        field.setOnEditorActionListener { _, _, _ -> go(); true }
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { go() }
+        field.requestFocus()
+    }
+
+    private fun chooseRewind(show: Show) {
+        choiceSheet("Riprendi", REWIND_CHOICES.map { Choice(rewindLabel(it)) }, REWIND_CHOICES.indexOf(show.rewind)) { i ->
+            updateShows { withRewind(it, show.key, REWIND_CHOICES[i]) }
+            showPanel(show.key)
+        }
+    }
+
+    private fun chooseAutoNext(show: Show) {
+        val general = prefs.getInt("autoNext", DEFAULT_AUTO_NEXT)
+        val counts = listOf<Int?>(null) + (0..MAX_AUTO_NEXT)
+        val choices = counts.map { count ->
+            if (count == null) Choice("Come nelle Impostazioni", autoNextLabel(general)) else Choice(autoNextLabel(count))
+        }
+        choiceSheet("Episodi successivi", choices, counts.indexOf(show.autoNext)) { i ->
+            updateShows { withAutoNext(it, show.key, counts[i]) }
+            showPanel(show.key)
+        }
     }
 
     private fun askFrameRange(show: Show, done: (Pair<Int, Int>) -> Unit) {
@@ -2616,8 +2710,9 @@ class MainActivity : Activity() {
         start.requestFocus()
     }
 
-    private fun chooseIntro(file: String?, done: (Int) -> Unit) {
-        val show = showOfFile(loadShows(), file)
+    private fun chooseIntro(file: String?, done: (Int) -> Unit) = chooseIntroOf(showOfFile(loadShows(), file), done)
+
+    private fun chooseIntroOf(show: Show?, done: (Int) -> Unit) {
         val current = if (show != null) show.intro else generalIntro()
         val title = if (show != null) "Salta sigla: ${show.title}" else "Salta sigla"
         fun save(seconds: Int) {
@@ -2626,16 +2721,11 @@ class MainActivity : Activity() {
         }
         // In fondo il tempo scritto a mano: con quello attuale se non è tra i soliti
         val custom = if (current == null || current in INTRO_CHOICES) "Altro tempo…" else "Altro tempo: ${introTime(current)}"
-        val labels = (INTRO_CHOICES.map { introTime(it) } + custom).toTypedArray()
+        val choices = INTRO_CHOICES.map { Choice("Avanti di ${introTime(it)}") } + Choice(custom)
         val checked = if (current == null) -1 else INTRO_CHOICES.indexOf(current).takeIf { it >= 0 } ?: INTRO_CHOICES.size
-        AlertDialog.Builder(this)
-            .setTitle(title)
-            .setSingleChoiceItems(labels, checked) { dialog, i ->
-                dialog.dismiss()
-                if (i < INTRO_CHOICES.size) save(INTRO_CHOICES[i]) else askIntro(title, current ?: DEFAULT_INTRO, ::save)
-            }
-            .setNegativeButton("Annulla", null)
-            .show()
+        choiceSheet(title, choices, checked) { i ->
+            if (i < INTRO_CHOICES.size) save(INTRO_CHOICES[i]) else askIntro(title, current ?: DEFAULT_INTRO, ::save)
+        }
     }
 
     private fun askIntro(title: String, current: Int, done: (Int) -> Unit) {
@@ -3428,10 +3518,23 @@ class MainActivity : Activity() {
                 updateShows { withCurrentWatched(it, key) }
             })
         }
-        content.addView(settingsRow(it.franc.casttokodi.R.drawable.ic_article, "Sfondo", backgroundLabel(show)) {
-            dialog.dismiss()
-            chooseBackground(key)
-        })
+        // Impostazioni della serie (2026-10-26, scelte di Pippo): nome, sfondo, Salta sigla, ripresa, episodi automatici
+        content.addView(homeText("Impostazioni della serie", 14f, bold = true).apply { setPadding(dp(8), dp(16), dp(8), dp(4)) })
+        fun setting(iconId: Int, title: String, value: String, open: () -> Unit) =
+            content.addView(settingsRow(iconId, title, value) { dialog.dismiss(); open() })
+        setting(it.franc.casttokodi.R.drawable.ic_article, "Nome", show.title) { renameShow(show) }
+        setting(it.franc.casttokodi.R.drawable.ic_home, "Sfondo", backgroundLabel(show)) { chooseBackground(key) }
+        setting(it.franc.casttokodi.R.drawable.ic_skip_next, "Salta sigla", show.intro?.let { "Avanti di ${introTime(it)}" } ?: "Non ancora scelto") {
+            chooseIntroOf(show) { showPanel(key) }
+        }
+        setting(it.franc.casttokodi.R.drawable.ic_history, "Riprendi", rewindLabel(show.rewind)) { chooseRewind(show) }
+        if (isAnimeUnityEpisode(host, show.current.path)) {
+            val general = prefs.getInt("autoNext", DEFAULT_AUTO_NEXT)
+            setting(it.franc.casttokodi.R.drawable.ic_queue, "Episodi successivi",
+                show.autoNext?.let { autoNextLabel(it) } ?: "Come nelle Impostazioni: ${autoNextLabel(general).replaceFirstChar { it.lowercase() }}") {
+                chooseAutoNext(show)
+            }
+        }
         var armed = false
         lateinit var remove: View
         remove = settingsRow(it.franc.casttokodi.R.drawable.ic_delete, "Togli da Continua a guardare", show.title) {
