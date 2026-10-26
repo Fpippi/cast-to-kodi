@@ -217,6 +217,7 @@ al successivo. L'app non la cancella mai.
 
 Sul sito di anime che conosce (player VixCloud) l'app può mettere in coda da sola gli episodi successivi, così non devi premere **+ Coda** per ognuno.
 **Di default è spenta.** Per accenderla: **⋮ → Impostazioni →** la voce degli **episodi successivi** e scegli quanti episodi accodare (massimo 3).
+Per una serie sola si cambia dal suo pannello in *Continua a guardare* → **Episodi successivi**.
 
 Da quel momento, dopo **Manda a Kodi** (o **+ Coda**) l'app accoda gli episodi dopo e scrive
 *"In coda anche: episodio …"*. Se il sito cambia e l'app non ci riesce, te lo dice: in quel caso usa **+ Coda** a mano.
@@ -268,6 +269,15 @@ una fila che scorre di lato, con una scheda per ogni serie, la più recente a si
   l'episodio senza aprire la pagina e Kodi riparte dal minuto in cui eri (solo sul sito di anime con player VixCloud). **Apri qui** apre la pagina
   dell'episodio: sugli altri siti avvii il player, premi *Manda a Kodi* e Kodi riparte comunque da dove eri. Dal
   pannello puoi anche segnare l'episodio come visto.
+- **Impostazioni della serie**, in fondo al pannello:
+  - **Nome**: lo scrivi tu e il sito non lo cambia più.
+  - **Sfondo**: la **copertina** della serie o un'**immagine dell'episodio**, presa a caso tra il 25% e il 60% del
+    video (dopo la sigla); con *Cambia intervallo…* scegli tu da che punto a che punto, in percentuale. La stessa
+    immagine compare nella barra di Kodi in fondo.
+  - **Salta sigla**: di quanto va avanti il tasto del telecomando con questa serie.
+  - **Riprendi**: dal punto esatto o qualche secondo prima (5, 10, 15, 30), per ritrovare il filo.
+  - **Episodi successivi** (solo sul sito di anime con player VixCloud): quanti accodarne da soli per questa serie, o
+    come nelle Impostazioni.
 - Una serie arrivata all'ultimo episodio resta sbiadita, con scritto **Finita**, finché non la togli.
 - **Togliere una serie**: la **✕** in alto a destra sulla scheda. La scheda diventa rossa e chiede *Togli …?*: tocca
   **Togli** (se non tocchi niente, dopo 4 secondi torna com'era). Subito dopo puoi ancora premere **Annulla**

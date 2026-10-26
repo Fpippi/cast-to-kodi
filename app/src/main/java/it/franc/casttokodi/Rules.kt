@@ -192,6 +192,28 @@ fun durationLabel(seconds: Long): String = when {
 // init è il pezzo d'inizio dei video fMP4 (#EXT-X-MAP), da mettere davanti.
 class Segment(val url: String, val key: String?, val iv: ByteArray?, val init: String?)
 
+// Il secondo del video da cui prendere un'immagine: senza fraction al 10% e al massimo a un minuto e mezzo (l'inizio
+// spesso è nero), per l'elenco dei video; con fraction quella parte della durata
+fun previewPoint(seconds: Double, fraction: Double? = null): Double =
+    if (fraction == null) minOf(seconds * 0.1, 90.0) else seconds * fraction
+
+// Dove prendere l'immagine di un episodio: punti a caso tra il 25% e il 60%, cioè dopo la sigla iniziale e prima di
+// quella finale. Più di uno perché il primo può cadere su un cambio scena nero
+const val FRAME_FROM = 0.25
+const val FRAME_TO = 0.6
+
+fun episodeFramePoints(
+    random: kotlin.random.Random = kotlin.random.Random.Default, count: Int = 3, from: Double = FRAME_FROM, to: Double = FRAME_TO,
+): List<Double> = List(count) { from + random.nextDouble() * (to - from) }
+
+// Luminosità media (0-255) di pixel ARGB, per scartare i fotogrammi quasi neri
+fun brightness(pixels: IntArray): Double {
+    if (pixels.isEmpty()) return 0.0
+    return pixels.sumOf { (0.299 * (it shr 16 and 0xff) + 0.587 * (it shr 8 and 0xff) + 0.114 * (it and 0xff)) } / pixels.size
+}
+
+const val DARK_FRAME = 40.0
+
 // Dove inizia davvero un pezzo MPEG-TS: alcuni siti mettono davanti dei byte finti (un'immagine) e il lettore del
 // telefono non lo riconosce più. Il primo byte 0x47 seguito da altri due a 188 e 376 byte; 0 se non lo trova
 fun tsStart(data: ByteArray): Int {
