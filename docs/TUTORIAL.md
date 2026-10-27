@@ -337,9 +337,12 @@ Se sulla TV compare **Playback failed** o il video non parte:
 
 ## 10. Aggiornare l'app e fare un backup
 
-All'avvio, se c'è una versione nuova, compare **Nuova versione disponibile**: premi **Scarica** e installa l'APK sopra
-quello vecchio (non serve disinstallare). Per controllare a mano: **⋮ → Impostazioni → Versione**. Per aggiornare con un
-tocco si può usare **Obtainium** con l'indirizzo del repo.
+All'avvio, se c'è una versione nuova, si apre il pannello **Nuova versione** con le novità. Premi **Aggiorna**: l'app
+scarica l'APK (con la barra che avanza) e Android chiede di confermare l'installazione sopra quella vecchia (non serve
+disinstallare, i dati restano). La prima volta Android chiede di consentire a Couch Cast di installare app: consenti,
+torna indietro e premi di nuovo **Aggiorna**. Se qualcosa va storto, **Apri GitHub** apre la pagina della release nel
+browser. Per controllare a mano: **⋮ → Impostazioni → Versione**. Anche **Obtainium**, con l'indirizzo del repo,
+continua a funzionare.
 
 ### Backup: cambiare telefono o reinstallare l'app
 

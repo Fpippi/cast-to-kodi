@@ -7,6 +7,7 @@ import android.app.AlarmManager
 import android.app.Dialog
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.net.ConnectivityManager
@@ -36,6 +37,7 @@ import android.app.StatusBarManager
 import android.content.ComponentName
 import android.graphics.drawable.Icon
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.text.InputType
@@ -372,6 +374,7 @@ class MainActivity : Activity() {
         super.onNewIntent(intent)
         openShared(intent)
         openRemote(intent)
+        installStatus(intent)
     }
 
     // Tocco sul player di Android o pressione lunga sul riquadro della tendina: il telecomando
@@ -406,31 +409,156 @@ class MainActivity : Activity() {
     private fun checkUpdate(asked: Boolean = false) {
         val installed = installedVersion()
         thread {
-            val latest = try {
+            val release = try {
                 val conn = URL("https://api.github.com/repos/$REPO/releases/latest").openConnection() as HttpURLConnection
                 conn.connectTimeout = 5000
                 conn.readTimeout = 10000
                 conn.setRequestProperty("Accept", "application/vnd.github+json")
                 if (conn.responseCode != 200) throw IOException("HTTP ${conn.responseCode}")
-                JSONObject(conn.inputStream.bufferedReader().readText()).optString("tag_name")
+                parseRelease(conn.inputStream.bufferedReader().readText())
             } catch (e: Exception) {
                 if (asked) toast("Non riesco a controllare gli aggiornamenti: c'è la rete?")
                 return@thread
             }
-            if (!isNewerVersion(latest, installed)) {
+            if (!isNewerVersion(release.tag, installed)) {
                 if (asked) toast("Hai già l'ultima versione ($installed)")
                 return@thread
             }
-            runOnUiThread {
-                AlertDialog.Builder(this)
-                    .setTitle("Nuova versione disponibile")
-                    .setMessage("Installata: $installed\nUltima: ${latest.removePrefix("v")}")
-                    .setPositiveButton("Scarica") { _, _ ->
-                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/$REPO/releases/latest")))
-                    }
-                    .setNegativeButton("Dopo", null)
-                    .show()
+            runOnUiThread { showUpdate(release, installed) }
+        }
+    }
+
+    // Aggiornamento con un tocco (2026-10-27, mockup approvato): le novità della release e "Aggiorna", che scarica
+    // l'APK nell'app e lo passa all'installatore di Android (logica in Update.kt). Se non va, resta GitHub nel browser
+    private fun showUpdate(release: Release, installed: String) {
+        val onSurface = sys(R.color.system_neutral1_900, R.color.system_neutral1_100)
+        val github = { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/$REPO/releases/latest"))) }
+        val status = homeText("", 13f, bold = false).apply { visibility = View.GONE }
+        val progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 1000
+            progressTintList = ColorStateList.valueOf(sys(R.color.system_accent1_600, R.color.system_accent1_200))
+            visibility = View.GONE
+        }
+        val notes = releaseNotes(release.notes)
+        val button = Button(this).apply {
+            text = if (release.apkSize > 0) "Aggiorna · ${sizeLabel(release.apkSize)}" else "Aggiorna"
+            isAllCaps = false
+            stateListAnimator = null
+            textSize = 15f
+            background = rounded(sys(R.color.system_accent1_600, R.color.system_accent1_200), 24)
+            setTextColor(sys(R.color.system_accent1_0, R.color.system_accent1_800))
+            setCompoundDrawablesRelativeWithIntrinsicBounds(icon(it.franc.casttokodi.R.drawable.ic_download, sys(R.color.system_accent1_0, R.color.system_accent1_800), 20), null, null, null)
+            compoundDrawablePadding = dp(8)
+            setPadding(dp(20), 0, dp(20), 0)
+        }
+        val content = section(
+            homeText("Installata ${installed.ifBlank { "?" }} · nuova ${release.tag.removePrefix("v")}", 13f, bold = false),
+            homeText(notes.ifBlank { "Le novità sono nella pagina della release." }, 14f, bold = false).apply {
+                setTextColor(onSurface)
+                setPadding(0, dp(12), 0, dp(12))
+                setLineSpacing(dp(2).toFloat(), 1f)
+            },
+            progress, status,
+        ).apply { setPadding(dp(24), 0, dp(24), dp(8)) }
+        content.addView(button, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
+        sheet("Nuova versione ${release.tag.removePrefix("v")}", content, "Dopo" to {}, "Apri GitHub" to github)
+        fun say(text: String) {
+            status.text = text
+            status.visibility = View.VISIBLE
+        }
+        button.setOnClickListener {
+            val apk = release.apkUrl ?: return@setOnClickListener github()
+            // La prima volta Android chiede di consentire a Couch Cast di installare app: poi si preme di nuovo
+            if (!packageManager.canRequestPackageInstalls()) {
+                say("Consenti a Couch Cast di installare app (solo la prima volta), poi torna qui e premi di nuovo Aggiorna.")
+                startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+                return@setOnClickListener
             }
+            button.isEnabled = false
+            button.alpha = 0.5f
+            progress.visibility = View.VISIBLE
+            progress.isIndeterminate = release.apkSize <= 0
+            say(downloadLabel(0, release.apkSize))
+            thread {
+                try {
+                    installUpdate(apk, release.apkSize) { done, total ->
+                        runOnUiThread {
+                            if (total > 0) progress.progress = (done * 1000 / total).toInt()
+                            status.text = downloadLabel(done, total)
+                        }
+                    }
+                    runOnUiThread {
+                        progress.visibility = View.GONE
+                        say("Scaricato: conferma l'installazione. L'app si chiude e si riapre aggiornata.")
+                    }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        progress.visibility = View.GONE
+                        button.isEnabled = true
+                        button.alpha = 1f
+                        say("Non riesco a scaricarlo (${e.message ?: e.javaClass.simpleName}). Riprova, o scaricalo da GitHub.")
+                    }
+                }
+            }
+        }
+    }
+
+    // Da un thread di background: l'APK va dal sito direttamente in una sessione dell'installatore, senza file
+    // intermedi; l'esito (e la richiesta di conferma) arriva in installStatus
+    private fun installUpdate(url: String, size: Long, progress: (Long, Long) -> Unit) {
+        val installer = packageManager.packageInstaller
+        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+            setAppPackageName(packageName)
+            if (size > 0) setSize(size)
+        }
+        val id = installer.createSession(params)
+        val session = installer.openSession(id)
+        try {
+            val conn = URL(url).openConnection() as HttpURLConnection
+            conn.connectTimeout = 10_000
+            conn.readTimeout = 30_000
+            if (conn.responseCode != 200) throw IOException("HTTP ${conn.responseCode}")
+            val total = conn.contentLengthLong.takeIf { it > 0 } ?: size
+            conn.inputStream.use { input ->
+                session.openWrite(APK_NAME, 0, total.takeIf { it > 0 } ?: -1).use { out ->
+                    val buffer = ByteArray(64 * 1024)
+                    var done = 0L
+                    var shown = 0L
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        out.write(buffer, 0, n)
+                        done += n
+                        if (done - shown > 256 * 1024) { shown = done; progress(done, total) }
+                    }
+                    progress(done, total)
+                    session.fsync(out)
+                }
+            }
+            val status = PendingIntent.getActivity(
+                this, 1, Intent(this, MainActivity::class.java).setAction(ACTION_INSTALL),
+                PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            session.commit(status.intentSender)
+            session.close()
+        } catch (e: Exception) {
+            session.abandon()
+            throw e
+        }
+    }
+
+    // Esito dell'installatore: la conferma di Android da mostrare, o un errore
+    private fun installStatus(intent: Intent?) {
+        if (intent?.action != ACTION_INSTALL) return
+        intent.action = null
+        when (intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
+            PackageInstaller.STATUS_PENDING_USER_ACTION ->
+                intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)?.let { startActivity(it) }
+            PackageInstaller.STATUS_SUCCESS -> toast("Couch Cast aggiornata")
+            PackageInstaller.STATUS_FAILURE_ABORTED -> toast("Aggiornamento annullato")
+            else -> notice("Aggiornamento non installato",
+                (intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "Android non l'ha installato.") +
+                    "\n\nPuoi scaricarlo da GitHub: ⋮ → Impostazioni → Versione, poi Apri GitHub.")
         }
     }
 
