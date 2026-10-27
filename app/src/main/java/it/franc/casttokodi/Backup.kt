@@ -15,7 +15,7 @@ import java.util.zip.ZipOutputStream
 
 const val BACKUP_FORMAT = 1
 const val BACKUP_JSON = "couchcast.json"
-const val BACKUP_IMAGES = "serie/"
+const val BACKUP_IMAGES = "serie/" // non tradurre: cartella nel file
 
 // Il backup automatico riscrive lo stesso file una volta alla settimana, all'avvio dell'app
 const val BACKUP_EVERY = 7L * 24 * 3600 * 1000
@@ -45,10 +45,12 @@ val BACKED_UP: Map<String, BackupPart> = mapOf(
     "adbHost" to BackupPart.SETTINGS,
     "mediaControls" to BackupPart.SETTINGS,
     "timerAction" to BackupPart.SETTINGS,
+    "language" to BackupPart.SETTINGS,
 )
 
 // Fuori dal backup, apposta: le chiavi del Keystore non escono dal telefono, quindi quello che cifrano non si
 // decifrerebbe altrove (e il file può finire in giro)
+// non tradurre: inizio (i motivi sono per chi legge il codice)
 val NOT_BACKED_UP: Map<String, String> = mapOf(
     "logins" to "password di Kodi cifrate con la chiave kodi-login del Keystore",
     "auth" to "utente e password delle versioni vecchie, spostati in logins all'avvio",
@@ -61,6 +63,7 @@ val NOT_BACKED_UP: Map<String, String> = mapOf(
     "timerToken" to "va con timerAt",
     "timerOnPhone" to "va con timerAt",
 )
+// non tradurre: fine
 
 // Un backup letto: i valori di prefs (String, Int, Long o Boolean), le parti che contiene, le immagini per nome e quanti
 // valori sono stati saltati perché di una versione più nuova che questa non conosce
@@ -142,9 +145,9 @@ fun readBackup(input: InputStream): Backup {
         }
     }
     val root = try {
-        JSONObject(json ?: throw IOException("Non è un backup di Couch Cast"))
+        JSONObject(json ?: throw IOException(tr("Non è un backup di Couch Cast", "This isn't a Couch Cast backup")))
     } catch (e: org.json.JSONException) {
-        throw IOException("Il backup è rovinato")
+        throw IOException(tr("Il backup è rovinato", "The backup is damaged"))
     }
     val parts = root.optJSONArray("parts")?.let { a -> List(a.length()) { a.optString(it) } }.orEmpty()
         .mapNotNull { id -> BackupPart.entries.firstOrNull { it.id == id } }.toSet()

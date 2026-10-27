@@ -8,10 +8,16 @@ import java.time.ZoneId
 // lo prova SleepTimerTest.
 
 // Quello che fa allo scadere: i tasti mandati alla Fire TV (Kodi li riceve come quelli del telecomando)
-enum class TimerAction(val id: String, val label: String, val keys: List<String>) {
-    PAUSE("pause", "Pausa", listOf("KEYCODE_MEDIA_PAUSE")),
-    STOP("stop", "Ferma il video", listOf("KEYCODE_MEDIA_STOP")),
-    TV_OFF("tv", "Spegni la TV", listOf("KEYCODE_MEDIA_STOP", "KEYCODE_SLEEP")),
+enum class TimerAction(val id: String, val keys: List<String>) {
+    PAUSE("pause", listOf("KEYCODE_MEDIA_PAUSE")),
+    STOP("stop", listOf("KEYCODE_MEDIA_STOP")),
+    TV_OFF("tv", listOf("KEYCODE_MEDIA_STOP", "KEYCODE_SLEEP"));
+
+    val label: String get() = when (this) {
+        PAUSE -> tr("Pausa", "Pause")
+        STOP -> tr("Ferma il video", "Stop the video")
+        TV_OFF -> tr("Spegni la TV", "Switch off the TV")
+    }
 }
 
 // Ferma e spegni la TV: la proposta del mockup approvata da Pippo
@@ -46,22 +52,22 @@ fun cancelTimerCommand(): String = "rm -f $TIMER_FILE"
 class TimerChoice(val title: String, val detail: String?, val seconds: Long?)
 
 fun timerChoices(playing: NowPlaying?, state: KodiState?, now: Long, zone: ZoneId = ZoneId.systemDefault()): List<TimerChoice> {
-    fun at(seconds: Long) = "alle ${clockAt(now + seconds, zone)}"
+    fun at(seconds: Long) = tr("alle ${clockAt(now + seconds, zone)}", "at ${clockAt(now + seconds, zone)}")
     val list = mutableListOf<TimerChoice>()
     if (playing?.playerId != null && playing.total > 0) {
         val left = (playing.total - playing.time - TIMER_END_MARGIN).coerceAtLeast(1)
-        list += TimerChoice("Fine di questo episodio", at(left), left)
+        list += TimerChoice(tr("Fine di questo episodio", "End of this episode"), at(left), left)
         if (state != null && state.fromQueue && state.queueLength > state.position + 1) {
             val after = state.queueLength - state.position - 1
             val end = (state.remaining + after * state.episode - TIMER_END_MARGIN).coerceAtLeast(1)
-            list += TimerChoice("Fine della coda", "${if (after == 1) "1 episodio" else "$after episodi"} dopo questo, ${at(end)}", end)
+            list += TimerChoice(tr("Fine della coda", "End of the queue"), tr("${if (after == 1) "1 episodio" else "$after episodi"} dopo questo, ${at(end)}", "${if (after == 1) "1 episode" else "$after episodes"} after this one, ${at(end)}"), end)
         }
     }
     TIMER_MINUTES.forEach { minutes ->
         val seconds = minutes * 60L
-        list += TimerChoice(if (minutes % 60 == 0) "Tra ${minutes / 60} or${if (minutes == 60) "a" else "e"}" else "Tra $minutes minuti", at(seconds), seconds)
+        list += TimerChoice(if (minutes % 60 == 0) tr("Tra ${minutes / 60} or${if (minutes == 60) "a" else "e"}", "In ${minutes / 60} hour${if (minutes == 60) "" else "s"}") else tr("Tra $minutes minuti", "In $minutes minutes"), at(seconds), seconds)
     }
-    list += TimerChoice("Altro tempo…", "In minuti", null)
+    list += TimerChoice(tr("Altro tempo…", "Other time…"), tr("In minuti", "In minutes"), null)
     return list
 }
 
@@ -70,7 +76,7 @@ fun parseTimerMinutes(input: String): Int? = input.trim().toIntOrNull()?.takeIf 
 
 // Riga del timer attivo nel telecomando e nella barra di Kodi
 fun timerLabel(action: TimerAction, at: Long, zone: ZoneId = ZoneId.systemDefault()): String = when (action) {
-    TimerAction.PAUSE -> "Pausa alle ${clockAt(at, zone)}"
-    TimerAction.STOP -> "Si ferma alle ${clockAt(at, zone)}"
-    TimerAction.TV_OFF -> "Si spegne alle ${clockAt(at, zone)}"
+    TimerAction.PAUSE -> tr("Pausa alle ${clockAt(at, zone)}", "Pauses at ${clockAt(at, zone)}")
+    TimerAction.STOP -> tr("Si ferma alle ${clockAt(at, zone)}", "Stops at ${clockAt(at, zone)}")
+    TimerAction.TV_OFF -> tr("Si spegne alle ${clockAt(at, zone)}", "Switches off at ${clockAt(at, zone)}")
 }
