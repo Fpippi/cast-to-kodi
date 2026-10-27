@@ -1,0 +1,44 @@
+# Cancella le release vecchie e i loro tag, tenendo le più recenti (10 di default).
+# Si lancia a mano: Actions → Pulizia release → Run workflow. Con "prova" acceso elenca e basta.
+# La release "latest" è sempre tra le più recenti, quindi l'avviso di aggiornamento e Obtainium non cambiano.
+name: Pulizia release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tieni:
+        description: Quante release tenere (le più recenti)
+        default: "10"
+        required: true
+      prova:
+        description: Solo elenco, senza cancellare
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  pulizia:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TIENI: ${{ inputs.tieni }}
+      PROVA: ${{ inputs.prova }}
+    steps:
+      - name: Cancella le release più vecchie
+        run: |
+          case "$TIENI" in ''|*[!0-9]*) echo "tieni deve essere un numero"; exit 1 ;; esac
+          if [ "$TIENI" -lt 1 ]; then echo "Bisogna tenerne almeno una"; exit 1; fi
+          # Ordine per data di creazione, dalla più recente
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | [.created_at, .tag_name, .name] | @tsv' | sort -r > release.tsv
+          echo "Restano:"
+          head -n "$TIENI" release.tsv | cut -f3
+          echo
+          echo "Da cancellare:"
+          tail -n +"$((TIENI + 1))" release.tsv | cut -f3
+          [ "$PROVA" = "true" ] && exit 0
+          tail -n +"$((TIENI + 1))" release.tsv | cut -f2 | while read -r tag; do
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+          done
