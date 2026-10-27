@@ -23,7 +23,7 @@ _Le animazioni di questa guida sono disegni dell'interfaccia della versione 2.1,
 7. [La coda degli episodi](#7-la-coda-degli-episodi)
 8. [Preferiti](#8-preferiti)
 9. [Log di Kodi: quando qualcosa non parte](#9-log-di-kodi-quando-qualcosa-non-parte)
-10. [Aggiornare l'app](#10-aggiornare-lapp)
+10. [Aggiornare l'app e fare un backup](#10-aggiornare-lapp-e-fare-un-backup)
 11. [Problemi comuni](#-problemi-comuni)
 
 ---
@@ -51,7 +51,7 @@ _Le animazioni di questa guida sono disegni dell'interfaccia della versione 2.1,
 | **🛡 con un numero** | Compare quando l'app ha bloccato popup o salti verso altri siti su questa pagina. Toccalo per vedere quali e aprirne uno, se serviva. |
 | **★** | I tuoi siti preferiti. Piena se la pagina aperta è già tra i preferiti. |
 | **Barra di Kodi** (in fondo) | C'è sempre, appena l'app sa dov'è Kodi. Mostra cosa riproduce, con il tempo, play/pausa e una linea sottile in basso che avanza. Il pallino accanto allo stato è acceso se Kodi risponde. Se Kodi è acceso ma fermo scrive *Acceso, niente in riproduzione*; se è spento o non risponde c'è il pulsante **⏻** per accendere la TV. Il pulsante a destra, o un tocco sulla barra, apre il telecomando con la coda. |
-| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Pagina iniziale*, *Impostazioni* (dov'è Kodi, accensione, episodi successivi, cronologia, log di Kodi, guida, versione). |
+| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Pagina iniziale*, *Impostazioni* (dov'è Kodi, accensione, episodi successivi, cronologia, backup, log di Kodi, guida, versione). |
 | **Manda a Kodi** | Fa partire subito sulla TV il video della pagina. Compare in basso a destra, sopra il sito, solo quando sulla pagina parte un video. |
 | **+ Coda** (l'icona tonda con le righe e il +, accanto a *Manda a Kodi*) | Mette il video in fondo alla coda di Kodi, senza interrompere quello che stai guardando. Tenendola premuta si apre la coda. |
 
@@ -310,11 +310,28 @@ Se sulla TV compare **Playback failed** o il video non parte:
 
 ---
 
-## 10. Aggiornare l'app
+## 10. Aggiornare l'app e fare un backup
 
 All'avvio, se c'è una versione nuova, compare **Nuova versione disponibile**: premi **Scarica** e installa l'APK sopra
 quello vecchio (non serve disinstallare). Per controllare a mano: **⋮ → Impostazioni → Versione**. Per aggiornare con un
 tocco si può usare **Obtainium** con l'indirizzo del repo.
+
+### Backup: cambiare telefono o reinstallare l'app
+
+1. **⋮ → Impostazioni → Salva un backup**. Il pannello dice cosa c'è nel file: **Preferiti**, **Continua a guardare**
+   (le serie con le immagini e l'ultima pagina) e **Impostazioni** (Kodi, sigla, episodi successivi). Togli la spunta a
+   quello che non vuoi.
+2. Lascia **Aggiorna questo file ogni settimana** se vuoi che l'app lo riscriva da sola: lo fa all'avvio, se l'ultimo
+   backup ha più di una settimana.
+3. **Scegli dove salvarlo**: Drive, Download o un'altra cartella. Il file si chiama `couchcast-` con la data, `.zip`.
+
+Per ritrovare tutto: **⋮ → Impostazioni → Ripristina da un backup**, scegli il file e guarda cosa contiene rispetto al
+telefono. **Unisci** aggiunge quello che manca (per una serie tiene l'episodio più avanti, le impostazioni del telefono
+restano), **Sostituisci tutto** riporta il telefono com'era nel backup. Subito dopo l'avviso in fondo ha **Annulla**.
+
+Password di Kodi e chiave della Fire TV non vanno nel file, apposta: sono cifrate con una chiave che non esce dal
+telefono. Dopo il ripristino l'app chiede la password di Kodi al primo invio, e la TV chiede di nuovo *Consenti* al
+primo ⏻.
 
 ---
 
