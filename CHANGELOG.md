@@ -7,6 +7,27 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.3.0
+
+- **Aggiornamento con un tocco**: all'avvio, se c'è una versione nuova, si apre un pannello con le novità e
+  **Aggiorna** scarica l'APK e lo installa sopra quello vecchio. La prima volta Android chiede di consentire a Couch
+  Cast di installare app.
+- **Backup**: in *⋮ → Impostazioni* c'è **Salva un backup**, che mette preferiti, serie di Continua a guardare (con le
+  immagini) e impostazioni in un file `.zip` dove vuoi (Drive, Download…), e se vuoi lo riscrive da solo ogni settimana.
+  **Ripristina da un backup** lo riapre su un altro telefono, con *Unisci* o *Sostituisci tutto*. Password di Kodi e
+  chiave della Fire TV non vanno nel file.
+- **Tendina**: mentre Kodi riproduce, nella tendina e sulla schermata di blocco c'è il player di Android con Salta
+  sigla, −10 s, pausa, +10 s e Prossimo. Con lo schermo spento non parla con Kodi, quindi non consuma. In più il
+  riquadro **Couch Cast** delle impostazioni rapide mette in pausa con un tocco (*⋮ → Impostazioni → Aggiungi il
+  riquadro*).
+- **Timer di spegnimento** nel telecomando: alla fine dell'episodio, della coda, tra 30 minuti, 1 ora o quanto vuoi,
+  poi pausa, stop o TV spenta. Lo tiene la Fire TV, così il telefono si può spegnere.
+- **Sottotitoli**: con *Manda a Kodi* il telefono passa a Kodi anche i sottotitoli della playlist e quelli che il sito
+  carica a parte (`.vtt`, `.srt`); nella scelta del video **CC** dice quali lingue ci sono. Nel telecomando la pillola
+  **Sottotitoli** apre un pannello, e per ogni serie si può scegliere **Accendili sempre**. Se il video non ne ha,
+  **Cerca con l'add-on di Kodi** apre la ricerca dei sottotitoli sulla TV.
+- Sito: download in evidenza, i tre passi per iniziare e il nome giusto su Google.
+
 ## 2.2.10
 
 - **Continua a guardare**: l'immagine dell'episodio si prende da un punto a caso tra il 25% e il 60% del video, dopo la
