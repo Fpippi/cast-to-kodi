@@ -54,7 +54,7 @@ on the phone, start the video, press a button and the video plays on the TV. The
 | **🛡 with a number** | Shows up when the app blocked popups or jumps to other sites on this page. Tap it to see which ones and open one, if you needed it. |
 | **★** | Your favourite sites. Filled if the open page is already a favourite. |
 | **Kodi bar** (at the bottom) | Always there, as soon as the app knows where Kodi is. It shows what is playing, with the time, play/pause and a thin line at the bottom that moves forward. The dot next to the status is lit if Kodi answers. If Kodi is on but idle it says *Acceso, niente in riproduzione* (On, nothing playing); if it is off or not answering there is the **⏻** button to turn the TV on. The button on the right, or a tap on the bar, opens the remote with the queue. |
-| **⋮** | A small menu: *Telecomando* (Remote), *Coda di Kodi* (Kodi queue), *Pagina iniziale* (Home page), *Impostazioni* (Settings: where Kodi is, power on, next episodes, history, backup, Kodi log, guide, version). |
+| **⋮** | A small menu: *Telecomando* (Remote), *Coda di Kodi* (Kodi queue), *Pagina iniziale* (Home page), *Impostazioni* (Settings: where Kodi is, power on, next episodes, history, shade, backup, Kodi log, guide, version). |
 | **Manda a Kodi** (Send to Kodi) | Plays the page's video on the TV right away. It shows up at the bottom right, over the site, only when a video starts on the page. |
 | **+ Coda** (+ Queue: the round icon with lines and a +, next to *Manda a Kodi*) | Puts the video at the end of Kodi's queue, without interrupting what you are watching. Long-press it to open the queue. |
 
@@ -196,6 +196,19 @@ dragging down. At the top right there is Kodi's name with a lit dot if it answer
 - **Audio** and **Sottotitoli** (Subtitles): pick the language among the video's own, or turn subtitles off.
 - **Scrivi** (Type): first open a text field in Kodi (e.g. search), then type with the phone keyboard.
 - **Accendi la TV** (Turn on the TV): like the ⏻ button.
+
+### Without opening the app: notification shade and lock screen
+
+While Kodi is playing, **Android's media player** appears in the notification shade and on the lock screen, like for
+music: the show's picture, title, episode, the time bar (drag it to jump) and the buttons **Salta sigla** (Skip intro,
+only if you already chose the time for that show), **−10 s**, **pause**, **+10 s** and **Next** (if the queue has another
+video). Tapping it opens the remote. With the screen off it doesn't talk to Kodi, so it doesn't drain the battery; it goes
+away by itself when Kodi stops. Turn it off in **⋮ → Impostazioni → Controlli nella tendina** (Settings, Controls in the
+shade).
+
+There is also the **Couch Cast** quick settings tile: **⋮ → Impostazioni → Aggiungi il riquadro** (Add the tile), or the
+shade's pencil. It says what Kodi is doing; a tap pauses or resumes, with Kodi stopped or off it opens the app; a long
+press opens the remote.
 
 ---
 

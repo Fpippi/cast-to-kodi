@@ -29,6 +29,10 @@ import android.net.nsd.NsdServiceInfo
 import android.os.Build
 import android.os.Bundle
 import android.os.Message
+import android.service.quicksettings.TileService
+import android.app.StatusBarManager
+import android.content.ComponentName
+import android.graphics.drawable.Icon
 import android.provider.OpenableColumns
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -128,9 +132,6 @@ private const val COVER_PREFIX = "copertina-"
 private const val REQUEST_BACKUP = 41
 private const val REQUEST_RESTORE = 42
 
-// Alias nell'Android Keystore della chiave che cifra le password di Kodi
-private const val LOGIN_KEY = "kodi-login"
-
 // Nome della chiave ADB del telefono, salvato dalla Fire TV con la chiave
 private const val ADB_KEY_NAME = "Couch Cast"
 
@@ -178,7 +179,7 @@ class MainActivity : Activity() {
     // Ogni avvio del ciclo di lettura del mini-player ha il suo numero: in onPause si cambia e il ciclo vecchio si ferma
     @Volatile private var miniGeneration = 0
     private lateinit var progress: ProgressBar
-    private val prefs by lazy { getSharedPreferences("kodi", MODE_PRIVATE) }
+    private val prefs by lazy { KodiAccess.prefs(this) }
 
     // url del video -> Referer con cui la pagina l'ha richiesto (molti host rifiutano richieste senza)
     private val videos = LinkedHashMap<String, String>()
@@ -357,12 +358,21 @@ class MainActivity : Activity() {
         showHome()
         if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress()
         openShared(intent)
+        openRemote(intent)
         checkUpdate()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         openShared(intent)
+        openRemote(intent)
+    }
+
+    // Tocco sul player di Android o pressione lunga sul riquadro della tendina: il telecomando
+    private fun openRemote(intent: Intent?) {
+        if (intent?.action != ACTION_OPEN_REMOTE && intent?.action != TileService.ACTION_QS_TILE_PREFERENCES) return
+        intent.action = null
+        if (!prefs.getString("host", "").isNullOrBlank()) showPlayer()
     }
 
     // Condividi → Couch Cast da Chrome o da un'altra app: la pagina si apre qui, dove il video si trova come al solito.
@@ -2167,6 +2177,12 @@ class MainActivity : Activity() {
                 then { toggleHistory() }),
             settingsRow(it.franc.casttokodi.R.drawable.ic_delete, "Cancella la cronologia", "Toglie le serie e l'ultima pagina dalla pagina iniziale",
                 then { askClearHistory() }),
+            settingsHeading("Tendina"),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_play, "Controlli nella tendina",
+                if (KodiPlayer.enabled(this)) "Acceso: player di Android mentre Kodi riproduce" else "Spento",
+                then { toggleMediaControls() }),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_cast, "Aggiungi il riquadro", "Couch Cast tra le impostazioni rapide",
+                then { askAddTile() }),
             settingsHeading("Backup"),
             settingsRow(it.franc.casttokodi.R.drawable.ic_download, "Salva un backup", backupLabel(),
                 then { askBackup() }),
@@ -2526,6 +2542,7 @@ class MainActivity : Activity() {
         }
         miniProgress.visibility = View.VISIBLE
         miniPlay.visibility = View.VISIBLE
+        KodiPlayer.startIfWanted(this)
         miniTitle.text = queueLabel(playing.file, playing.title, loadTitles())
         miniStatus.text = miniPlayerStatus(playing.paused, playing.time, playing.total)
         miniProgress.progress = if (playing.total > 0) (playing.time * 1000 / playing.total).toInt() else 0
@@ -2861,10 +2878,7 @@ class MainActivity : Activity() {
     }
 
     // Nomi dei video mandati a Kodi (link senza header -> nome della pagina), per mostrarli nella coda
-    private fun loadTitles(): Map<String, String> {
-        val json = JSONObject(prefs.getString("queueTitles", "{}")!!)
-        return json.keys().asSequence().associateWithTo(LinkedHashMap()) { json.getString(it) }
-    }
+    private fun loadTitles(): Map<String, String> = KodiAccess.titles(prefs)
 
     // Da più thread (invio e accodamento automatico): uno alla volta
     @Synchronized
@@ -2949,13 +2963,7 @@ class MainActivity : Activity() {
     }
 
     // Impronta della rete attuale (vedi networkKey), null senza rete o senza un gateway IPv4
-    private fun currentNetwork(): String? {
-        val cm = getSystemService(ConnectivityManager::class.java) ?: return null
-        val link = cm.getLinkProperties(cm.activeNetwork) ?: return null
-        val address = link.linkAddresses.firstOrNull { it.address is Inet4Address } ?: return null
-        val gateway = link.routes.firstOrNull { it.isDefaultRoute && it.gateway is Inet4Address }?.gateway
-        return networkKey(address.address.hostAddress, address.prefixLength, gateway?.hostAddress)
-    }
+    private fun currentNetwork(): String? = KodiAccess.currentNetwork(this)
 
     // Utente e password salvati per il Kodi a host sulla rete network, già decifrati
     private fun savedLogin(host: String, network: String?): Pair<String, String>? {
@@ -2971,14 +2979,7 @@ class MainActivity : Activity() {
     }
 
     // Credenziali in SharedPreferences come JSON, con la password cifrata da seal
-    private fun loadLogins(): List<SavedLogin> {
-        val array = JSONArray(prefs.getString("logins", "[]"))
-        return List(array.length()) { i ->
-            array.getJSONObject(i).let {
-                SavedLogin(it.getString("host"), it.getString("name"), it.getString("network"), it.getString("user"), it.getString("secret"))
-            }
-        }
-    }
+    private fun loadLogins(): List<SavedLogin> = KodiAccess.loadLogins(prefs)
 
     private fun saveLogins(list: List<SavedLogin>) {
         val array = JSONArray()
@@ -3007,33 +3008,9 @@ class MainActivity : Activity() {
     }
 
     // Password cifrate con una chiave AES dell'Android Keystore, che non esce dal telefono: "iv:testo" in Base64
-    private fun loginKey(): SecretKey {
-        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        (store.getKey(LOGIN_KEY, null) as? SecretKey)?.let { return it }
-        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-        generator.init(
-            KeyGenParameterSpec.Builder(LOGIN_KEY, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                .build()
-        )
-        return generator.generateKey()
-    }
+    private fun seal(text: String): String = KodiAccess.seal(text)
 
-    private fun seal(text: String): String {
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, loginKey()) }
-        val data = cipher.doFinal(text.toByteArray())
-        return Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(data, Base64.NO_WRAP)
-    }
-
-    // null se non si decifra (chiave persa, es. backup ripristinato su un altro telefono): si richiedono
-    private fun unseal(secret: String): String? = try {
-        val (iv, data) = secret.split(':').map { Base64.decode(it, Base64.NO_WRAP) }
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.DECRYPT_MODE, loginKey(), GCMParameterSpec(128, iv)) }
-        String(cipher.doFinal(data))
-    } catch (e: Exception) {
-        null
-    }
+    private fun unseal(secret: String): String? = KodiAccess.unseal(secret)
 
     // ---- Continua a guardare (2026-10-24): le serie ferme all'episodio giusto. La logica è in Watching.kt ----
 
@@ -3070,6 +3047,36 @@ class MainActivity : Activity() {
             }
             .setNegativeButton("Annulla", null)
             .show()
+    }
+
+    // ---- Tendina (2026-10-27): player di Android in KodiPlayer.kt, riquadro in KodiTile.kt ----
+
+    private fun toggleMediaControls() {
+        val on = !KodiPlayer.enabled(this)
+        prefs.edit().putBoolean("mediaControls", on).apply()
+        if (on) {
+            if (miniNow?.playerId != null) KodiPlayer.startIfWanted(this)
+            toast("Controlli nella tendina accesi: compaiono mentre Kodi riproduce")
+        } else {
+            KodiPlayer.stop(this)
+            toast("Controlli nella tendina spenti")
+        }
+        showSettings()
+    }
+
+    // Android 13 chiede "Aggiungere il riquadro?" con un tocco, senza cercarlo nella matita della tendina
+    private fun askAddTile() {
+        getSystemService(StatusBarManager::class.java)?.requestAddTileService(
+            ComponentName(this, KodiTile::class.java), "Couch Cast",
+            Icon.createWithResource(this, it.franc.casttokodi.R.drawable.ic_cast), mainExecutor,
+        ) { result ->
+            toast(when (result) {
+                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> "Riquadro aggiunto: lo trovi nella tendina"
+                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED -> "Il riquadro c'è già nella tendina"
+                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_NOT_ADDED -> "Riquadro non aggiunto"
+                else -> "Aggiungilo a mano: matita della tendina, poi trascina Couch Cast"
+            })
+        }
     }
 
     // ---- Backup e ripristino (2026-10-27): formato del file, unione e regole in Backup.kt ----
@@ -3455,7 +3462,7 @@ class MainActivity : Activity() {
     }
 
     // Le immagini delle serie stanno in file a parte; quelle che iniziano con COVER_PREFIX sono copertine del sito, così prefs["shows"] resta piccolo (si rilegge ogni 3 secondi)
-    private fun framesDir() = File(filesDir, "serie").apply { mkdirs() }
+    private fun framesDir() = KodiAccess.framesDir(this)
 
     // Si rimpicciolisce solo finché copre ancora la scheda (larga quanto lo schermo, 16:9) dopo il taglio: le
     // copertine del sito sono spesso strisce larghe e basse, e portarle a 480 di larghezza le lasciava alte 100 pixel

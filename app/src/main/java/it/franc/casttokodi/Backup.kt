@@ -43,6 +43,7 @@ val BACKED_UP: Map<String, BackupPart> = mapOf(
     "history" to BackupPart.SETTINGS,
     "queueTitles" to BackupPart.SETTINGS,
     "adbHost" to BackupPart.SETTINGS,
+    "mediaControls" to BackupPart.SETTINGS,
 )
 
 // Fuori dal backup, apposta: le chiavi del Keystore non escono dal telefono, quindi quello che cifrano non si

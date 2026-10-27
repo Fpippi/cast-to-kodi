@@ -51,7 +51,7 @@ _Le animazioni di questa guida sono disegni dell'interfaccia della versione 2.1,
 | **🛡 con un numero** | Compare quando l'app ha bloccato popup o salti verso altri siti su questa pagina. Toccalo per vedere quali e aprirne uno, se serviva. |
 | **★** | I tuoi siti preferiti. Piena se la pagina aperta è già tra i preferiti. |
 | **Barra di Kodi** (in fondo) | C'è sempre, appena l'app sa dov'è Kodi. Mostra cosa riproduce, con il tempo, play/pausa e una linea sottile in basso che avanza. Il pallino accanto allo stato è acceso se Kodi risponde. Se Kodi è acceso ma fermo scrive *Acceso, niente in riproduzione*; se è spento o non risponde c'è il pulsante **⏻** per accendere la TV. Il pulsante a destra, o un tocco sulla barra, apre il telecomando con la coda. |
-| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Pagina iniziale*, *Impostazioni* (dov'è Kodi, accensione, episodi successivi, cronologia, backup, log di Kodi, guida, versione). |
+| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Pagina iniziale*, *Impostazioni* (dov'è Kodi, accensione, episodi successivi, cronologia, tendina, backup, log di Kodi, guida, versione). |
 | **Manda a Kodi** | Fa partire subito sulla TV il video della pagina. Compare in basso a destra, sopra il sito, solo quando sulla pagina parte un video. |
 | **+ Coda** (l'icona tonda con le righe e il +, accanto a *Manda a Kodi*) | Mette il video in fondo alla coda di Kodi, senza interrompere quello che stai guardando. Tenendola premuta si apre la coda. |
 
@@ -189,6 +189,18 @@ In alto a destra c'è il nome di Kodi con un pallino acceso se risponde. Nella s
 - **Audio** e **Sottotitoli**: scegli la lingua tra quelle del video, o spegni i sottotitoli.
 - **Scrivi**: apri prima in Kodi un campo di testo (per esempio la ricerca), poi scrivi con la tastiera del telefono.
 - **Accendi la TV**: come il pulsante ⏻.
+
+### Senza aprire l'app: tendina e schermata di blocco
+
+Mentre Kodi riproduce, nella tendina e sulla schermata di blocco compare il **player di Android**, come per la musica:
+immagine della serie, titolo, episodio, la barra del tempo (si trascina per andare a un punto) e i tasti **Salta sigla**
+(solo se per quella serie hai già scelto il tempo), **−10 s**, **pausa**, **+10 s** e **Prossimo** (se nella coda c'è un
+altro video). Toccandolo si apre il telecomando. Con lo schermo spento non parla con Kodi, quindi non consuma; sparisce da
+solo quando Kodi si ferma. Si spegne in **⋮ → Impostazioni → Controlli nella tendina**.
+
+In più c'è il riquadro **Couch Cast** delle impostazioni rapide: **⋮ → Impostazioni → Aggiungi il riquadro** (o la matita
+della tendina). Dice cosa fa Kodi; un tocco mette in pausa o fa ripartire, con Kodi fermo o spento apre l'app; la pressione
+lunga apre il telecomando.
 
 ---
 
