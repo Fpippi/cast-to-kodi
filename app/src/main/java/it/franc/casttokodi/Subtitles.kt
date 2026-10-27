@@ -122,17 +122,17 @@ fun subtitleMaster(videoUrl: String, bandwidth: Long, tracks: List<Triple<String
 
 // Il nome di una traccia per Kodi: quello della playlist, se no la lingua; "dal sito" per i file caricati dalla pagina
 fun subtitleName(language: String?, name: String, fromSite: Boolean, number: Int): String {
-    val base = name.trim().ifEmpty { languageName(language) ?: "Sottotitoli $number" }
-    return if (fromSite) "$base · dal sito" else base
+    val base = name.trim().ifEmpty { languageName(language) ?: tr("Sottotitoli $number", "Subtitles $number") }
+    return if (fromSite) tr("$base · dal sito", "$base · from the site") else base
 }
 
 // "con sottotitoli in italiano e inglese": la fine dell'avviso dopo l'invio
 fun subtitlesNote(tracks: List<SubtitleTrack>): String? {
     if (tracks.isEmpty()) return null
-    val names = tracks.mapNotNull { languageName(it.language)?.lowercase(Locale.ITALIAN) }.distinct()
-    if (names.isEmpty()) return "con sottotitoli"
-    val list = if (names.size == 1) names[0] else names.dropLast(1).joinToString(", ") + " e " + names.last()
-    return "con sottotitoli in $list"
+    val names = tracks.mapNotNull { languageName(it.language)?.let(::inSentence) }.distinct()
+    if (names.isEmpty()) return tr("con sottotitoli", "with subtitles")
+    val list = if (names.size == 1) names[0] else names.dropLast(1).joinToString(", ") + tr(" e ", " and ") + names.last()
+    return tr("con sottotitoli in $list", "with $list subtitles")
 }
 
 // "CC Italiano, English" sull'immagine del video nella scelta: le lingue di playlist e sito, senza ripetizioni
@@ -140,7 +140,7 @@ fun ccLabel(languages: List<String?>): String? {
     if (languages.isEmpty()) return null
     val names = languages.map { languageName(it) }.distinct()
     val known = names.filterNotNull()
-    return "CC " + (if (known.isEmpty()) "sottotitoli" else known.joinToString(", "))
+    return "CC " + (if (known.isEmpty()) tr("sottotitoli", "subtitles") else known.joinToString(", "))
 }
 
 // La traccia di Kodi della lingua scelta per la serie (Show.subtitles), da accendere quando parte un suo episodio
@@ -155,8 +155,11 @@ fun subtitleFor(tracks: List<Track>, language: String?): Track? {
 fun trackLanguage(track: Track): String? = languageKey(track.language) ?: languageKey(track.name)
 
 // Riga sotto ogni traccia nel pannello: da dove arriva, quando si sa
-fun subtitleSource(track: Track): String? = if (track.name.contains("dal sito", ignoreCase = true)) "dal sito" else null
+// Il segno dei file della pagina, in tutte e due le lingue: il nome l'ha dato l'app all'invio, magari prima di cambiare lingua
+private val FROM_SITE = Regex("\\s*·?\\s*(dal sito|from the site)", RegexOption.IGNORE_CASE)
+
+fun subtitleSource(track: Track): String? = if (FROM_SITE.containsMatchIn(track.name)) tr("dal sito", "from the site") else null
 
 // Nome di una traccia nel pannello, senza il "dal sito" che va nella riga sotto
 fun subtitleTitle(track: Track, number: Int): String =
-    trackLabel(track.language, track.name.replace(Regex("\\s*·?\\s*dal sito", RegexOption.IGNORE_CASE), "").trim(), number)
+    trackLabel(track.language, track.name.replace(FROM_SITE, "").trim(), number)

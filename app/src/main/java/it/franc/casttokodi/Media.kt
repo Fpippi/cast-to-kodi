@@ -17,7 +17,7 @@ fun mediaText(playing: NowPlaying, shows: List<Show>, titles: Map<String, String
     val show = showOfFile(shows, playing.file)
     val key = queueKey(playing.file)
     val episode = show?.episodes?.firstOrNull { it.file != null && queueKey(it.file) == key }
-    val number = episode?.number?.let { n -> episode.season?.let { "Stagione $it · Episodio $n" } ?: "Episodio $n" }
+    val number = episode?.number?.let { n -> episode.season?.let { tr("Stagione $it · Episodio $n", "Season $it · Episode $n") } ?: tr("Episodio $n", "Episode $n") }
     return MediaText(
         title = show?.title ?: queueLabel(playing.file, playing.title, titles),
         subtitle = listOfNotNull(number, kodiName.ifBlank { "Kodi" }).joinToString(" · "),
@@ -35,8 +35,8 @@ fun mediaButtons(playing: NowPlaying, state: KodiState?, shows: List<Show>, gene
 
 // Seconda riga del riquadro: cosa fa Kodi in breve
 fun tileSubtitle(playing: NowPlaying?, text: MediaText?): String = when {
-    playing == null -> "Kodi spento"
-    playing.playerId == null -> "Niente in riproduzione"
+    playing == null -> tr("Kodi spento", "Kodi off")
+    playing.playerId == null -> tr("Niente in riproduzione", "Nothing playing")
     text != null -> text.title
-    else -> "In riproduzione"
+    else -> tr("In riproduzione", "Playing")
 }

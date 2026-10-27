@@ -33,7 +33,7 @@ fun parseIntro(input: String): Int? {
 }
 
 // "45 secondi", "1:25" nell'elenco di Salta sigla
-fun introTime(seconds: Int): String = if (seconds < 60) "$seconds secondi" else clockLabel(seconds.toLong())
+fun introTime(seconds: Int): String = if (seconds < 60) tr("$seconds secondi", "$seconds seconds") else clockLabel(seconds.toLong())
 
 // Eseguito nella pagina di un episodio (non AnimeUnity, che la dà con EPISODE_INFO_JS): l'immagine di anteprima che il
 // sito dichiara per la condivisione (og:image), di solito la copertina della serie. Stringa vuota se non c'è
@@ -316,7 +316,7 @@ fun withTitle(shows: List<Show>, key: String, title: String): List<Show> = shows
 // "Riprendi qualche secondo prima": le scelte del pannello della serie
 val REWIND_CHOICES = listOf(0, 5, 10, 15, 30)
 
-fun rewindLabel(seconds: Int): String = if (seconds <= 0) "Dal punto esatto" else "$seconds secondi prima"
+fun rewindLabel(seconds: Int): String = if (seconds <= 0) tr("Dal punto esatto", "From the exact spot") else tr("$seconds secondi prima", "$seconds seconds earlier")
 
 fun withRewind(shows: List<Show>, key: String, seconds: Int): List<Show> = shows.map { if (it.key == key) it.copy(rewind = seconds) else it }
 
@@ -326,7 +326,7 @@ fun autoNextOf(shows: List<Show>, key: String?, general: Int): Int = shows.first
 fun withAutoNext(shows: List<Show>, key: String, count: Int?): List<Show> = shows.map { if (it.key == key) it.copy(autoNext = count) else it }
 
 fun backgroundLabel(show: Show): String =
-    if (show.cover) "Copertina" else show.frameRange.let { (a, b) -> "Immagine a caso tra $a% e $b%" }
+    if (show.cover) tr("Copertina", "Cover") else show.frameRange.let { (a, b) -> tr("Immagine a caso tra $a% e $b%", "Random picture between $a% and $b%") }
 
 // Di quanto salta "Salta sigla" con questo video: quello della serie, o general (per tutti) se il video non è di una
 // serie nota. null se non è ancora stato scelto: il tasto lo chiede
@@ -353,7 +353,7 @@ fun episodeAfter(show: Show, file: String?): Episode? {
         ?: show.next?.takeIf { it.season == playing.season && it.number == number + 1 }
 }
 
-fun introLabel(seconds: Int?): String = if (seconds == null) "Salta sigla" else "Salta sigla (+${clockLabel(seconds.toLong())})"
+fun introLabel(seconds: Int?): String = if (seconds == null) tr("Salta sigla", "Skip intro") else tr("Salta sigla (+${clockLabel(seconds.toLong())})", "Skip intro (+${clockLabel(seconds.toLong())})")
 
 fun withoutShow(shows: List<Show>, key: String): List<Show> = shows.filter { it.key != key }
 
@@ -377,7 +377,7 @@ fun episodeUrl(show: Show, episode: Episode, hosts: Map<String, String>): String
 
 // "Ep. 12", "S2 · Ep. 5", "Episodio" se il numero non si sa
 fun episodeLabel(e: Episode): String = when {
-    e.number == null -> "Episodio"
+    e.number == null -> tr("Episodio", "Episode")
     e.season != null -> "S${e.season} · Ep. ${e.number}"
     else -> "Ep. ${e.number}"
 }
@@ -391,16 +391,16 @@ class ShowCard(val note: String, val badge: String?, val progress: Float)
 fun showCard(show: Show): ShowCard {
     val c = show.current
     return when {
-        show.finished -> ShowCard("${c.number} di ${show.count}", null, 1f)
+        show.finished -> ShowCard(tr("${c.number} di ${show.count}", "${c.number} of ${show.count}"), null, 1f)
         !c.watched && c.time >= RESUME_MIN ->
-            ShowCard("${episodeLabel(c)} · fermo a ${clockLabel(c.time)}",
+            ShowCard(tr("${episodeLabel(c)} · fermo a ${clockLabel(c.time)}", "${episodeLabel(c)} · stopped at ${clockLabel(c.time)}"),
                 if (c.total > 0) "${clockLabel(c.time)} / ${clockLabel(c.total)}" else null,
                 if (c.total > 0) (c.time.toFloat() / c.total).coerceIn(0f, 1f) else 0f)
         !c.watched -> ShowCard(episodeLabel(c), null, 0f)
         c.number != null -> ShowCard(
-            (if (c.season != null) "Visto S${c.season} · Ep. ${c.number}" else "Visto il ${c.number}") + " · tocca ${toEpisode(c.number + 1)}",
-            "Prossimo", 0f)
-        else -> ShowCard("Visto", null, 0f)
+            (if (c.season != null) tr("Visto S${c.season} · Ep. ${c.number}", "Watched S${c.season} · Ep. ${c.number}") else tr("Visto il ${c.number}", "Watched ep. ${c.number}")) + tr(" · tocca ${toEpisode(c.number + 1)}", " · next up: ep. ${c.number + 1}"),
+            tr("Prossimo", "Next"), 0f)
+        else -> ShowCard(tr("Visto", "Watched"), null, 0f)
     }
 }
 
@@ -410,11 +410,11 @@ fun resumeBanner(show: Show, pagePath: String): Pair<String, String>? {
     val target = show.upNext ?: return null
     if (target.path == pagePath || target.number == null) return null
     return if (!target.watched && target === show.current && target.time >= RESUME_MIN) {
-        "Eri all'episodio ${target.number}" to "fermo a ${clockLabel(target.time)}"
+        tr("Eri all'episodio ${target.number}", "You were on episode ${target.number}") to tr("fermo a ${clockLabel(target.time)}", "stopped at ${clockLabel(target.time)}")
     } else if (target === show.current) {
-        "Eri all'episodio ${target.number}" to show.title
+        tr("Eri all'episodio ${target.number}", "You were on episode ${target.number}") to show.title
     } else {
-        "Tocca all'episodio ${target.number}" to "hai visto il ${show.current.number}"
+        tr("Tocca all'episodio ${target.number}", "Next up: episode ${target.number}") to tr("hai visto il ${show.current.number}", "you watched episode ${show.current.number}")
     }
 }
 

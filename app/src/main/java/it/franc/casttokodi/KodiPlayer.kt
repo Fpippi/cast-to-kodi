@@ -71,10 +71,11 @@ class KodiPlayer : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        KodiAccess.useLanguage(this)
         running = true
         getSystemService(NotificationManager::class.java)?.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Kodi in riproduzione", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Tasti di Kodi nella tendina e sulla schermata di blocco"
+            NotificationChannel(CHANNEL, tr("Kodi in riproduzione", "Kodi playing"), NotificationManager.IMPORTANCE_LOW).apply {
+                description = tr("Tasti di Kodi nella tendina e sulla schermata di blocco", "Kodi buttons in the notification shade and on the lock screen")
                 setShowBadge(false)
             }
         )
@@ -172,9 +173,9 @@ class KodiPlayer : Service() {
         val state = PlaybackState.Builder()
             .setActions(actions)
             .setState(if (playing.paused) PlaybackState.STATE_PAUSED else PlaybackState.STATE_PLAYING, playing.time * 1000, if (playing.paused) 0f else 1f)
-        if (buttons.intro != null) state.addCustomAction(INTRO, "Salta sigla", R.drawable.ic_skip_intro)
-        state.addCustomAction(BACK, "Indietro di $MEDIA_SKIP secondi", R.drawable.ic_replay)
-        state.addCustomAction(FORWARD, "Avanti di $MEDIA_SKIP secondi", R.drawable.ic_forward)
+        if (buttons.intro != null) state.addCustomAction(INTRO, tr("Salta sigla", "Skip intro"), R.drawable.ic_skip_intro)
+        state.addCustomAction(BACK, tr("Indietro di $MEDIA_SKIP secondi", "Back $MEDIA_SKIP seconds"), R.drawable.ic_replay)
+        state.addCustomAction(FORWARD, tr("Avanti di $MEDIA_SKIP secondi", "Forward $MEDIA_SKIP seconds"), R.drawable.ic_forward)
         session.setPlaybackState(state.build())
         getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION, notification(text, playing))
     }
@@ -183,7 +184,7 @@ class KodiPlayer : Service() {
         Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_cast)
             .setContentTitle(text?.title ?: "Kodi")
-            .setContentText(text?.subtitle ?: "Collegamento a Kodi…")
+            .setContentText(text?.subtitle ?: tr("Collegamento a Kodi…", "Connecting to Kodi…"))
             .setContentIntent(openApp())
             .setOngoing(playing?.paused != true)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
