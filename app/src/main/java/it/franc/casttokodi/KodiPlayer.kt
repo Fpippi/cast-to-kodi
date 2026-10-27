@@ -143,6 +143,7 @@ class KodiPlayer : Service() {
         val state = runCatching { kodi.state() }.getOrNull()
         val prefs = KodiAccess.prefs(this)
         val shows = KodiAccess.shows(prefs)
+        KodiAccess.autoSubtitles(prefs, kodi, playing)
         val general = if (prefs.contains("intro")) prefs.getInt("intro", DEFAULT_INTRO) else null
         buttons = mediaButtons(playing, state, shows, general)
         val text = mediaText(playing, shows, KodiAccess.titles(prefs), prefs.getString("name", "").orEmpty())

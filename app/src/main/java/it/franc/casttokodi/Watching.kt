@@ -85,6 +85,8 @@ data class Show(
     val renamed: Boolean = false,
     val rewind: Int = 0,
     val autoNext: Int? = null,
+    // Sottotitoli accesi da soli in questa lingua (codice di 3 lettere, "ita"), solo se scelto dal pannello (2026-10-27)
+    val subtitles: String? = null,
 ) {
     // L'ultimo mandato o visto su Kodi
     val current: Episode get() = episodes.filter { it.seen > 0 }.maxByOrNull { it.seen } ?: episodes.last()
@@ -199,6 +201,7 @@ fun withSent(
         renamed = old?.renamed ?: false,
         rewind = old?.rewind ?: 0,
         autoNext = old?.autoNext,
+        subtitles = old?.subtitles,
     )
     return (listOf(show) + shows.filter { it.key != page.key }).take(MAX_SHOWS)
 }
@@ -334,6 +337,12 @@ fun introOf(shows: List<Show>, file: String?, general: Int?): Int? {
 
 fun withIntro(shows: List<Show>, key: String, seconds: Int): List<Show> = shows.map { if (it.key == key) it.copy(intro = seconds) else it }
 
+// Lingua dei sottotitoli da accendere da soli con questo video (Show.subtitles), null = Kodi fa come sempre
+fun subtitlesOf(shows: List<Show>, file: String?): String? = showOfFile(shows, file)?.subtitles
+
+fun withShowSubtitles(shows: List<Show>, key: String, language: String?): List<Show> =
+    shows.map { if (it.key == key) it.copy(subtitles = language) else it }
+
 // ⏭ del telecomando con la coda finita: l'episodio dopo quello che Kodi sta riproducendo (file), se l'app lo conosce
 fun episodeAfter(show: Show, file: String?): Episode? {
     val key = file?.let { queueKey(it) } ?: return null
@@ -425,6 +434,7 @@ fun showsToJson(shows: List<Show>): String = JSONArray(shows.map { s ->
         .putOpt("image", s.image).put("updated", s.updated).putOpt("intro", s.intro)
         .put("cover", s.cover).putOpt("frameFrom", s.frameFrom).putOpt("frameTo", s.frameTo)
         .put("renamed", s.renamed).put("rewind", s.rewind).putOpt("autoNext", s.autoNext)
+        .putOpt("subtitles", s.subtitles)
 }).toString()
 
 private fun episodeJson(e: Episode) = JSONObject().putOpt("season", e.season).putOpt("number", e.number).put("path", e.path)
@@ -450,6 +460,7 @@ fun showsFromJson(text: String?): List<Show> = try {
             renamed = o.optBoolean("renamed"),
             rewind = o.optInt("rewind"),
             autoNext = if (o.has("autoNext")) o.getInt("autoNext") else null,
+            subtitles = o.optString("subtitles").ifEmpty { null },
         )
     }
 } catch (e: Exception) {

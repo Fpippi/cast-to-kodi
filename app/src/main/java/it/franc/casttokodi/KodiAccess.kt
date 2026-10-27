@@ -91,4 +91,23 @@ object KodiAccess {
 
     // Cartella delle immagini delle serie (vedi saveFrame nell'Activity)
     fun framesDir(context: Context) = File(context.filesDir, "serie").apply { mkdirs() }
+
+    // Video (queueKey) per cui i sottotitoli della serie sono già stati sistemati: si accendono una volta sola, così
+    // se poi li spegni dal telecomando restano spenti
+    @Volatile private var subtitlesDone: String? = null
+
+    // Sottotitoli scelti per la serie (Show.subtitles): accesi quando parte un suo episodio, anche in coda. Lo chiamano
+    // la barra di Kodi dell'app e il player della tendina a ogni lettura, da un thread di background
+    fun autoSubtitles(prefs: SharedPreferences, kodi: Kodi, playing: NowPlaying) {
+        val id = playing.playerId ?: return
+        val key = queueKey(playing.file)
+        if (key == subtitlesDone) return
+        val language = subtitlesOf(shows(prefs), playing.file)
+        // Le tracce Kodi le mostra qualche secondo dopo l'avvio: si aspetta fino a un minuto di video
+        if (language != null && playing.subtitles.isEmpty() && playing.time < 60) return
+        subtitlesDone = key
+        val track = subtitleFor(playing.subtitles, language) ?: return
+        if (playing.subtitlesOn && playing.subtitles.getOrNull(playing.currentSubtitle)?.index == track.index) return
+        runCatching { kodi.setSubtitle(id, track) }
+    }
 }

@@ -307,6 +307,11 @@ class Kodi(val host: String, val auth: String) {
         else call("Player.SetSubtitle", player(id).put("subtitle", track.index).put("enable", true))
     }
 
+    // La ricerca dei sottotitoli di Kodi sulla TV: serve un add-on di sottotitoli (es. OpenSubtitles) installato in Kodi
+    fun openSubtitleSearch() {
+        call("GUI.ActivateWindow", JSONObject().put("window", "subtitlesearch"))
+    }
+
     // Tasti del telecomando di Kodi: Up, Down, Left, Right, Select, Back, Home, ContextMenu, Info
     fun press(key: String) {
         call("Input.$key")

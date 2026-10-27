@@ -95,6 +95,7 @@ import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
 import java.time.LocalDate
 import java.util.Date
+import java.util.Locale
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -203,6 +204,9 @@ class MainActivity : Activity() {
     // Continua a guardare: le immagini già lette nella scelta del video (diventano quella della serie), gli avvisi
     // "Eri all'episodio" chiusi in questa sessione e, per ogni scheda della pagina iniziale, come aggiornarla in silenzio
     private val previews = HashMap<String, Bitmap>()
+
+    // File di sottotitoli (.vtt, .srt) caricati dalla pagina: indirizzo → Referer, passati a Kodi con il video
+    private val subtitleFiles = LinkedHashMap<String, String>()
     private val bannerClosed = mutableSetOf<String>()
     private val tileUpdaters = HashMap<String, (Show) -> Unit>()
     private lateinit var banner: View
@@ -497,6 +501,7 @@ class MainActivity : Activity() {
                 if (!address.hasFocus()) address.setText(addressLabel(url))
                 videos.clear()
                 previews.clear()
+                subtitleFiles.clear()
                 blocked.clear()
                 refreshShield()
                 refreshStar()
@@ -534,6 +539,11 @@ class MainActivity : Activity() {
                     runOnUiThread {
                         if (videos.putIfAbsent(video, referer) == null) refreshCastButton()
                     }
+                }
+                if (isSubtitlePath(request.url.path)) {
+                    val referer = request.requestHeaders["Referer"] ?: pageUrl
+                    val file = request.url.toString()
+                    runOnUiThread { subtitleFiles.putIfAbsent(file, referer) }
                 }
                 if (request.method == "GET" && isHlsPath(request.url.path)) return capturePlaylist(request)
                 return null
@@ -721,6 +731,8 @@ class MainActivity : Activity() {
         }
         val userAgent = web.settings.userAgentString
         val cards = mutableListOf<View>()
+        // Sottotitoli caricati dalla pagina: valgono per qualunque video si mandi da qui
+        val siteLanguages = siteSubtitleFiles(subtitleFiles.keys.toList()).map { subtitleLanguage(it) }
         list.forEachIndexed { i, video ->
             val image = ImageView(this).apply {
                 scaleType = ImageView.ScaleType.CENTER_CROP
@@ -743,11 +755,24 @@ class MainActivity : Activity() {
                 }
                 visibility = View.GONE
             }
+            // "CC Italiano, Inglese": sottotitoli nella playlist o sulla pagina
+            val cc = TextView(this).apply {
+                textSize = 10f
+                typeface = Typeface.DEFAULT_BOLD
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_900))
+                setPadding(dp(5), dp(1), dp(5), dp(1))
+                background = rounded(sys(R.color.system_neutral1_10, R.color.system_neutral1_10), 4)
+                text = ccLabel(siteLanguages)
+                visibility = if (siteLanguages.isEmpty()) View.GONE else View.VISIBLE
+            }
             val frame = FrameLayout(this).apply {
                 addView(image, FrameLayout.LayoutParams(-1, -1))
                 addView(duration, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, dp(6), dp(6)) })
+                addView(cc, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply { setMargins(dp(6), 0, dp(52), dp(6)) })
             }
-            val host = "da ${shortHost(Uri.parse(video.url).host)}"
+            val host = "da ${shortHost(Uri.parse(video.url).host)}" + if (siteLanguages.isNotEmpty()) " · sottotitoli dal sito" else ""
             val detail = TextView(this).apply {
                 text = host
                 textSize = 13f
@@ -785,8 +810,13 @@ class MainActivity : Activity() {
             content.addView(card, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
             if (i == 0) content.addView(actions)
             thread {
-                val (seconds, picture) = videoPreview(video, userAgent)
+                var inPlaylist: List<String?> = emptyList()
+                val (seconds, picture) = videoPreview(video, userAgent, subtitles = { inPlaylist = it })
                 runOnUiThread {
+                    if (inPlaylist.isNotEmpty()) {
+                        cc.text = ccLabel(inPlaylist + siteLanguages)
+                        cc.visibility = View.VISIBLE
+                    }
                     picture?.let {
                         previews[video.url] = it
                         image.setImageBitmap(it)
@@ -815,7 +845,11 @@ class MainActivity : Activity() {
     // della qualità più leggera (già decifrato) e il fotogramma si prende da lì. Video protetti: niente immagine.
     // width: larghezza massima del fotogramma in pixel (quella delle anteprime nell'elenco dei video, se non detta).
     // failed: perché il fotogramma non c'è, se manca
-    private fun videoPreview(video: Video, userAgent: String, width: Int = dp(224), fraction: Double? = null, failed: (String) -> Unit = {}): Pair<Long?, Bitmap?> {
+    // subtitles: le lingue dei sottotitoli nella playlist, quando ci sono
+    private fun videoPreview(
+        video: Video, userAgent: String, width: Int = dp(224), fraction: Double? = null, failed: (String) -> Unit = {},
+        subtitles: (List<String?>) -> Unit = {},
+    ): Pair<Long?, Bitmap?> {
         val headers = streamHeaders(video.url, video.referer, userAgent)
         val retriever = MediaMetadataRetriever()
         var file: File? = null
@@ -826,6 +860,7 @@ class MainActivity : Activity() {
             } else {
                 val preview = streams.preview(video.url, headers, fraction = fraction)
                 seconds = preview.seconds
+                if (preview.subtitles.isNotEmpty()) subtitles(preview.subtitles)
                 val sample = preview.sample ?: return (seconds to null).also { failed(preview.error ?: "pezzo del video non scaricato") }
                 // Senza gli eventuali byte finti davanti al pezzo (2.2.9: con la 2.2.8 il telefono non leggeva il fotogramma)
                 val start = tsStart(sample)
@@ -967,6 +1002,9 @@ class MainActivity : Activity() {
         val episode = if (historyOn()) episodeFromPage(pageUri.host, pageUri.path, pageUri.encodedQuery, pageTitle) else null
         val resume = if (!queued && episode != null) resumePoint(loadShows(), episode.site, episode.path) else null
         var sentFile: String? = null
+        // Sottotitoli della pagina (solo se il video è di questa pagina) e quelli passati davvero a Kodi
+        val siteSubtitles = if (page == pageUrl) pageSubtitles(userAgent) else emptyList()
+        var subtitlesSent: List<SubtitleTrack> = emptyList()
         sending = true
         refreshCastButton()
         // Il pulsante torna attivo prima di qualunque dialogo, così il nuovo tentativo che ne parte non viene scartato
@@ -981,11 +1019,11 @@ class MainActivity : Activity() {
         thread {
             val sent = try {
                 if (queued) {
-                    kodi.enqueue({ kodiItem(video.url, video.referer, userAgent, title, viaPhone = it).also { item -> sentFile = item.getString("file") } }) {
+                    kodi.enqueue({ kodiItem(video.url, video.referer, userAgent, title, viaPhone = it, siteSubtitles) { tracks -> subtitlesSent = tracks }.also { item -> sentFile = item.getString("file") } }) {
                         expiryProblem(video.url, it)
                     }
                 } else {
-                    kodi.playNow(kodiItem(video.url, video.referer, userAgent, title, viaPhone = true).also { sentFile = it.getString("file") })
+                    kodi.playNow(kodiItem(video.url, video.referer, userAgent, title, viaPhone = true, siteSubtitles) { subtitlesSent = it }.also { sentFile = it.getString("file") })
                 }
             } catch (e: IOException) {
                 done { relocateKodi(host) { sendToKodi(video, queued, typed, page, name) } }
@@ -1009,6 +1047,8 @@ class MainActivity : Activity() {
                 // Con Kodi fermo "+ Coda" fa partire il video: anche lui diventa quello in corso
                 val playing = !queued || sent.message.startsWith("Inviato")
                 val file = sentFile
+                // "Inviato a Kodi, con sottotitoli in italiano"
+                val message = subtitlesNote(subtitlesSent)?.let { "${sent.message}, $it" } ?: sent.message
                 // 2.2.1: su AnimeUnity la serie non compariva e dal codice non si capisce perché. Finché non è chiaro,
                 // l'app dice cosa è andato storto invece di tacere
                 if (episode != null && file != null) {
@@ -1022,14 +1062,14 @@ class MainActivity : Activity() {
                     notice("Continua a guardare non ha salvato", "Episodio: ${episode != null}, video: ${file != null}\n\n$page")
                 }
                 if (resume != null && playing && file != null) {
-                    toast("${sent.message}: riparte da ${clockLabel(resume)}")
+                    toast("$message: riparte da ${clockLabel(resume)}")
                     thread {
                         val failed = runCatching { kodi.resumeAt(file, resume) }.getOrElse { it.message ?: it.javaClass.simpleName }
                         // 2.2.5: la ripresa non funzionava sulla Fire TV vera; finché non è provata, l'app dice perché
                         if (failed != null) runOnUiThread { notice("Non riparte da ${clockLabel(resume)}", "$failed.\n\nPuoi andare al minuto dal telecomando.") }
                     }
                 } else {
-                    toast(sent.message)
+                    toast(message)
                 }
                 readMini()
                 sent.position?.let { queueNextEpisodes(kodi, page, it, userAgent, title) }
@@ -1047,10 +1087,19 @@ class MainActivity : Activity() {
     }
 
     // Il video per Kodi (vedi Streams.kodiFile), da un thread di background. title è il nome da mostrare nella coda (vedi queueLabel)
-    private fun kodiItem(url: String, referer: String, userAgent: String, title: String, viaPhone: Boolean = false): JSONObject {
-        val file = streams.kodiFile(url, streamHeaders(url, referer, userAgent), viaPhone)
+    // subtitles: i file di sottotitoli della pagina, che vanno con il video solo se passa dal telefono
+    private fun kodiItem(
+        url: String, referer: String, userAgent: String, title: String, viaPhone: Boolean = false,
+        subtitles: List<SiteSubtitle> = emptyList(), onSubtitles: (List<SubtitleTrack>) -> Unit = {},
+    ): JSONObject {
+        val file = streams.kodiFile(url, streamHeaders(url, referer, userAgent), viaPhone, subtitles, onSubtitles)
         rememberTitle(queueKey(file), title)
         return JSONObject().put("file", file)
+    }
+
+    // I sottotitoli caricati dalla pagina aperta, con gli header del browser (da leggere sul thread principale)
+    private fun pageSubtitles(userAgent: String): List<SiteSubtitle> = siteSubtitleFiles(subtitleFiles.keys.toList()).map {
+        SiteSubtitle(it, streamHeaders(it, subtitleFiles[it].orEmpty(), userAgent))
     }
 
     // Gli header che manderebbe il browser: oltre a Referer e User-Agent, l'Origin della pagina del player quando il
@@ -2110,7 +2159,10 @@ class MainActivity : Activity() {
                 pill("+30 s") { video { kodi, id -> kodi.skip(id, 30) } },
                 pill("Vai al minuto") { now?.let { askSeek(it) { seconds -> video { kodi, id -> kodi.seekTo(id, seconds) } } } },
                 pill("Audio") { now?.takeIf { it.playerId != null }?.let { chooseAudio(it) { track -> video { kodi, id -> kodi.setAudio(id, track) } } } },
-                pill("Sottotitoli") { now?.takeIf { it.playerId != null }?.let { chooseSubtitle(it) { track -> video { kodi, id -> kodi.setSubtitle(id, track) } } } },
+                pill("Sottotitoli") {
+                    val playing = now?.takeIf { it.playerId != null } ?: return@pill toast("Kodi non sta riproducendo niente")
+                    showSubtitles(playing, { track -> video { kodi, id -> kodi.setSubtitle(id, track) } }, { kodi { it.openSubtitleSearch() } })
+                },
                 pill("Velocità") {
                     val id = now?.playerId ?: return@pill toast("Kodi non sta riproducendo niente")
                     chooseTempo { tempo -> tempoAt(tempo, id) }
@@ -2534,7 +2586,8 @@ class MainActivity : Activity() {
         if (host.isBlank()) return null
         val login = savedLogin(host, currentNetwork())
         return try {
-            Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty()).nowPlaying()
+            val kodi = Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty())
+            kodi.nowPlaying().also { KodiAccess.autoSubtitles(prefs, kodi, it) }
         } catch (e: Exception) {
             null
         }
@@ -2865,18 +2918,48 @@ class MainActivity : Activity() {
             .show()
     }
 
-    // done(null): sottotitoli spenti
-    private fun chooseSubtitle(playing: NowPlaying, done: (Track?) -> Unit) {
-        if (playing.subtitles.isEmpty()) return notice("Sottotitoli", "Questo video non ha sottotitoli.")
-        val labels = listOf("Spenti") + playing.subtitles.mapIndexed { i, t -> trackLabel(t.language, t.name, i + 1) }
-        AlertDialog.Builder(this)
-            .setTitle("Sottotitoli")
-            .setSingleChoiceItems(labels.toTypedArray(), if (playing.subtitlesOn) playing.currentSubtitle + 1 else 0) { dialog, i ->
-                dialog.dismiss()
-                done(if (i == 0) null else playing.subtitles[i - 1])
+    // Pannello dei sottotitoli del telecomando (2026-10-27, mockup approvato): le tracce di Kodi con da dove arrivano,
+    // e per una serie nota "Accendili sempre" (Show.subtitles, poi KodiAccess.autoSubtitles). set(null): spenti.
+    // Senza tracce, la ricerca dei sottotitoli di Kodi (search), che serve un add-on installato in Kodi
+    private fun showSubtitles(playing: NowPlaying, set: (Track?) -> Unit, search: () -> Unit) {
+        if (playing.subtitles.isEmpty()) {
+            val content = section(
+                homeText("Né il video né la pagina hanno sottotitoli.", 15f, bold = false).apply { setPadding(0, dp(4), 0, dp(8)) },
+                homeText("Kodi può cercarli con un suo add-on di sottotitoli (es. OpenSubtitles), se l'hai installato: la ricerca si apre sulla TV.", 13f, bold = false),
+            ).apply { setPadding(dp(24), 0, dp(24), dp(8)) }
+            sheet("Sottotitoli", content, "Cerca con l'add-on di Kodi" to search)
+            return
+        }
+        var chosen = if (playing.subtitlesOn) playing.subtitles.getOrNull(playing.currentSubtitle) else null
+        val show = showOfFile(loadShows(), playing.file)
+        val list = section()
+        fun draw() {
+            list.removeAllViews()
+            fun row(view: View) = list.addView(view, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(2) })
+            row(pickRow("Spenti", null, chosen == null) { chosen = null; set(null); draw() })
+            playing.subtitles.forEachIndexed { i, track ->
+                row(pickRow(subtitleTitle(track, i + 1), subtitleSource(track), chosen?.index == track.index) { chosen = track; set(track); draw() })
             }
-            .setNegativeButton("Annulla", null)
-            .show()
+            val language = chosen?.let { trackLanguage(it) }
+            val current = show?.let { s -> loadShows().firstOrNull { it.key == s.key } }
+            if (current != null && language != null) {
+                list.addView(settingsHeading("Per questa serie"))
+                val name = languageName(language)?.lowercase(Locale.ITALIAN) ?: language
+                val on = current.subtitles == language
+                row(pickRow("Accendili sempre in $name", "Anche negli episodi dopo e in coda", on) {
+                    saveShows(withShowSubtitles(loadShows(), current.key, if (on) null else language))
+                    draw()
+                })
+            } else if (current?.subtitles != null) {
+                list.addView(settingsHeading("Per questa serie"))
+                row(pickRow("Accesi da soli in ${languageName(current.subtitles)?.lowercase(Locale.ITALIAN) ?: current.subtitles}", "Tocca per non accenderli più", true) {
+                    saveShows(withShowSubtitles(loadShows(), current.key, null))
+                    draw()
+                })
+            }
+        }
+        draw()
+        sheet("Sottotitoli", list.apply { setPadding(dp(16), 0, dp(16), dp(8)) })
     }
 
     // Testo per il campo che Kodi ha aperto (la ricerca, un nome): si scrive con la tastiera del telefono
@@ -3587,7 +3670,7 @@ class MainActivity : Activity() {
             var frame: Bitmap? = null
             var light = -1.0
             for (point in episodeFramePoints(from = from / 100.0, to = to / 100.0)) {
-                val picture = videoPreview(video, userAgent, width, point) { reason = it }.second ?: continue
+                val picture = videoPreview(video, userAgent, width, point, failed = { reason = it }).second ?: continue
                 val level = frameBrightness(picture)
                 if (level > light) { frame = picture; light = level }
                 if (level >= DARK_FRAME) break

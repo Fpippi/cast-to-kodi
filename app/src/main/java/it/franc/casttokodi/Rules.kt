@@ -163,6 +163,10 @@ fun bestVariant(master: String, masterUrl: String): String? {
 // La qualità più leggera, per l'anteprima nell'elenco dei video: basta un'immagine piccola
 fun lowestVariant(master: String, masterUrl: String): String? = variants(master, masterUrl).minByOrNull { it.first }?.second
 
+// BANDWIDTH della qualità scelta, per la master con i sottotitoli fatta dal telefono (1 se non si sa)
+fun bandwidthOf(master: String?, masterUrl: String?, variant: String): Long =
+    if (master == null || masterUrl == null) 1 else variants(master, masterUrl).firstOrNull { it.second == variant }?.first ?: 1
+
 // Le qualità di una master come (BANDWIDTH, URL assoluto), nell'ordine della playlist
 private fun variants(master: String, masterUrl: String): List<Pair<Long, String>> {
     val lines = master.lines().map { it.trim() }

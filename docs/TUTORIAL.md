@@ -159,7 +159,8 @@ Premi **Manda a Kodi**.
   ognuno con un'**immagine presa dal video** e la **durata** sopra (dopo un paio di secondi). Il primo, *Video completo*,
   è quasi sempre quello giusto: è già scelto, con la scritta *Consigliato* e sotto i pulsanti **Manda** e **In coda**.
   Tocca un altro video per spostare lì i pulsanti. Quelli sotto il minuto sono sbiaditi (*Probabile pubblicità*). Su
-  alcuni video protetti l'immagine non arriva e resta solo la durata: puoi scegliere lo stesso.
+  alcuni video protetti l'immagine non arriva e resta solo la durata: puoi scegliere lo stesso. **CC** sull'immagine
+  vuol dire che ci sono sottotitoli, con le lingue.
 - Da qui il telefono **non serve più**: puoi bloccarlo o usarlo per altro. Il video arriva alla TV direttamente dal sito.
 
 ### Il telecomando nell'app
@@ -186,7 +187,13 @@ In alto a destra c'è il nome di Kodi con un pallino acceso se risponde. Nella s
   **Sottotitoli**, **Velocità**, **Muto**, **Menu**, **Scrivi** e **Ferma** (chiede conferma, la coda resta).
 - **Vai al minuto**: scrivi per esempio `12:30` (12 minuti e 30 secondi) o `1:02:30`.
 - **Velocità**: normale, 1,25x o 1,5x. Con alcuni video Kodi non la cambia, e l'app lo dice.
-- **Audio** e **Sottotitoli**: scegli la lingua tra quelle del video, o spegni i sottotitoli.
+- **Audio**: scegli la lingua tra quelle del video.
+- **Sottotitoli**: un pannello con *Spenti* e le tracce, con "dal sito" sotto quelle prese dalla pagina. Il telefono
+  passa a Kodi, insieme al video, sia i sottotitoli della playlist sia i file `.vtt`/`.srt` che il sito carica a parte
+  (solo con *Manda a Kodi*: in coda Kodi vede soltanto quelli dentro il video). Su un episodio di una serie di
+  *Continua a guardare* c'è **Accendili sempre in italiano** (o nella lingua scelta): negli episodi dopo e in coda
+  l'app li accende da sola, finché la barra di Kodi o la tendina sono attive. Se il video non ne ha, **Cerca con
+  l'add-on di Kodi** apre sulla TV la ricerca dei sottotitoli di Kodi (serve un add-on come OpenSubtitles).
 - **Scrivi**: apri prima in Kodi un campo di testo (per esempio la ricerca), poi scrivi con la tastiera del telefono.
 - **Accendi la TV**: come il pulsante ⏻.
 - **Timer**: per addormentarsi davanti a un episodio. Scegli quando (**Fine di questo episodio**, **Fine della coda**,

@@ -163,7 +163,8 @@ Press **Manda a Kodi** (Send to Kodi).
   *Video completo* (Full video), is almost always the right one: it is already picked, marked *Consigliato*
   (Recommended), with the **Manda** (Send) and **In coda** (Queue) buttons under it. Tap another video to move the
   buttons there. Videos under a minute are faded (*Probabile pubblicità*, "Probably an ad"). On some protected videos
-  the frame does not arrive and only the length is shown: you can still pick it.
+  the frame does not arrive and only the length is shown: you can still pick it. **CC** on the frame means there are
+  subtitles, with their languages.
 - From here on the phone **is no longer needed**: you can lock it or use it for something else. The video reaches the
   TV directly from the site.
 
@@ -193,7 +194,15 @@ dragging down. At the top right there is Kodi's name with a lit dot if it answer
   queue stays).
 - **Vai al minuto** (Go to minute): type e.g. `12:30` (12 minutes 30 seconds) or `1:02:30`.
 - **Velocità** (Speed): normal, 1.25x or 1.5x. With some videos Kodi won't change it, and the app says so.
-- **Audio** and **Sottotitoli** (Subtitles): pick the language among the video's own, or turn subtitles off.
+- **Audio**: pick the language among the video's own.
+- **Sottotitoli** (Subtitles): a panel with *Spenti* (Off) and the tracks, with "dal sito" (from the site) under the
+  ones taken from the page. The phone hands Kodi, together with the video, both the playlist's subtitles and the
+  `.vtt`/`.srt` files the site loads separately (only with *Manda a Kodi*: in the queue Kodi only sees the ones inside
+  the video). On an episode of a series in *Continua a guardare* there is **Accendili sempre in italiano** (Always
+  turn them on in Italian, or in the chosen language): in the next and queued episodes the app turns them on by
+  itself, while the Kodi bar or the notification player is running. If the video has none, **Cerca con l'add-on di
+  Kodi** (Search with the Kodi add-on) opens Kodi's subtitle search on the TV (it needs an add-on such as
+  OpenSubtitles).
 - **Scrivi** (Type): first open a text field in Kodi (e.g. search), then type with the phone keyboard.
 - **Accendi la TV** (Turn on the TV): like the ⏻ button.
 - **Timer** (sleep timer): to fall asleep in front of an episode. Choose when (**Fine di questo episodio** "end of this
