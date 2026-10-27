@@ -26,7 +26,7 @@ on the phone, start the video, press a button and the video plays on the TV. The
 7. [The episode queue](#7-the-episode-queue)
 8. [Favourites](#8-favourites)
 9. [Kodi log: when something doesn't play](#9-kodi-log-when-something-doesnt-play)
-10. [Update the app](#10-update-the-app)
+10. [Update the app and make a backup](#10-update-the-app-and-make-a-backup)
 11. [Common problems](#-common-problems)
 
 ---
@@ -54,7 +54,7 @@ on the phone, start the video, press a button and the video plays on the TV. The
 | **🛡 with a number** | Shows up when the app blocked popups or jumps to other sites on this page. Tap it to see which ones and open one, if you needed it. |
 | **★** | Your favourite sites. Filled if the open page is already a favourite. |
 | **Kodi bar** (at the bottom) | Always there, as soon as the app knows where Kodi is. It shows what is playing, with the time, play/pause and a thin line at the bottom that moves forward. The dot next to the status is lit if Kodi answers. If Kodi is on but idle it says *Acceso, niente in riproduzione* (On, nothing playing); if it is off or not answering there is the **⏻** button to turn the TV on. The button on the right, or a tap on the bar, opens the remote with the queue. |
-| **⋮** | A small menu: *Telecomando* (Remote), *Coda di Kodi* (Kodi queue), *Pagina iniziale* (Home page), *Impostazioni* (Settings: where Kodi is, power on, next episodes, history, Kodi log, guide, version). |
+| **⋮** | A small menu: *Telecomando* (Remote), *Coda di Kodi* (Kodi queue), *Pagina iniziale* (Home page), *Impostazioni* (Settings: where Kodi is, power on, next episodes, history, backup, Kodi log, guide, version). |
 | **Manda a Kodi** (Send to Kodi) | Plays the page's video on the TV right away. It shows up at the bottom right, over the site, only when a video starts on the page. |
 | **+ Coda** (+ Queue: the round icon with lines and a +, next to *Manda a Kodi*) | Puts the video at the end of Kodi's queue, without interrupting what you are watching. Long-press it to open the queue. |
 
@@ -322,11 +322,30 @@ If **Playback failed** appears on the TV or the video doesn't start:
 
 ---
 
-## 10. Update the app
+## 10. Update the app and make a backup
 
 On startup, if there is a new version, **Nuova versione disponibile** ("New version available") appears: press
 **Scarica** (Download) and install the APK over the old one (no need to uninstall). To check by hand: **⋮ → Impostazioni →
 Versione** (Settings, Version). To update with one tap you can use **Obtainium** with the repo address.
+
+### Backup: changing phone or reinstalling the app
+
+1. **⋮ → Impostazioni → Salva un backup** (Settings, Save a backup). The panel says what goes in the file: **Preferiti**
+   (Favorites), **Continua a guardare** (the shows with their pictures and the last page) and **Impostazioni** (Settings:
+   Kodi, intro, next episodes). Untick what you don't want.
+2. Leave **Aggiorna questo file ogni settimana** (Update this file every week) if you want the app to rewrite it by
+   itself: it does so on startup, when the last backup is more than a week old.
+3. **Scegli dove salvarlo** (Choose where to save it): Drive, Downloads or another folder. The file is called
+   `couchcast-` plus the date, `.zip`.
+
+To get everything back: **⋮ → Impostazioni → Ripristina da un backup** (Restore from a backup), pick the file and see
+what it holds compared to the phone. **Unisci** (Merge) adds what is missing (for a show it keeps the furthest episode,
+the phone's settings stay), **Sostituisci tutto** (Replace everything) puts the phone back as it was in the backup. Right
+after, the notice at the bottom has **Annulla** (Undo).
+
+Kodi's password and the Fire TV key are left out of the file on purpose: they are encrypted with a key that never leaves
+the phone. After restoring, the app asks for Kodi's password on the first send, and the TV asks *Allow* again on the
+first ⏻.
 
 ---
 

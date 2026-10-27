@@ -29,6 +29,7 @@ import android.net.nsd.NsdServiceInfo
 import android.os.Build
 import android.os.Bundle
 import android.os.Message
+import android.provider.OpenableColumns
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.text.InputType
@@ -86,6 +87,7 @@ import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
+import java.time.LocalDate
 import java.util.Date
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -121,6 +123,10 @@ private const val POPUP_SINK_MS = 10_000L
 // Inizio del nome dei file delle copertine prese dal sito, che valgono più dei fotogrammi del video
 // "copertina-" dalla 2.2.4: le copertine "cover-" della 2.2.3 erano salvate troppo piccole e così si riscaricano
 private const val COVER_PREFIX = "copertina-"
+
+// Scelta del file per Salva un backup e Ripristina (onActivityResult)
+private const val REQUEST_BACKUP = 41
+private const val REQUEST_RESTORE = 42
 
 // Alias nell'Android Keystore della chiave che cifra le password di Kodi
 private const val LOGIN_KEY = "kodi-login"
@@ -347,6 +353,7 @@ class MainActivity : Activity() {
         migrateAuth()
         migrateAutoNext()
         cleanFrames()
+        autoBackup()
         showHome()
         if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress()
         openShared(intent)
@@ -2160,6 +2167,11 @@ class MainActivity : Activity() {
                 then { toggleHistory() }),
             settingsRow(it.franc.casttokodi.R.drawable.ic_delete, "Cancella la cronologia", "Toglie le serie e l'ultima pagina dalla pagina iniziale",
                 then { askClearHistory() }),
+            settingsHeading("Backup"),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_download, "Salva un backup", backupLabel(),
+                then { askBackup() }),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_upload, "Ripristina da un backup", "Da un file salvato prima",
+                then { askRestore() }),
             settingsHeading("Aiuto"),
             settingsRow(it.franc.casttokodi.R.drawable.ic_article, "Log di Kodi", "Le ultime righe, da condividere se un video non parte",
                 then { showKodiLog() }),
@@ -3059,6 +3071,264 @@ class MainActivity : Activity() {
             .setNegativeButton("Annulla", null)
             .show()
     }
+
+    // ---- Backup e ripristino (2026-10-27): formato del file, unione e regole in Backup.kt ----
+
+    // Le scelte del pannello Salva un backup, per quando torna la scelta del file
+    private var backupParts = BackupPart.entries.toSet()
+    private var backupWeekly = true
+
+    private fun backupLabel(): String {
+        val at = prefs.getLong("backupAt", 0)
+        if (at == 0L) return "Preferiti, serie e impostazioni in un file, da tenere su Drive o in Download"
+        val day = DateUtils.formatDateTime(this, at, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH)
+        return "Ultimo: $day" + if (prefs.getString("backupUri", null) != null) " · si aggiorna ogni settimana" else ""
+    }
+
+    // Riga con la casella: si cambia toccando tutta la riga
+    private fun checkRow(title: String, detail: String?, checked: Boolean, changed: (Boolean) -> Unit): View {
+        val box = CheckBox(this).apply {
+            isChecked = checked
+            setOnCheckedChangeListener { _, on -> changed(on) }
+        }
+        val name = homeText(title, 16f, bold = false).apply { setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50)) }
+        return LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(56)
+            setPadding(dp(4), dp(4), dp(8), dp(4))
+            setBackgroundResource(attr(R.attr.selectableItemBackground))
+            setOnClickListener { box.toggle() }
+            addView(box)
+            addView(detail?.let { section(name, homeText(it, 13f, bold = false).apply { maxLines = 2 }) } ?: section(name),
+                LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(8) })
+        }
+    }
+
+    private fun askBackup() {
+        val values = prefs.all
+        val count = backupCount(values)
+        val bytes = backupImages(values).sumOf { File(framesDir(), it).length() }
+        val parts = BackupPart.entries.toMutableSet()
+        fun part(part: BackupPart): (Boolean) -> Unit = { on -> if (on) parts += part else parts -= part }
+        val series = when (count.shows) {
+            0 -> "nessuna serie"
+            1 -> "1 serie"
+            else -> "${count.shows} serie"
+        }
+        val images = if (bytes > 0) ", con le immagini · ${android.text.format.Formatter.formatShortFileSize(this, bytes)}" else ""
+        backupWeekly = true
+        val content = section(
+            homeText("Nel file ci sono:", 14f, bold = false).apply { setPadding(dp(8), 0, 0, dp(4)) },
+            checkRow("Preferiti", if (count.favorites == 1) "1 sito, con nome e icona" else "${count.favorites} siti, con nomi e icone",
+                true, part(BackupPart.FAVORITES)),
+            checkRow("Continua a guardare", "$series$images, l'ultima pagina", true, part(BackupPart.SHOWS)),
+            checkRow("Impostazioni", "Kodi, sigla, episodi successivi, nomi dei video in coda", true, part(BackupPart.SETTINGS)),
+            homeText("Password di Kodi e chiave della Fire TV restano su questo telefono: dopo il ripristino l'app chiede la password una volta e la TV chiede di nuovo Consenti.", 13f, bold = false).apply {
+                setPadding(dp(16), dp(12), dp(16), dp(12))
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(16).toFloat()
+                    setColor(sys(R.color.system_neutral2_100, R.color.system_neutral2_800))
+                }
+            },
+            checkRow("Aggiorna questo file ogni settimana", "All'avvio dell'app, nello stesso posto", true) { backupWeekly = it },
+        ).apply { setPadding(dp(16), 0, dp(16), dp(8)) }
+        sheet("Salva un backup", content, "Scegli dove salvarlo" to {
+            if (parts.isEmpty()) {
+                toast("Scegli almeno una cosa da salvare")
+            } else {
+                backupParts = parts.toSet()
+                startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT)
+                    .addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("application/zip")
+                    .putExtra(Intent.EXTRA_TITLE, "couchcast-${LocalDate.now()}.zip"), REQUEST_BACKUP)
+            }
+        })
+    }
+
+    private fun askRestore() {
+        startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT)
+            .addCategory(Intent.CATEGORY_OPENABLE)
+            .setType("*/*")
+            .putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")), REQUEST_RESTORE)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        val uri = data?.data
+        if (resultCode != RESULT_OK || uri == null) return
+        when (requestCode) {
+            REQUEST_BACKUP -> saveBackup(uri, backupParts, backupWeekly)
+            REQUEST_RESTORE -> readRestore(uri)
+        }
+    }
+
+    // Da un thread di background
+    private fun writeBackupTo(uri: Uri, parts: Set<BackupPart>) {
+        val values = prefs.all
+        val json = backupJson(values, parts, installedVersion(), System.currentTimeMillis())
+        val images: Map<String, () -> ByteArray?> = if (BackupPart.SHOWS in parts) {
+            backupImages(values).associateWith { name -> { File(framesDir(), name).takeIf { it.isFile }?.readBytes() } }
+        } else emptyMap()
+        (contentResolver.openOutputStream(uri, "wt") ?: throw IOException("Non riesco a scrivere il file")).use { writeBackup(it, json, images) }
+        prefs.edit().putLong("backupAt", System.currentTimeMillis()).apply()
+    }
+
+    private fun saveBackup(uri: Uri, parts: Set<BackupPart>, weekly: Boolean) {
+        val name = displayName(uri)
+        thread {
+            try {
+                writeBackupTo(uri, parts)
+            } catch (e: Exception) {
+                runOnUiThread { notice("Backup non salvato", "Non riesco a scrivere il file (${e.message ?: e.javaClass.simpleName}). Prova a sceglierne un altro, per esempio in Download.") }
+                return@thread
+            }
+            forgetAutoBackup(keep = if (weekly) uri else null)
+            val automatic = weekly && try {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                prefs.edit().putString("backupUri", uri.toString()).putString("backupParts", parts.joinToString(",") { it.id }).apply()
+                true
+            } catch (e: SecurityException) {
+                false
+            }
+            toast(if (automatic || !weekly) "Backup salvato in $name"
+                else "Backup salvato in $name, ma lì non posso aggiornarlo da solo: rifallo a mano ogni tanto")
+        }
+    }
+
+    // Spegne il backup automatico e lascia il permesso sul vecchio file, tranne se è proprio keep
+    private fun forgetAutoBackup(keep: Uri? = null) {
+        val old = prefs.getString("backupUri", null)?.let(Uri::parse) ?: return
+        if (old == keep) return
+        runCatching { contentResolver.releasePersistableUriPermission(old, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+        prefs.edit().remove("backupUri").remove("backupParts").apply()
+    }
+
+    // All'avvio: con il backup automatico acceso, se l'ultimo ha più di una settimana si riscrive lo stesso file
+    private fun autoBackup() {
+        val uri = prefs.getString("backupUri", null)?.let(Uri::parse) ?: return
+        if (System.currentTimeMillis() - prefs.getLong("backupAt", 0) < BACKUP_EVERY) return
+        val saved = prefs.getString("backupParts", "").orEmpty().split(",")
+        val parts = BackupPart.entries.filter { it.id in saved }.toSet().ifEmpty { BackupPart.entries.toSet() }
+        thread {
+            try {
+                writeBackupTo(uri, parts)
+            } catch (e: Exception) {
+                runOnUiThread {
+                    forgetAutoBackup()
+                    notice("Backup automatico non riuscito", "Non riesco più a scrivere il file del backup (spostato, cancellato o senza rete?). Salvane uno nuovo da ⋮ → Impostazioni → Salva un backup.")
+                }
+            }
+        }
+    }
+
+    private fun displayName(uri: Uri): String = runCatching {
+        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    }.getOrNull() ?: uri.lastPathSegment ?: "il file scelto"
+
+    private fun readRestore(uri: Uri) {
+        val name = displayName(uri)
+        thread {
+            val backup = try {
+                (contentResolver.openInputStream(uri) ?: throw IOException("Non riesco ad aprire il file")).use { readBackup(it) }
+            } catch (e: Exception) {
+                runOnUiThread { notice("Ripristino non riuscito", "${e.message ?: "Il file non si legge"}.\n\nScegli un file salvato da Couch Cast con Salva un backup.") }
+                return@thread
+            }
+            runOnUiThread { showRestore(backup, name) }
+        }
+    }
+
+    private fun showRestore(backup: Backup, name: String) {
+        val mine = backupCount(prefs.all)
+        val theirs = backupCount(backup.values)
+        val day = if (backup.created > 0) DateUtils.formatDateTime(this, backup.created, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_YEAR) else null
+        val lines = listOfNotNull(
+            if (BackupPart.FAVORITES in backup.parts) "Preferiti: ${theirs.favorites} (qui ${mine.favorites})" else null,
+            if (BackupPart.SHOWS in backup.parts) "Serie: ${theirs.shows} (qui ${mine.shows})" else null,
+            if (BackupPart.SETTINGS in backup.parts) "Impostazioni: sì" else null,
+        )
+        var replace = false
+        val options = section()
+        fun drawOptions() {
+            options.removeAllViews()
+            listOf(
+                Triple("Unisci", "Aggiunge quello che manca; per una serie tiene l'episodio più avanti", false),
+                Triple("Sostituisci tutto", "Questo telefono torna com'era nel backup", true),
+            ).forEach { (title, detail, value) ->
+                val selected = replace == value
+                options.addView(LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    minimumHeight = dp(56)
+                    setPadding(dp(16), dp(8), dp(16), dp(8))
+                    background = if (selected) rounded(sys(R.color.system_accent1_100, R.color.system_accent1_800), 16)
+                        else RippleDrawable(ColorStateList.valueOf(0x33808080), null, GradientDrawable().apply { cornerRadius = dp(16).toFloat(); setColor(Color.WHITE) })
+                    setOnClickListener { replace = value; drawOptions() }
+                    addView(homeText(title, 16f, bold = selected).apply { setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50)) })
+                    addView(homeText(detail, 13f, bold = false))
+                }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(4) })
+            }
+        }
+        drawOptions()
+        val content = section(
+            homeText(listOfNotNull(name, day, backup.version.ifBlank { null }?.let { "versione $it" }).joinToString(" · "), 13f, bold = false)
+                .apply { setPadding(dp(8), 0, dp(8), dp(8)) },
+            homeText(lines.joinToString("\n").ifEmpty { "Il backup è vuoto" }, 15f, bold = false).apply {
+                setPadding(dp(16), dp(12), dp(16), dp(12))
+                setLineSpacing(0f, 1.3f)
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(16).toFloat()
+                    setColor(sys(R.color.system_neutral2_100, R.color.system_neutral2_800))
+                }
+            },
+            options.apply { setPadding(0, dp(12), 0, 0) },
+        ).apply { setPadding(dp(16), 0, dp(16), dp(8)) }
+        sheet("Ripristina il backup", content, "Ripristina" to {
+            applyRestore(backup, if (replace) replaceWith(backup) else mergeWith(prefs.all, backup))
+        })
+    }
+
+    private fun applyRestore(backup: Backup, restore: Restore) {
+        val before = prefs.all.filterKeys { it in BACKED_UP }
+        val counted = backupCount(before)
+        // Le immagini hanno nomi unici: quelle già sul telefono non si toccano, quelle che non servono le toglie cleanFrames
+        backup.images.forEach { (name, bytes) -> runCatching { File(framesDir(), name).takeIf { !it.exists() }?.writeBytes(bytes) } }
+        writePrefs(restore.write, restore.remove)
+        afterRestore()
+        val now = backupCount(prefs.all)
+        val added = listOfNotNull(
+            (now.favorites - counted.favorites).takeIf { it > 0 }?.let { if (it == 1) "1 preferito" else "$it preferiti" },
+            (now.shows - counted.shows).takeIf { it > 0 }?.let { if (it == 1) "1 serie" else "$it serie" },
+        )
+        val message = "Ripristinato" + (if (added.isNotEmpty()) ": ${added.joinToString(" e ")} in più" else "") +
+            (if (backup.skipped > 0) " (saltati dati di una versione più nuova)" else "")
+        toast(message) {
+            writePrefs(before.mapNotNull { (key, value) -> value?.let { key to it } }.toMap(), BACKED_UP.keys - before.keys)
+            afterRestore()
+        }
+    }
+
+    private fun writePrefs(write: Map<String, Any>, remove: Set<String>) {
+        val edit = prefs.edit()
+        remove.forEach { edit.remove(it) }
+        write.forEach { (key, value) ->
+            when (value) {
+                is String -> edit.putString(key, value)
+                is Int -> edit.putInt(key, value)
+                is Long -> edit.putLong(key, value)
+                is Boolean -> edit.putBoolean(key, value)
+            }
+        }
+        edit.apply()
+    }
+
+    private fun afterRestore() {
+        refreshStar()
+        if (home.visibility == View.VISIBLE) refreshHome()
+    }
+
 
     // Le serie in prefs["shows"] (vedi showsToJson). Si leggono e scrivono solo dal thread principale
     private fun loadShows(): List<Show> = showsFromJson(prefs.getString("shows", null))
