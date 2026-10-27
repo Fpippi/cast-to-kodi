@@ -57,7 +57,7 @@
   @font-face { font-family: "Atkinson Hyperlegible"; font-weight: 400; font-style: italic; font-display: swap; src: url(fonts/atkinson-hyperlegible-400-italic.woff2) format("woff2"); }
   @font-face { font-family: "Atkinson Hyperlegible"; font-weight: 700; font-display: swap; src: url(fonts/atkinson-hyperlegible-700.woff2) format("woff2"); }
   @font-face { font-family: "JetBrains Mono"; font-weight: 500; font-display: swap; src: url(fonts/jetbrains-mono-500.woff2) format("woff2"); }
-  /* Layout: una "stanza al buio" in alto (il telefono acceso davanti alla TV), poi fogli chiari che scorrono: 3 passi, giro delle funzioni con le GIF, cosa serve, domande, download finale. */
+  /* Layout: una "stanza al buio" in alto (il telefono acceso davanti alla TV), poi fogli chiari che scorrono: guida passo passo con le GIF, riquadri disegnati sul divano, tutte le funzioni, cosa serve, domande, download finale. */
   :root {
     --bg: #f3f6f5;          /* foglio */
     --surface: #ffffff;
@@ -133,34 +133,89 @@
   .screen img { position: relative; display: block; width: 100%; max-width: 100%; height: auto; border-radius: 22px; box-shadow: 0 30px 60px -20px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08); }
   .screen p { position: relative; text-align: center; color: var(--room-muted); font-size: .8rem; margin: 10px 0 0; }
 
-  /* ---------- 3 passi ---------- */
   section { padding-block: 72px; }
-  .steps-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 32px; }
-  .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; list-style: none; margin: 0; padding: 0; counter-reset: s; position: relative; }
-  .steps li { position: relative; padding: 0 24px 0 0; }
-  .steps li::before { counter-increment: s; content: counter(s); display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: var(--teal); color: var(--bg); font: 800 1.25rem var(--f-display); margin-bottom: 16px; position: relative; z-index: 1; }
-  .steps li:not(:last-child)::after { content: ""; position: absolute; top: 22px; left: 46px; right: 0; border-top: 2px dashed var(--line); }
-  .steps h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 6px; }
-  .steps p { margin: 0; color: var(--muted); max-width: 30ch; }
-
-  /* ---------- giro delle funzioni ---------- */
   .tour { background: var(--surface); border-block: 1px solid var(--line); }
-  .tour-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.25fr); gap: 48px; align-items: start; }
-  .tabs { display: grid; gap: 6px; margin-top: 26px; }
-  .tab { text-align: left; background: none; border: 1px solid transparent; border-radius: 16px; padding: 14px 16px; cursor: pointer; color: var(--ink); font: inherit; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 4px 12px; }
-  .tab svg { width: 24px; height: 24px; grid-row: span 2; margin-top: 2px; color: var(--muted); }
-  .tab b { font: 700 1.05rem var(--f-display); }
-  .tab span { color: var(--muted); font-size: .95rem; }
-  .tab:hover { background: var(--bg); }
-  .tab[aria-selected="true"] { background: var(--teal-soft); border-color: color-mix(in srgb, var(--teal) 25%, transparent); }
-  .tab[aria-selected="true"] svg { color: var(--teal); }
-  .stage { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 20px); }
-  .stage img { display: block; width: 100%; max-width: 100%; height: auto; border-radius: 18px; border: 1px solid var(--line); background: #eef2f1; }
-  .stage p { color: var(--muted); font-size: .8rem; margin: 8px 2px 0; }
 
-  .more { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; margin-top: 64px; padding-top: 36px; border-top: 1px solid var(--line); }
-  .more h3 { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
-  .more p { margin: 0; color: var(--muted); font-size: .93rem; }
+  /* ---------- guida passo passo ---------- */
+  .guide { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.6fr); gap: 36px; margin-top: 32px; align-items: start; }
+  .g-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; counter-reset: g; position: relative; }
+  .g-step { width: 100%; text-align: left; background: none; border: 0; border-radius: 16px; padding: 12px 14px 12px 64px; cursor: pointer; color: var(--ink); font: inherit; position: relative; display: grid; gap: 2px; }
+  .g-step::before { counter-increment: g; content: counter(g); position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font: 800 1.05rem var(--f-display); border: 2px solid var(--line); color: var(--muted); background: var(--bg); }
+  .g-step b { font: 700 1.05rem var(--f-display); }
+  .g-step span { color: var(--muted); font-size: .9rem; }
+  .g-step:hover { background: var(--surface); }
+  .g-step[aria-selected="true"] { background: var(--surface); box-shadow: 0 1px 0 var(--line), 0 0 0 1px var(--line); }
+  .g-step[aria-selected="true"]::before { background: var(--teal); border-color: var(--teal); color: var(--bg); }
+  .g-step.done::before { content: "✓"; color: var(--teal); border-color: var(--teal); }
+  .g-stage { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+  .g-panel { display: grid; gap: 18px; }
+  .g-panel[hidden] { display: none; }
+  .g-panel img { display: block; width: 100%; max-width: 100%; height: auto; border-radius: 14px; background: #eef2f1; }
+  .g-text h3 { font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; }
+  .g-text p { margin: 0 0 8px; max-width: 62ch; }
+  .g-text .tip { color: var(--muted); font-size: .92rem; padding-left: 14px; border-left: 3px solid var(--play); }
+  .g-nav { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+  .g-btn { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: 700 1.1rem var(--f-body); cursor: pointer; }
+  .g-btn:hover { border-color: var(--teal); color: var(--teal); }
+  .g-btn:disabled { opacity: .35; cursor: default; }
+  .g-count { color: var(--muted); font-size: .85rem; }
+  /* pannello di Kodi disegnato (passo 1) */
+  .kodi-settings { aspect-ratio: 760 / 480; max-width: 100%; border-radius: 14px; background: #10242c; color: #d9e6ea; display: grid; grid-template-columns: 30% 1fr; overflow: hidden; font-size: clamp(.62rem, 1.5vw, .88rem); }
+  .ks-side { background: #0b1a20; padding: 8% 0 0; display: grid; align-content: start; gap: 4px; }
+  .ks-side span { padding: 7px 14px; color: #7f97a0; }
+  .ks-side .on { color: #fff; background: #12aadf33; border-left: 3px solid #12aadf; }
+  .ks-main { padding: 6% 6% 0; display: grid; align-content: start; gap: 6px; }
+  .ks-path { margin: 6px 0 2px; color: #7f97a0; font-size: .85em; }
+  .ks-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; background: #ffffff0d; }
+  .ks-row:first-of-type { background: #12aadf2e; }
+  .tog { flex: none; width: 2.6em; height: 1.4em; border-radius: 999px; background: #12aadf; position: relative; }
+  .tog::after { content: ""; position: absolute; right: .2em; top: .2em; width: 1em; height: 1em; border-radius: 50%; background: #fff; }
+
+  /* ---------- sul divano (riquadri disegnati) ---------- */
+  .spot { padding-block: 72px; }
+  .spot .eyebrow { color: var(--play); }
+  .spots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin-top: 32px; }
+  .spot-card { margin: 0; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 24px; padding: 20px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; align-items: center; }
+  .spot-card h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 6px; }
+  .spot-card p { margin: 0; color: var(--room-muted); font-size: .94rem; }
+  .mini { background: #0f2a31; border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 14px; font-size: .78rem; color: #e6f1f2; display: grid; gap: 10px; min-height: 170px; align-content: center; }
+  .mini-h { margin: 0; font: 700 .9rem var(--f-display); }
+  .mini .bar { display: block; height: 4px; border-radius: 4px; background: rgba(255,255,255,.18); overflow: hidden; }
+  .mini .bar i { display: block; height: 100%; background: var(--play); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .wcard { border-radius: 12px; padding: 44px 8px 8px; display: grid; gap: 3px; position: relative; overflow: hidden; }
+  .wcard.c1 { background: linear-gradient(160deg, #4f7bd6, #2b5a4f 70%); }
+  .wcard.c2 { background: linear-gradient(160deg, #d9825b, #4a2e3b 70%); }
+  .wcard .ep { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,.45); border-radius: 6px; padding: 1px 6px; font-size: .7rem; }
+  .wcard b { font-size: .8rem; } .wcard small { opacity: .8; font-size: .68rem; }
+  .remote .seek { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; font-size: .7rem; }
+  .transport { display: flex; justify-content: space-between; align-items: center; }
+  .transport span, .n-btns span { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,.08); font-size: .7rem; }
+  .transport .big, .n-btns .big { width: 42px; height: 42px; background: var(--play); color: var(--on-play); font-size: .8rem; }
+  .pill { justify-self: center; border-radius: 999px; padding: 5px 12px; background: rgba(255,200,87,.16); color: var(--play); font-weight: 700; }
+  .dpad { justify-self: center; width: 74px; height: 74px; border-radius: 50%; background: rgba(255,255,255,.08); display: grid; place-items: center; }
+  .dpad .ok { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,.16); display: grid; place-items: center; font-size: .66rem; }
+  .shade { background: linear-gradient(180deg, #1c3a42, #0f2a31); }
+  .clock { font-size: 1.5rem; opacity: .9; }
+  .notif { background: rgba(255,255,255,.1); border-radius: 16px; padding: 10px 12px; display: grid; gap: 4px; }
+  .n-top { display: flex; align-items: center; gap: 6px; font-size: .66rem; opacity: .8; }
+  .n-icon { width: 14px; height: 14px; border-radius: 4px; background: var(--teal); }
+  .n-bar { height: 3px; border-radius: 3px; background: rgba(255,255,255,.2); margin: 4px 0; } .n-bar i { display: block; height: 100%; background: #fff; }
+  .n-btns { display: flex; justify-content: space-between; align-items: center; }
+  .n-btns span { width: 26px; height: 26px; } .n-btns .big { width: 34px; height: 34px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips span { border: 1px solid rgba(255,255,255,.2); border-radius: 999px; padding: 4px 10px; }
+  .chips .on { background: var(--play); color: var(--on-play); border-color: var(--play); font-weight: 700; }
+  .strip { display: flex; justify-content: space-between; gap: 8px; align-items: center; background: rgba(255,255,255,.08); border-radius: 12px; padding: 9px 10px; }
+  .strip b { color: var(--play); white-space: nowrap; }
+
+  /* ---------- tutte le funzioni ---------- */
+  .feat-groups { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; margin-top: 32px; }
+  .feat-group h3 { font: 500 .78rem var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--teal); padding-bottom: 10px; border-bottom: 2px solid var(--teal); margin-bottom: 4px; }
+  .feat-group ul { list-style: none; margin: 0; padding: 0; }
+  .feat-group li { display: grid; gap: 2px; padding-block: 12px; border-bottom: 1px solid var(--line); }
+  .feat-group li b { font: 700 1rem var(--f-display); }
+  .feat-group li span { color: var(--muted); font-size: .9rem; }
 
   /* ---------- cosa serve ---------- */
   .need-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; }
@@ -202,20 +257,22 @@
   footer .legal { flex-basis: 100%; margin: 0; font-size: .78rem; opacity: .8; }
 
   @media (max-width: 860px) {
-    .hero, .tour-grid, .need-grid { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+    .hero, .need-grid, .guide { grid-template-columns: minmax(0, 1fr); gap: 32px; }
     .hero { padding-block: 16px 56px; }
     .screen { order: -1; }
-    .stage { position: static; order: -1; }
-    .more { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .g-steps { grid-auto-flow: column; grid-auto-columns: minmax(132px, 1fr); overflow-x: auto; padding-bottom: 6px; }
+    .g-step { padding: 10px 10px 10px 50px; }
+    .g-step::before { left: 8px; width: 32px; height: 32px; }
+    .g-step span { display: none; }
+    .kodi-settings { aspect-ratio: auto; padding-bottom: 12px; }
+    .spots { grid-template-columns: minmax(0, 1fr); }
+    .feat-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .topbar nav a.hide-s { display: none; }
   }
   @media (max-width: 620px) {
-    .steps { grid-template-columns: minmax(0, 1fr); gap: 26px; }
-    .steps li { padding: 0 0 0 64px; min-height: 46px; }
-    .steps li::before { position: absolute; left: 0; top: 0; margin: 0; }
-    .steps li:not(:last-child)::after { top: 46px; bottom: -26px; left: 22px; right: auto; border-top: 0; border-left: 2px dashed var(--line); }
-    .more { grid-template-columns: minmax(0, 1fr); gap: 20px; }
-    section { padding-block: 56px; }
+    .spot-card { grid-template-columns: minmax(0, 1fr); }
+    .feat-groups { grid-template-columns: minmax(0, 1fr); }
+    section, .spot { padding-block: 56px; }
   }
   @media (prefers-reduced-motion: reduce) { .dl { transition: none; } }
 </style>
@@ -227,7 +284,8 @@
     <div class="topbar">
       <a class="brand" href="#top" id="top"><img src="icon.svg" alt="">Couch Cast</a>
       <nav>
-        <a class="hide-s" href="#passi"><span lang="en">How it works</span><span lang="it">Come funziona</span></a>
+        <a class="hide-s" href="#guida"><span lang="en">Guide</span><span lang="it">Guida</span></a>
+        <a class="hide-s" href="#funzioni"><span lang="en">Features</span><span lang="it">Funzioni</span></a>
         <a class="hide-s" href="#serve"><span lang="en">What you need</span><span lang="it">Cosa serve</span></a>
         <a href="https://github.com/Fpippi/cast-to-kodi">GitHub</a>
         <div class="lang" role="group" aria-label="Language / Lingua">
@@ -267,96 +325,208 @@
   </div>
 </div>
 
-<section id="passi">
+<section id="guida">
   <div class="wrap">
-    <div class="steps-head">
-      <div>
-        <p class="eyebrow" lang="en">How it works</p><p class="eyebrow" lang="it">Come funziona</p>
-        <h2 lang="en">Three steps, then just press play</h2>
-        <h2 lang="it">Tre passi, poi basta premere play</h2>
+    <p class="eyebrow" lang="en">Step-by-step guide</p><p class="eyebrow" lang="it">Guida passo passo</p>
+    <h2 lang="en">From the couch to the first episode</h2>
+    <h2 lang="it">Dal divano al primo episodio</h2>
+    <div class="guide">
+      <ol class="g-steps" role="tablist" aria-label="Guide / Guida">
+        <li><button type="button" class="g-step" role="tab" id="g1" data-step="0" aria-selected="true">
+          <b lang="en">Get Kodi ready</b><b lang="it">Prepara Kodi</b>
+          <span lang="en">Once, on the TV</span><span lang="it">Una volta, sulla TV</span></button></li>
+        <li><button type="button" class="g-step" role="tab" id="g2" data-step="1" aria-selected="false">
+          <b lang="en">Find Kodi</b><b lang="it">Trova Kodi</b>
+          <span lang="en">First launch of the app</span><span lang="it">Primo avvio dell'app</span></button></li>
+        <li><button type="button" class="g-step" role="tab" id="g3" data-step="2" aria-selected="false">
+          <b lang="en">Turn on the TV</b><b lang="it">Accendi la TV</b>
+          <span lang="en">From the phone</span><span lang="it">Dal telefono</span></button></li>
+        <li><button type="button" class="g-step" role="tab" id="g4" data-step="3" aria-selected="false">
+          <b lang="en">Send the episode</b><b lang="it">Manda l'episodio</b>
+          <span lang="en">Manda a Kodi</span><span lang="it">Manda a Kodi</span></button></li>
+        <li><button type="button" class="g-step" role="tab" id="g5" data-step="4" aria-selected="false">
+          <b lang="en">Queue the next ones</b><b lang="it">Metti in coda i prossimi</b>
+          <span lang="en">+ Coda and the remote</span><span lang="it">+ Coda e telecomando</span></button></li>
+      </ol>
+
+      <div class="g-stage">
+        <div class="g-panel" data-panel="0">
+          <div class="kodi-settings" aria-hidden="true">
+            <div class="ks-side"><span>Interfaccia</span><span>Lettore</span><span class="on">Servizi</span><span>Sistema</span></div>
+            <div class="ks-main">
+              <p class="ks-path">Impostazioni / Servizi / Controllo</p>
+              <div class="ks-row"><span>Consenti il controllo remoto via HTTP</span><i class="tog"></i></div>
+              <div class="ks-row"><span>Porta</span><b class="mono">8080</b></div>
+              <div class="ks-row"><span>Nome utente</span><b class="mono">kodi</b></div>
+              <p class="ks-path">Impostazioni / Servizi / Generale</p>
+              <div class="ks-row"><span>Annuncia servizi ad altri sistemi</span><i class="tog"></i></div>
+            </div>
+          </div>
+          <div class="g-text">
+            <h3 lang="en">Install Kodi and let the phone talk to it</h3><h3 lang="it">Installa Kodi e lascia che il telefono gli parli</h3>
+            <p lang="en">On a Fire TV with Fire OS, install the <b>Downloader</b> app and get Kodi from kodi.tv. In Kodi, turn on <i>Allow remote control via HTTP</i> and <i>Announce services to other systems</i>.</p>
+            <p lang="it">Su una Fire TV con Fire OS installa l'app <b>Downloader</b> e scarica Kodi da kodi.tv. In Kodi attiva <i>Consenti il controllo remoto via HTTP</i> e <i>Annuncia servizi ad altri sistemi</i>.</p>
+            <p class="tip" lang="en">To turn on the TV from the phone, also enable <i>ADB debugging</i> in the Fire TV developer options and HDMI-CEC.</p>
+            <p class="tip" lang="it">Per accendere la TV dal telefono attiva anche il <i>Debug ADB</i> nelle opzioni sviluppatore della Fire TV e l'HDMI-CEC.</p>
+          </div>
+        </div>
+        <div class="g-panel" data-panel="1" hidden>
+          <img src="img/configura.gif" width="760" height="480" loading="lazy" alt="Animation: the app finds Kodi on the network">
+          <div class="g-text">
+            <h3 lang="en">Kodi shows up by itself</h3><h3 lang="it">Kodi compare da solo</h3>
+            <p lang="en">On first launch, <i>Dov'è Kodi?</i> (Where is Kodi?) searches your Wi-Fi. Tap the Kodi it finds, add username and password if you set them.</p>
+            <p lang="it">Al primo avvio <i>Dov'è Kodi?</i> cerca nella tua rete Wi-Fi. Tocca il Kodi trovato e aggiungi utente e password se li hai impostati.</p>
+            <p class="tip" lang="en">Not found? Switch to <i>Manuale</i> and type <code>IP:port</code>, e.g. <code>192.168.1.50:8080</code>.</p>
+            <p class="tip" lang="it">Non lo trova? Passa a <i>Manuale</i> e scrivi <code>IP:porta</code>, es. <code>192.168.1.50:8080</code>.</p>
+          </div>
+        </div>
+        <div class="g-panel" data-panel="2" hidden>
+          <img src="img/accendi.gif" width="760" height="480" loading="lazy" alt="Animation: the power button wakes the Fire TV and opens Kodi">
+          <div class="g-text">
+            <h3 lang="en">One button, TV on, Kodi open</h3><h3 lang="it">Un pulsante, TV accesa, Kodi aperto</h3>
+            <p lang="en">Tap ⏻ in the Kodi bar at the bottom. The app wakes the Fire TV, switches the TV to its input and opens Kodi, then tells you when it's ready.</p>
+            <p lang="it">Tocca ⏻ nella barra di Kodi in fondo. L'app sveglia la Fire TV, porta la TV sul suo ingresso e apre Kodi, poi ti dice quando è pronto.</p>
+            <p class="tip" lang="en">The first time the TV asks to allow debugging from this phone: tick <i>Always allow</i>.</p>
+            <p class="tip" lang="it">La prima volta la TV chiede di consentire il debug da questo telefono: spunta <i>Consenti sempre</i>.</p>
+          </div>
+        </div>
+        <div class="g-panel" data-panel="3" hidden>
+          <img src="img/manda-a-kodi.gif" width="760" height="480" loading="lazy" alt="Animation: opening an episode, starting the player and tapping Manda a Kodi">
+          <div class="g-text">
+            <h3 lang="en">Start the player, then send</h3><h3 lang="it">Avvia il player, poi manda</h3>
+            <p lang="en">Search or type the site in the top bar, open the episode and start the player. <i>Manda a Kodi</i> (Send to Kodi) appears: tap it and the video starts on the TV.</p>
+            <p lang="it">Cerca o scrivi il sito nella barra in alto, apri l'episodio e avvia il player. Compare <i>Manda a Kodi</i>: toccalo e il video parte sulla TV.</p>
+            <p class="tip" lang="en">More than one video? Pick by picture and length; ads are already left out.</p>
+            <p class="tip" lang="it">Più di un video? Scegli dall'immagine e dalla durata; la pubblicità è già scartata.</p>
+          </div>
+        </div>
+        <div class="g-panel" data-panel="4" hidden>
+          <img src="img/coda.gif" width="760" height="480" loading="lazy" alt="Animation: adding the next episode to Kodi's queue">
+          <div class="g-text">
+            <h3 lang="en">Line up the evening</h3><h3 lang="it">Prepara la serata</h3>
+            <p lang="en">While an episode plays, open the next one and tap <i>+ Coda</i> (queue). The remote's <i>Coda</i> tab shows what's next and the time each one starts.</p>
+            <p lang="it">Mentre un episodio va, apri il successivo e tocca <i>+ Coda</i>. La scheda <i>Coda</i> del telecomando mostra cosa viene dopo e a che ora parte ognuno.</p>
+            <p class="tip" lang="en">Now lock the phone: the video doesn't go through it.</p>
+            <p class="tip" lang="it">Adesso blocca il telefono: il video non passa da lì.</p>
+          </div>
+        </div>
+        <div class="g-nav">
+          <button type="button" id="g-prev" class="g-btn" aria-label="Previous / Precedente">←</button>
+          <span class="g-count mono" id="g-count">1 / 5</span>
+          <button type="button" id="g-next" class="g-btn" aria-label="Next / Successivo">→</button>
+        </div>
       </div>
     </div>
-    <ol class="steps">
-      <li>
-        <h3 lang="en">Get Kodi ready</h3><h3 lang="it">Prepara Kodi</h3>
-        <p lang="en">Install Kodi on the Fire TV and turn on <i>Allow remote control via HTTP</i>. Done once.</p>
-        <p lang="it">Installa Kodi sulla Fire TV e attiva <i>Consenti il controllo remoto via HTTP</i>. Si fa una volta sola.</p>
-      </li>
-      <li>
-        <h3 lang="en">Open the site in the app</h3><h3 lang="it">Apri il sito nell'app</h3>
-        <p lang="en">Couch Cast is the browser. Go to the episode and start the player: the app finds the video.</p>
-        <p lang="it">Couch Cast fa da browser. Vai all'episodio e avvia il player: l'app trova il video.</p>
-      </li>
-      <li>
-        <h3 lang="en">Tap <i>Manda a Kodi</i></h3><h3 lang="it">Premi <i>Manda a Kodi</i></h3>
-        <p lang="en">(Send to Kodi.) The video starts on the TV in full quality. You can lock the phone.</p>
-        <p lang="it">Il video parte sulla TV a qualità piena. Il telefono si può bloccare.</p>
-      </li>
-    </ol>
+    <p class="small" lang="en">Every detail, with fixes for common problems, in the <a href="https://github.com/Fpippi/cast-to-kodi/blob/main/docs/TUTORIAL.en.md">full guide</a>.</p>
+    <p class="small" lang="it">Ogni dettaglio, con le soluzioni ai problemi comuni, nella <a href="https://github.com/Fpippi/cast-to-kodi/blob/main/docs/TUTORIAL.md">guida completa</a>.</p>
   </div>
 </section>
 
-<section class="tour" id="funzioni">
+<section class="room spot" id="momenti">
   <div class="wrap">
-    <div class="tour-grid">
-      <div>
-        <p class="eyebrow" lang="en">What it does</p><p class="eyebrow" lang="it">Cosa fa</p>
-        <h2 lang="en">The remote stays in your hand</h2>
-        <h2 lang="it">Il telecomando resta in mano a te</h2>
-        <div class="tabs" role="tablist" aria-label="Features">
-          <button class="tab" role="tab" id="t-find" data-gif="find" aria-selected="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/><path d="M1.5 9a15 15 0 0 1 21 0"/></svg>
-            <b lang="en">Finds Kodi by itself</b><b lang="it">Trova Kodi da sola</b>
-            <span lang="en">On first launch the app looks for Kodi on your Wi-Fi. Tap it and you're set.</span>
-            <span lang="it">Al primo avvio l'app cerca Kodi nella tua rete Wi-Fi. Lo tocchi ed è fatta.</span>
-          </button>
-          <button class="tab" role="tab" id="t-queue" data-gif="queue" aria-selected="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h13M3 12h13M3 18h8"/><path d="M18 15v6M15 18h6"/></svg>
-            <b lang="en">Episode queue</b><b lang="it">Coda degli episodi</b>
-            <span lang="en">Line up the next ones in Kodi's playlist and see when each one starts.</span>
-            <span lang="it">Metti in fila i prossimi nella playlist di Kodi e vedi a che ora parte ognuno.</span>
-          </button>
-          <button class="tab" role="tab" id="t-power" data-gif="power" aria-selected="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v8"/><path d="M6.4 7.2a8 8 0 1 0 11.2 0"/></svg>
-            <b lang="en">Turn on the TV</b><b lang="it">Accendi la TV</b>
-            <span lang="en">One button wakes the Fire TV, switches the TV input and opens Kodi.</span>
-            <span lang="it">Un pulsante sveglia la Fire TV, porta la TV sul suo ingresso e apre Kodi.</span>
-          </button>
-          <button class="tab" role="tab" id="t-fav" data-gif="fav" aria-selected="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg>
-            <b lang="en">Favourites</b><b lang="it">Preferiti</b>
-            <span lang="en">Your sites as icons on the home page, renamed the way you like.</span>
-            <span lang="it">I tuoi siti come icone nella pagina iniziale, con il nome che vuoi.</span>
-          </button>
+    <p class="eyebrow" lang="en">On the couch</p><p class="eyebrow" lang="it">Sul divano</p>
+    <h2 lang="en">The phone becomes the remote</h2><h2 lang="it">Il telefono diventa il telecomando</h2>
+    <div class="spots">
+      <figure class="spot-card">
+        <div class="mini watch" aria-hidden="true">
+          <p class="mini-h">Continua a guardare</p>
+          <div class="cards">
+            <div class="wcard c1"><span class="ep">Ep. 12</span><span class="bar"><i style="width:62%"></i></span><b>Il viaggio di Aki</b><small>fermo a 14:32</small></div>
+            <div class="wcard c2"><span class="ep">Ep. 3</span><span class="bar"><i style="width:20%"></i></span><b>Nebula Station</b><small>fermo a 4:10</small></div>
+          </div>
         </div>
-      </div>
-      <div class="stage">
-        <img id="gif" src="img/configura.gif" loading="lazy" width="760" height="480" alt="">
-        <p lang="en">Captions in the animations are in Italian, like the app.</p>
-        <p lang="it">Disegni dell'interfaccia, non registrazioni.</p>
-      </div>
+        <figcaption>
+          <h3 lang="en">Keep watching</h3><h3 lang="it">Continua a guardare</h3>
+          <p lang="en">Each series waits at the right episode and minute, even when the site changes domain. <i>Riprendi su Kodi</i> picks up from there.</p>
+          <p lang="it">Ogni serie ti aspetta all'episodio e al minuto giusti, anche se il sito cambia dominio. <i>Riprendi su Kodi</i> riparte da lì.</p>
+        </figcaption>
+      </figure>
+      <figure class="spot-card">
+        <div class="mini remote" aria-hidden="true">
+          <div class="seek"><span class="mono">14:32</span><span class="bar"><i style="width:58%"></i></span><span class="mono">23:50</span></div>
+          <div class="transport"><span>⏮</span><span>−10</span><span class="big">❚❚</span><span>+10</span><span>⏭</span></div>
+          <div class="pill skip">Salta sigla · 1:25</div>
+          <div class="dpad"><span class="ok">OK</span></div>
+        </div>
+        <figcaption>
+          <h3 lang="en">Full remote, intro skip included</h3><h3 lang="it">Telecomando completo, con Salta sigla</h3>
+          <p lang="en">Seek, ±10 s, previous and next, arrows and OK, volume, audio and subtitles. <i>Salta sigla</i> jumps the intro by the time you choose for each series.</p>
+          <p lang="it">Vai al minuto, ±10 s, precedente e successivo, frecce e OK, volume, audio e sottotitoli. <i>Salta sigla</i> salta la sigla di quanto scegli per ogni serie.</p>
+        </figcaption>
+      </figure>
+      <figure class="spot-card">
+        <div class="mini shade" aria-hidden="true">
+          <div class="clock mono">22:41</div>
+          <div class="notif">
+            <div class="n-top"><i class="n-icon"></i><span>Couch Cast · Kodi</span></div>
+            <b>Episodio 12</b><small>Il viaggio di Aki</small>
+            <div class="n-bar"><i style="width:40%"></i></div>
+            <div class="n-btns"><span>⤼</span><span>−10</span><span class="big">❚❚</span><span>+10</span><span>⏭</span></div>
+          </div>
+        </div>
+        <figcaption>
+          <h3 lang="en">From the notification shade</h3><h3 lang="it">Dalla tendina</h3>
+          <p lang="en">While Kodi plays, the Android player in the shade and on the lock screen has skip intro, ±10 s, pause and next. A quick settings tile pauses with one tap.</p>
+          <p lang="it">Mentre Kodi riproduce, il player di Android nella tendina e sulla schermata di blocco ha salta sigla, ±10 s, pausa e prossimo. Un riquadro delle impostazioni rapide mette in pausa con un tocco.</p>
+        </figcaption>
+      </figure>
+      <figure class="spot-card">
+        <div class="mini timer" aria-hidden="true">
+          <p class="mini-h">Timer</p>
+          <div class="chips"><span class="on">Fine episodio</span><span>Fine coda</span><span>30 min</span><span>1 ora</span></div>
+          <div class="strip"><span>La TV si spegne alle 23:14</span><b>+15 min</b></div>
+        </div>
+        <figcaption>
+          <h3 lang="en">Sleep timer</h3><h3 lang="it">Timer di spegnimento</h3>
+          <p lang="en">At the end of the episode, of the queue or in 30 minutes: pause, stop or switch off the TV. The Fire TV keeps the timer, so the phone can go to sleep first.</p>
+          <p lang="it">A fine episodio, a fine coda o tra 30 minuti: pausa, stop o TV spenta. Il timer lo tiene la Fire TV, così il telefono può addormentarsi prima.</p>
+        </figcaption>
+      </figure>
     </div>
+  </div>
+</section>
 
-    <div class="more">
-      <div>
-        <h3 lang="en">Ads blocked</h3><h3 lang="it">Pubblicità bloccata</h3>
-        <p lang="en">Popups and jumps to other domains are stopped. The shield counts them.</p>
-        <p lang="it">Popup e salti verso altri domini si fermano. Lo scudo li conta.</p>
+<section id="funzioni">
+  <div class="wrap">
+    <p class="eyebrow" lang="en">Everything it does</p><p class="eyebrow" lang="it">Tutto quello che fa</p>
+    <h2 lang="en">All the features</h2><h2 lang="it">Tutte le funzioni</h2>
+    <div class="feat-groups">
+      <div class="feat-group">
+        <h3 lang="en">On the site</h3><h3 lang="it">Sul sito</h3>
+        <ul>
+          <li><b lang="en">Ads blocked</b><b lang="it">Pubblicità bloccata</b><span lang="en">Popups and jumps to other domains stop; the 🛡 shield counts them.</span><span lang="it">Popup e salti verso altri domini si fermano; lo scudo 🛡 li conta.</span></li>
+          <li><b lang="en">Video picker with previews</b><b lang="it">Scelta del video con anteprima</b><span lang="en">A big picture and the length of each video, trailers fade out.</span><span lang="it">Un'immagine grande e la durata di ogni video, i trailer sono sbiaditi.</span></li>
+          <li><b lang="en">Subtitles</b><b lang="it">Sottotitoli</b><span lang="en">Tracks from the playlist or the page reach Kodi with the video.</span><span lang="it">Le tracce della playlist o della pagina arrivano a Kodi col video.</span></li>
+          <li><b lang="en">Favourites</b><b lang="it">Preferiti</b><span lang="en">Your sites as icons on the home page.</span><span lang="it">I tuoi siti come icone nella pagina iniziale.</span></li>
+          <li><b lang="en">Share to Couch Cast</b><b lang="it">Condividi verso Couch Cast</b><span lang="en">Links from Chrome or any app open here or go straight to Kodi.</span><span lang="it">I link da Chrome o da altre app si aprono qui o vanno dritti a Kodi.</span></li>
+        </ul>
       </div>
-      <div>
-        <h3 lang="en">Keep watching</h3><h3 lang="it">Continua a guardare</h3>
-        <p lang="en">Each series waits at the right episode and minute, even if the site changes domain.</p>
-        <p lang="it">Ogni serie ti aspetta all'episodio e al minuto giusti, anche se il sito cambia dominio.</p>
+      <div class="feat-group">
+        <h3 lang="en">On Kodi</h3><h3 lang="it">Su Kodi</h3>
+        <ul>
+          <li><b lang="en">Full quality</b><b lang="it">Qualità piena</b><span lang="en">Kodi downloads the video itself, the phone only helps at the start.</span><span lang="it">Kodi scarica il video da solo, il telefono aiuta solo all'avvio.</span></li>
+          <li><b lang="en">Queue</b><b lang="it">Coda</b><span lang="en">Kodi's playlist with start times; expiring links show in red.</span><span lang="it">La playlist di Kodi con gli orari; i link che scadono sono in rosso.</span></li>
+          <li><b lang="en">Keep watching</b><b lang="it">Continua a guardare</b><span lang="en">Episode and minute for every series, picture included.</span><span lang="it">Episodio e minuto di ogni serie, con l'immagine.</span></li>
+          <li><b lang="en">Next episodes by themselves</b><b lang="it">Episodi successivi da soli</b><span lang="en">On anime sites with the VixCloud player, up to 3 queued for you.</span><span lang="it">Sui siti di anime con player VixCloud, fino a 3 in coda da soli.</span></li>
+        </ul>
       </div>
-      <div>
-        <h3 lang="en">Full remote</h3><h3 lang="it">Telecomando completo</h3>
-        <p lang="en">Seek, ±10 s, skip intro, subtitles, audio, volume, from the Kodi bar at the bottom.</p>
-        <p lang="it">Vai al minuto, ±10 s, salta sigla, sottotitoli, audio, volume, dalla barra di Kodi in fondo.</p>
+      <div class="feat-group">
+        <h3 lang="en">Remote</h3><h3 lang="it">Telecomando</h3>
+        <ul>
+          <li><b lang="en">Kodi bar</b><b lang="it">Barra di Kodi</b><span lang="en">Always at the bottom: what's playing, play/pause, progress.</span><span lang="it">Sempre in fondo: cosa va, play/pausa, avanzamento.</span></li>
+          <li><b lang="en">Skip intro</b><b lang="it">Salta sigla</b><span lang="en">By hand, remembered for each series.</span><span lang="it">A mano, ricordato per ogni serie.</span></li>
+          <li><b lang="en">Sleep timer</b><b lang="it">Timer di spegnimento</b><span lang="en">Pause, stop or TV off.</span><span lang="it">Pausa, stop o TV spenta.</span></li>
+          <li><b lang="en">Shade and quick tile</b><b lang="it">Tendina e riquadro rapido</b><span lang="en">Control Kodi without opening the app.</span><span lang="it">Comandi Kodi senza aprire l'app.</span></li>
+        </ul>
       </div>
-      <div>
-        <h3 lang="en">Share to Couch Cast</h3><h3 lang="it">Condividi verso Couch Cast</h3>
-        <p lang="en">Found a link in Chrome? Share it to the app and send it straight to Kodi.</p>
-        <p lang="it">Hai trovato un link in Chrome? Condividilo con l'app e mandalo subito a Kodi.</p>
+      <div class="feat-group">
+        <h3 lang="en">The app</h3><h3 lang="it">L'app</h3>
+        <ul>
+          <li><b lang="en">Power on</b><b lang="it">Accensione</b><span lang="en">Wakes the Fire TV over the network, even with Kodi closed.</span><span lang="it">Sveglia la Fire TV in rete, anche con Kodi chiuso.</span></li>
+          <li><b lang="en">One-tap updates</b><b lang="it">Aggiornamento con un tocco</b><span lang="en">Shows what's new and installs over the old version.</span><span lang="it">Mostra le novità e installa sopra la versione vecchia.</span></li>
+          <li><b lang="en">Backup</b><b lang="it">Backup</b><span lang="en">Favourites, series and settings in a .zip, weekly if you like.</span><span lang="it">Preferiti, serie e impostazioni in un .zip, anche ogni settimana.</span></li>
+          <li><b lang="en">Kodi log</b><b lang="it">Log di Kodi</b><span lang="en">Read it from the phone when Kodi says <i>Playback failed</i>.</span><span lang="it">Lo leggi dal telefono quando Kodi dice <i>Playback failed</i>.</span></li>
+        </ul>
       </div>
     </div>
   </div>
@@ -484,13 +654,21 @@
     })
     .catch(() => {});
 
-  // Giro delle funzioni: ogni scheda mostra la sua GIF.
-  const gifs = { find: "img/configura.gif", queue: "img/coda.gif", power: "img/accendi.gif", fav: "img/preferiti.gif" };
-  const img = document.getElementById("gif");
-  document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach(o => o.setAttribute("aria-selected", String(o === t)));
-    img.src = gifs[t.dataset.gif];
-  }));
+  // Guida passo passo: un pannello alla volta, con ← → e i passi a sinistra.
+  const steps = [...document.querySelectorAll(".g-step")], panels = [...document.querySelectorAll(".g-panel")];
+  const prev = document.getElementById("g-prev"), next = document.getElementById("g-next"), count = document.getElementById("g-count");
+  let current = 0;
+  function go(i) {
+    current = Math.max(0, Math.min(panels.length - 1, i));
+    steps.forEach((s, j) => { s.setAttribute("aria-selected", String(j === current)); s.classList.toggle("done", j < current); });
+    panels.forEach((p, j) => p.hidden = j !== current);
+    prev.disabled = current === 0; next.disabled = current === panels.length - 1;
+    count.textContent = `${current + 1} / ${panels.length}`;
+  }
+  steps.forEach((s, j) => s.addEventListener("click", () => go(j)));
+  prev.addEventListener("click", () => go(current - 1));
+  next.addEventListener("click", () => go(current + 1));
+  go(0);
 </script>
 </body>
 </html>
