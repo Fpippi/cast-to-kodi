@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: "📖 Guida · Guide"
+    url: https://github.com/Fpippi/cast-to-kodi/blob/main/docs/TUTORIAL.md
+    about: "Come si usa Couch Cast e soluzioni ai problemi comuni · How to use Couch Cast and fixes for common problems"

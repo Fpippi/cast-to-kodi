@@ -1,0 +1,43 @@
+name: "📺 Ho provato un dispositivo · I tried a device"
+description: "Racconta su quale TV o box hai provato Couch Cast · Tell us which TV or box you tried Couch Cast on"
+labels: ["dispositivo"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ci aiuta a completare la tabella dei dispositivi compatibili. Va bene anche se non ha funzionato.
+        It helps fill in the compatible devices table. It's useful even if it didn't work.
+  - type: input
+    id: dispositivo
+    attributes:
+      label: "Dispositivo · Device"
+      placeholder: "es. Nvidia Shield TV, Chromecast con Google TV, TV Sony Bravia"
+    validations:
+      required: true
+  - type: input
+    id: sistema
+    attributes:
+      label: "Sistema e versione di Kodi · System and Kodi version"
+      placeholder: "es. Android TV 12, Kodi 21.1"
+  - type: dropdown
+    id: manda
+    attributes:
+      label: "Manda a Kodi (Send to Kodi)"
+      options: ["✅ Funziona · Works", "⚠️ A volte · Sometimes", "❌ Non funziona · Doesn't work", "Non provato · Not tried"]
+    validations:
+      required: true
+  - type: dropdown
+    id: accendi
+    attributes:
+      label: "⏻ Accensione · Power on"
+      options: ["✅ Funziona · Works", "⚠️ A volte · Sometimes", "❌ Non funziona · Doesn't work", "Non provato · Not tried"]
+  - type: input
+    id: versione
+    attributes:
+      label: "Versione dell'app · App version"
+      placeholder: "es. 2.2.10"
+  - type: textarea
+    id: note
+    attributes:
+      label: "Note · Notes"
+      description: "Come hai installato Kodi, impostazioni particolari, problemi · How you installed Kodi, special settings, problems. Niente nomi o link dei siti di streaming."

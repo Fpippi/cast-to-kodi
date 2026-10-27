@@ -67,7 +67,7 @@ The app talks to **Kodi**, not to the TV: it works on any device that runs Kodi 
 | **Apple TV** (HD and 4K) | ⚠️ sideload only, with Xcode from a Mac, must be re-signed | ⚠️ in theory yes, not tested | ❌ |
 | **Samsung Tizen**, **Roku**, Chromecast without Google TV | ❌ Kodi does not exist | ❌ | ❌ |
 
-- ✅ = works, ⚠️ = works with limits or not verified, ❌ = no. Only actually tested on a Fire TV with Fire OS.
+- ✅ = works, ⚠️ = works with limits or not verified, ❌ = no. Only actually tested on a Fire TV with Fire OS. Tried it on another device? [Tell me how it went](https://github.com/Fpippi/cast-to-kodi/issues/new?template=dispositivo.yml); found a bug? [Report it](https://github.com/Fpippi/cast-to-kodi/issues/new?template=problema.yml).
 - On Samsung, LG or Roku TVs you can still plug a device from the list into HDMI (e.g. a Fire TV Stick with Fire OS or a Chromecast with Google TV).
 - **⏻ on Android TV / Google TV**: the app connects with "classic" ADB on port 5555. If the device only has Android 11+ *Wireless debugging*, port 5555 can be opened once from a PC (`adb tcpip 5555`), but it closes again on every reboot. In deep sleep many devices turn off the network: then the button has nothing to wake up.
 

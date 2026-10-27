@@ -1,0 +1,39 @@
+name: "🐞 Problema / Bug"
+description: "Qualcosa non funziona come dovrebbe · Something doesn't work as it should"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Grazie! Scrivi in italiano o in inglese. **Non scrivere nomi o link dei siti di streaming**: descrivi solo il tipo di player (es. "player VixCloud", "un .mp4 diretto").
+        Thanks! Write in Italian or English. **Please don't write names or links of streaming sites**: just describe the kind of player (e.g. "VixCloud player", "a direct .mp4").
+  - type: textarea
+    id: cosa
+    attributes:
+      label: "Cosa è successo · What happened"
+      description: "Cosa hai fatto, cosa ti aspettavi e cosa è successo invece · What you did, what you expected and what happened instead"
+    validations:
+      required: true
+  - type: input
+    id: versione
+    attributes:
+      label: "Versione dell'app · App version"
+      description: "⋮ → Impostazioni → Versione (es. 2.2.10)"
+    validations:
+      required: true
+  - type: input
+    id: telefono
+    attributes:
+      label: "Telefono e Android · Phone and Android version"
+      placeholder: "es. Android 14"
+  - type: input
+    id: kodi
+    attributes:
+      label: "Dispositivo con Kodi e versione · Kodi device and version"
+      placeholder: "es. Fire TV Stick 4K Max, Kodi 21.1"
+  - type: textarea
+    id: log
+    attributes:
+      label: "Log di Kodi · Kodi log"
+      description: "Se Kodi dice Playback failed: ⋮ → Impostazioni → Log di Kodi → Condividi. Togli indirizzi e password · Remove addresses and passwords."
+      render: text

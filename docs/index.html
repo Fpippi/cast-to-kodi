@@ -183,6 +183,15 @@
   details[open] summary::after { content: "–"; }
   details p { margin: 10px 0 0; color: var(--muted); max-width: 65ch; }
 
+  /* ---------- segnalazioni ---------- */
+  .help-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 28px; }
+  .help { border: 1px solid var(--line); border-radius: 20px; padding: 24px; display: grid; gap: 8px; align-content: start; background: var(--surface); }
+  .help h3 { font-size: 1.2rem; font-weight: 700; }
+  .help p { margin: 0 0 8px; color: var(--muted); }
+  .help a.go { justify-self: start; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 700; color: var(--teal); border: 2px solid var(--teal); border-radius: 999px; padding: 8px 18px; }
+  .help a.go:hover { background: var(--teal-soft); }
+  @media (max-width: 620px) { .help-grid { grid-template-columns: minmax(0, 1fr); } }
+
   /* ---------- download finale ---------- */
   .final { background: var(--room); color: var(--room-ink); text-align: center; }
   .final h2 { margin-bottom: 10px; }
@@ -410,6 +419,27 @@
       <p lang="en">The interface is in Italian for now. The guide explains every button in English.</p>
       <p lang="it">Sì, l'interfaccia è in italiano. La guida c'è anche in inglese.</p>
     </details>
+  </div>
+</section>
+
+<section id="segnala">
+  <div class="wrap">
+    <p class="eyebrow" lang="en">Feedback</p><p class="eyebrow" lang="it">Segnalazioni</p>
+    <h2 lang="en">Tell me how it went</h2><h2 lang="it">Raccontami com'è andata</h2>
+    <div class="help-grid">
+      <div class="help">
+        <h3 lang="en">Found a problem?</h3><h3 lang="it">Hai trovato un problema?</h3>
+        <p lang="en">Open an issue on GitHub: a short form asks for the app version, your device and, if Kodi says <i>Playback failed</i>, its log. Please don't name streaming sites.</p>
+        <p lang="it">Apri una issue su GitHub: un breve modulo chiede la versione dell'app, il dispositivo e, se Kodi dice <i>Playback failed</i>, il suo log. Non scrivere i nomi dei siti di streaming.</p>
+        <a class="go" href="https://github.com/Fpippi/cast-to-kodi/issues/new?template=problema.yml"><span lang="en">Report a problem</span><span lang="it">Segnala un problema</span></a>
+      </div>
+      <div class="help">
+        <h3 lang="en">Tried it on another TV?</h3><h3 lang="it">L'hai provata su un'altra TV?</h3>
+        <p lang="en">Only the Fire TV with Fire OS is really tested. If you use Android TV, a Shield, a PC or anything else with Kodi, tell me what works: it ends up in the devices table.</p>
+        <p lang="it">Davvero provata c'è solo la Fire TV con Fire OS. Se usi Android TV, una Shield, un PC o altro con Kodi, dimmi cosa funziona: finisce nella tabella dei dispositivi.</p>
+        <a class="go" href="https://github.com/Fpippi/cast-to-kodi/issues/new?template=dispositivo.yml"><span lang="en">Share your device</span><span lang="it">Racconta il tuo dispositivo</span></a>
+      </div>
+    </div>
   </div>
 </section>
 
