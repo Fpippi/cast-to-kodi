@@ -82,7 +82,7 @@ L'app parla con **Kodi**, non con la TV: funziona su qualunque dispositivo dove 
 
 1. A ogni push su `main` GitHub Actions compila l'APK e lo pubblica come release "Versione X.Y.Z" (tag `vX.Y.Z`), con l'elenco delle novità preso da [CHANGELOG.md](CHANGELOG.md). Dal telefono apri [releases/latest](https://github.com/Fpippi/cast-to-kodi/releases/latest) e scarica `CastToKodi.apk`.
 2. Le build sono firmate con una chiave fissa (secrets `KEYSTORE_BASE64` e `KEYSTORE_PASSWORD` del repo; l'originale non è nel repo), quindi ogni APK si installa sopra il precedente. Se la chiave si perde, ne serve una nuova e va disinstallata l'app una volta.
-3. 🔔 All'avvio l'app avvisa se c'è una build nuova. Per aggiornare con un tocco si può usare **Obtainium** con l'indirizzo del repo.
+3. 🔔 All'avvio l'app avvisa se c'è una versione nuova, con le novità: **Aggiorna** la scarica e la installa sopra quella vecchia (la prima volta Android chiede di consentire a Couch Cast di installare app). Funziona anche **Obtainium** con l'indirizzo del repo.
 
 <details>
 <summary>💻 Con il PC e Android Studio (in alternativa)</summary>

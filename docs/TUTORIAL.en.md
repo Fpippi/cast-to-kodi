@@ -353,9 +353,12 @@ If **Playback failed** appears on the TV or the video doesn't start:
 
 ## 10. Update the app and make a backup
 
-On startup, if there is a new version, **Nuova versione disponibile** ("New version available") appears: press
-**Scarica** (Download) and install the APK over the old one (no need to uninstall). To check by hand: **⋮ → Impostazioni →
-Versione** (Settings, Version). To update with one tap you can use **Obtainium** with the repo address.
+On startup, if there is a new version, the **Nuova versione** (New version) panel opens with what's new. Press
+**Aggiorna** (Update): the app downloads the APK (with a progress bar) and Android asks you to confirm installing it
+over the old one (no need to uninstall, your data stays). The first time Android asks you to allow Couch Cast to install
+apps: allow it, go back and press **Aggiorna** again. If something goes wrong, **Apri GitHub** (Open GitHub) opens the
+release page in the browser. To check by hand: **⋮ → Impostazioni → Versione** (Settings, Version). **Obtainium**, with
+the repo address, keeps working too.
 
 ### Backup: changing phone or reinstalling the app
 
