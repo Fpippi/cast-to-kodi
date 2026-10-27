@@ -52,6 +52,45 @@ class StreamsTest {
         }
     }
 
+    // Sottotitoli: quelli della master e il .srt della pagina passano dal telefono, in una master con la qualità
+    // migliore; Kodi li legge tutti all'avvio, i pezzi del video li prende dal sito
+    @Test
+    fun sottotitoliDalTelefono() = withRelay { streams ->
+        FakeSite().use { site ->
+            var sent: List<SubtitleTrack> = emptyList()
+            val file = streams.kodiFile("${site.base}/master-subs.m3u8", headers, viaPhone = true,
+                subtitles = listOf(SiteSubtitle("${site.base}/page/episodio_ita.srt", headers))) { sent = it }
+            assertEquals("con sottotitoli in italiano e inglese", subtitlesNote(sent))
+            val master = FakeKodi.fetch(file)
+            val tracks = Regex("NAME=\"([^\"]+)\".*URI=\"([^\"]+)\"").findAll(master).map { it.groupValues[1] to it.groupValues[2] }.toList()
+            assertEquals(listOf("Italiano", "English · Forced", "Italiano · dal sito"), tracks.map { it.first })
+            assertTrue(master, "BANDWIDTH=4500000" in master)
+            // La qualità migliore, dal telefono, con i pezzi sul sito
+            val video = master.lines().last { it.isNotBlank() }
+            assertTrue(video, video.startsWith("http://127.0.0.1:"))
+            assertTrue(FakeKodi.fetch(video).contains("${site.base}/1080p/0000.ts"))
+            // Ogni traccia: una playlist di un pezzo, lungo quanto il video, con il file intero sul telefono
+            val ita = FakeKodi.fetch(tracks[0].second)
+            assertTrue(ita, "#EXTINF:8.000," in ita)
+            val vtt = FakeKodi.fetch(ita.lines().first { it.startsWith("http") })
+            assertTrue(vtt, "Ciao" in vtt && "Arrivederci" in vtt)
+            val srt = FakeKodi.fetch(FakeKodi.fetch(tracks[2].second).lines().first { it.startsWith("http") })
+            assertTrue(srt, srt.startsWith("WEBVTT") && "00:00:01.000 --> 00:00:02.500" in srt)
+            assertEquals(1, site.hits("/subs/ita/1.vtt"))
+        }
+    }
+
+    // In coda niente sottotitoli dal telefono: il link resta quello diretto
+    @Test
+    fun inCodaSenzaSottotitoli() = withRelay { streams ->
+        FakeSite().use { site ->
+            val file = streams.kodiFile("${site.base}/master-subs.m3u8", headers, viaPhone = false,
+                subtitles = listOf(SiteSubtitle("${site.base}/page/episodio_ita.srt", headers)))
+            assertEquals("${site.base}/1080p.m3u8?token=x", queueKey(file))
+            assertEquals(0, site.hits("/subs/ita.m3u8"))
+        }
+    }
+
     // In coda il link va diretto alla qualità migliore: quando tocca a lui il telefono può essere spento
     @Test
     fun inCodaSenzaTelefono() = withRelay { streams ->
