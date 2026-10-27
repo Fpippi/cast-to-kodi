@@ -146,7 +146,9 @@ class KodiPlayer : Service() {
         val general = if (prefs.contains("intro")) prefs.getInt("intro", DEFAULT_INTRO) else null
         buttons = mediaButtons(playing, state, shows, general)
         val text = mediaText(playing, shows, KodiAccess.titles(prefs), prefs.getString("name", "").orEmpty())
-        show(playing, text, pictureOfFile(shows, playing.file))
+        // Con il timer di spegnimento attivo, la sua ora (anche sulla schermata di blocco)
+        val timer = prefs.getLong("timerAt", 0).takeIf { it > System.currentTimeMillis() / 1000 }
+        show(playing, timer?.let { MediaText(text.title, "${text.subtitle} · timer ${clockAt(it)}") } ?: text, pictureOfFile(shows, playing.file))
         return true
     }
 

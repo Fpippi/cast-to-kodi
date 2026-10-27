@@ -41,6 +41,10 @@
             android:name=".KodiPlayer"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+        <!-- Timer di spegnimento tenuto dal telefono, quando la Fire TV non risponde in ADB -->
+        <receiver
+            android:name=".TimerReceiver"
+            android:exported="false" />
         <!-- Riquadro Couch Cast delle impostazioni rapide -->
         <service
             android:name=".KodiTile"

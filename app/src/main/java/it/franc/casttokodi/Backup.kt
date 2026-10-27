@@ -44,6 +44,7 @@ val BACKED_UP: Map<String, BackupPart> = mapOf(
     "queueTitles" to BackupPart.SETTINGS,
     "adbHost" to BackupPart.SETTINGS,
     "mediaControls" to BackupPart.SETTINGS,
+    "timerAction" to BackupPart.SETTINGS,
 )
 
 // Fuori dal backup, apposta: le chiavi del Keystore non escono dal telefono, quindi quello che cifrano non si
@@ -56,6 +57,9 @@ val NOT_BACKED_UP: Map<String, String> = mapOf(
     "backupUri" to "il file del backup automatico vale solo su questo telefono",
     "backupAt" to "quando questo telefono ha salvato l'ultimo backup",
     "backupParts" to "le parti del backup automatico di questo telefono",
+    "timerAt" to "il timer di spegnimento in corso vale per questa sera, non per un altro telefono",
+    "timerToken" to "va con timerAt",
+    "timerOnPhone" to "va con timerAt",
 )
 
 // Un backup letto: i valori di prefs (String, Int, Long o Boolean), le parti che contiene, le immagini per nome e quanti

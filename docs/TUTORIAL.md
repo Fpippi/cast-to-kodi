@@ -189,6 +189,12 @@ In alto a destra c'è il nome di Kodi con un pallino acceso se risponde. Nella s
 - **Audio** e **Sottotitoli**: scegli la lingua tra quelle del video, o spegni i sottotitoli.
 - **Scrivi**: apri prima in Kodi un campo di testo (per esempio la ricerca), poi scrivi con la tastiera del telefono.
 - **Accendi la TV**: come il pulsante ⏻.
+- **Timer**: per addormentarsi davanti a un episodio. Scegli quando (**Fine di questo episodio**, **Fine della coda**,
+  **Tra 30 minuti**, **Tra 1 ora** o **Altro tempo…**, ognuno con l'ora in cui scatta) e cosa fare (**Pausa**, **Ferma
+  il video** o **Spegni la TV**: la Fire TV va in standby e con l'HDMI-CEC si spegne anche la TV). Il timer lo tiene la
+  Fire TV, con il Debug ADB come ⏻, quindi il telefono si può spegnere; se la Fire TV non risponde lo tiene il
+  telefono, che deve restare acceso. Mentre è attivo il telecomando mostra "Si spegne alle 23:13" con **+15 min** e
+  **Annulla**, e la barra di Kodi l'ora del timer.
 
 ### Senza aprire l'app: tendina e schermata di blocco
 
