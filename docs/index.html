@@ -226,7 +226,7 @@
   .devices th, .devices td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
   .devices th { font: 500 .72rem var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
   .devices td:last-child { white-space: nowrap; font-weight: 700; }
-  .y { color: var(--ok); } .n { color: var(--no); }
+  .y { color: var(--ok); } .n { color: var(--no); } .devices td.m { color: var(--muted); white-space: normal; }
   .small { color: var(--muted); font-size: .88rem; margin-top: 12px; }
 
   /* ---------- domande ---------- */
@@ -307,11 +307,11 @@
         </a>
         <div class="alt">
           <a href="https://github.com/Fpippi/cast-to-kodi/blob/main/docs/TUTORIAL.en.md" lang="en">Step-by-step guide</a><a href="https://github.com/Fpippi/cast-to-kodi/blob/main/docs/TUTORIAL.md" lang="it">Guida passo passo</a>
-          <a href="https://github.com/Fpippi/cast-to-kodi/releases/latest" lang="en">All releases</a><a href="https://github.com/Fpippi/cast-to-kodi/releases/latest" lang="it">Tutte le versioni</a>
+          <a href="https://github.com/Fpippi/cast-to-kodi/releases" lang="en">All releases</a><a href="https://github.com/Fpippi/cast-to-kodi/releases" lang="it">Tutte le versioni</a>
         </div>
         <ul class="facts">
           <li lang="en">no ads</li><li lang="it">niente pubblicità</li>
-          <li lang="en">open source</li><li lang="it">open source</li>
+          <li lang="en">code on GitHub</li><li lang="it">codice su GitHub</li>
           <li lang="en">no tracking</li><li lang="it">nessun tracciamento</li>
           <li>.m3u8 · .mp4</li>
         </ul>
@@ -373,9 +373,9 @@
         <div class="g-panel" data-panel="1" hidden>
           <img src="img/configura.gif" width="760" height="480" loading="lazy" alt="Animation: the app finds Kodi on the network">
           <div class="g-text">
-            <h3 lang="en">Kodi shows up by itself</h3><h3 lang="it">Kodi compare da solo</h3>
-            <p lang="en">On first launch, <i>Dov'è Kodi?</i> (Where is Kodi?) searches your Wi-Fi. Tap the Kodi it finds, add username and password if you set them.</p>
-            <p lang="it">Al primo avvio <i>Dov'è Kodi?</i> cerca nella tua rete Wi-Fi. Tocca il Kodi trovato e aggiungi utente e password se li hai impostati.</p>
+            <h3 lang="en">Find Kodi on the network</h3><h3 lang="it">Trova Kodi in rete</h3>
+            <p lang="en">On first launch, <i>Dov'è Kodi?</i> (Where is Kodi?) searches your Wi-Fi (Kodi must be open, with <i>Announce services to other systems</i> on). Tap the Kodi it finds, add username and password if you set them.</p>
+            <p lang="it">Al primo avvio <i>Dov'è Kodi?</i> cerca nella tua rete Wi-Fi (Kodi deve essere aperto, con <i>Annuncia servizi ad altri sistemi</i> attivo). Tocca il Kodi trovato e aggiungi utente e password se li hai impostati.</p>
             <p class="tip" lang="en">Not found? Switch to <i>Manuale</i> and type <code>IP:port</code>, e.g. <code>192.168.1.50:8080</code>.</p>
             <p class="tip" lang="it">Non lo trova? Passa a <i>Manuale</i> e scrivi <code>IP:porta</code>, es. <code>192.168.1.50:8080</code>.</p>
           </div>
@@ -383,11 +383,11 @@
         <div class="g-panel" data-panel="2" hidden>
           <img src="img/accendi.gif" width="760" height="480" loading="lazy" alt="Animation: the power button wakes the Fire TV and opens Kodi">
           <div class="g-text">
-            <h3 lang="en">One button, TV on, Kodi open</h3><h3 lang="it">Un pulsante, TV accesa, Kodi aperto</h3>
-            <p lang="en">Tap ⏻ in the Kodi bar at the bottom. The app wakes the Fire TV, switches the TV to its input and opens Kodi, then tells you when it's ready.</p>
-            <p lang="it">Tocca ⏻ nella barra di Kodi in fondo. L'app sveglia la Fire TV, porta la TV sul suo ingresso e apre Kodi, poi ti dice quando è pronto.</p>
-            <p class="tip" lang="en">The first time the TV asks to allow debugging from this phone: tick <i>Always allow</i>.</p>
-            <p class="tip" lang="it">La prima volta la TV chiede di consentire il debug da questo telefono: spunta <i>Consenti sempre</i>.</p>
+            <h3 lang="en">One button to wake the TV</h3><h3 lang="it">Un pulsante per svegliare la TV</h3>
+            <p lang="en">Tap ⏻ in the Kodi bar at the bottom. The app wakes the Fire TV over ADB, asks the TV (via HDMI-CEC) to switch to its input and opens Kodi, then tells you when it's ready. Some TVs stay on the last input: then pick it with the TV remote.</p>
+            <p lang="it">Tocca ⏻ nella barra di Kodi in fondo. L'app sveglia la Fire TV via ADB, chiede alla TV (con l'HDMI-CEC) di passare sul suo ingresso e apre Kodi, poi ti dice quando è pronto. Alcune TV restano sull'ultimo ingresso: lì lo scegli col telecomando della TV.</p>
+            <p class="tip" lang="en">The first time the Fire TV asks to allow debugging from this phone: tick <i>Always allow</i>. In deep sleep the Fire TV doesn't answer on the network: use Alexa or its remote.</p>
+            <p class="tip" lang="it">La prima volta la Fire TV chiede di consentire il debug da questo telefono: spunta <i>Consenti sempre</i>. In sonno profondo la Fire TV non risponde in rete: lì servono Alexa o il suo telecomando.</p>
           </div>
         </div>
         <div class="g-panel" data-panel="3" hidden>
@@ -396,8 +396,8 @@
             <h3 lang="en">Start the player, then send</h3><h3 lang="it">Avvia il player, poi manda</h3>
             <p lang="en">Search or type the site in the top bar, open the episode and start the player. <i>Manda a Kodi</i> (Send to Kodi) appears: tap it and the video starts on the TV.</p>
             <p lang="it">Cerca o scrivi il sito nella barra in alto, apri l'episodio e avvia il player. Compare <i>Manda a Kodi</i>: toccalo e il video parte sulla TV.</p>
-            <p class="tip" lang="en">More than one video? Pick by picture and length; ads are already left out.</p>
-            <p class="tip" lang="it">Più di un video? Scegli dall'immagine e dalla durata; la pubblicità è già scartata.</p>
+            <p class="tip" lang="en">More than one video? Pick by picture and length; videos under a minute (usually ads) are faded.</p>
+            <p class="tip" lang="it">Più di un video? Scegli dall'immagine e dalla durata; i video sotto il minuto (di solito pubblicità) sono sbiaditi.</p>
           </div>
         </div>
         <div class="g-panel" data-panel="4" hidden>
@@ -437,8 +437,8 @@
         </div>
         <figcaption>
           <h3 lang="en">Keep watching</h3><h3 lang="it">Continua a guardare</h3>
-          <p lang="en">Each series waits at the right episode and minute, even when the site changes domain. <i>Riprendi su Kodi</i> picks up from there.</p>
-          <p lang="it">Ogni serie ti aspetta all'episodio e al minuto giusti, anche se il sito cambia dominio. <i>Riprendi su Kodi</i> riparte da lì.</p>
+          <p lang="en">Each series waits at the right episode and minute, even when the site changes domain. On anime sites with the VixCloud player, <i>Riprendi su Kodi</i> picks up from there without opening the page.</p>
+          <p lang="it">Ogni serie ti aspetta all'episodio e al minuto giusti, anche se il sito cambia dominio. Sui siti di anime con player VixCloud <i>Riprendi su Kodi</i> riparte da lì senza aprire la pagina.</p>
         </figcaption>
       </figure>
       <figure class="spot-card">
@@ -466,8 +466,8 @@
         </div>
         <figcaption>
           <h3 lang="en">From the notification shade</h3><h3 lang="it">Dalla tendina</h3>
-          <p lang="en">While Kodi plays, the Android player in the shade and on the lock screen has skip intro, ±10 s, pause and next. A quick settings tile pauses with one tap.</p>
-          <p lang="it">Mentre Kodi riproduce, il player di Android nella tendina e sulla schermata di blocco ha salta sigla, ±10 s, pausa e prossimo. Un riquadro delle impostazioni rapide mette in pausa con un tocco.</p>
+          <p lang="en">While Kodi plays, the Android player in the shade and on the lock screen has ±10 s and pause, plus skip intro once you set it for the series and next when the queue has one. A quick settings tile pauses with one tap.</p>
+          <p lang="it">Mentre Kodi riproduce, il player di Android nella tendina e sulla schermata di blocco ha ±10 s e pausa, più Salta sigla se l'hai impostata per la serie e Prossimo se in coda c'è un altro video. Un riquadro delle impostazioni rapide mette in pausa con un tocco.</p>
         </figcaption>
       </figure>
       <figure class="spot-card">
@@ -478,8 +478,8 @@
         </div>
         <figcaption>
           <h3 lang="en">Sleep timer</h3><h3 lang="it">Timer di spegnimento</h3>
-          <p lang="en">At the end of the episode, of the queue or in 30 minutes: pause, stop or switch off the TV. The Fire TV keeps the timer, so the phone can go to sleep first.</p>
-          <p lang="it">A fine episodio, a fine coda o tra 30 minuti: pausa, stop o TV spenta. Il timer lo tiene la Fire TV, così il telefono può addormentarsi prima.</p>
+          <p lang="en">At the end of the episode, of the queue or in 30 minutes: pause, stop or switch off the TV. The app leaves the timer to the Fire TV, so the phone can go to sleep first; if the Fire TV doesn't answer over ADB, the phone keeps it (and only pauses or stops).</p>
+          <p lang="it">A fine episodio, a fine coda o tra 30 minuti: pausa, stop o TV spenta. L'app lo lascia alla Fire TV, così il telefono può addormentarsi prima; se la Fire TV non risponde via ADB lo tiene il telefono (e lì la TV non si spegne).</p>
         </figcaption>
       </figure>
     </div>
@@ -494,9 +494,9 @@
       <div class="feat-group">
         <h3 lang="en">On the site</h3><h3 lang="it">Sul sito</h3>
         <ul>
-          <li><b lang="en">Ads blocked</b><b lang="it">Pubblicità bloccata</b><span lang="en">Popups and jumps to other domains stop; the 🛡 shield counts them.</span><span lang="it">Popup e salti verso altri domini si fermano; lo scudo 🛡 li conta.</span></li>
-          <li><b lang="en">Video picker with previews</b><b lang="it">Scelta del video con anteprima</b><span lang="en">A big picture and the length of each video, trailers fade out.</span><span lang="it">Un'immagine grande e la durata di ogni video, i trailer sono sbiaditi.</span></li>
-          <li><b lang="en">Subtitles</b><b lang="it">Sottotitoli</b><span lang="en">Tracks from the playlist or the page reach Kodi with the video.</span><span lang="it">Le tracce della playlist o della pagina arrivano a Kodi col video.</span></li>
+          <li><b lang="en">Fewer ads</b><b lang="it">Meno pubblicità</b><span lang="en">Popups and jumps to other domains stop, which is most of the ads; the 🛡 shield counts them.</span><span lang="it">Popup e salti verso altri domini si fermano, ed è quasi tutta la pubblicità; lo scudo 🛡 li conta.</span></li>
+          <li><b lang="en">Video picker with previews</b><b lang="it">Scelta del video con anteprima</b><span lang="en">A big picture and the length of each video; ones under a minute are faded.</span><span lang="it">Un'immagine grande e la durata di ogni video; quelli sotto il minuto sono sbiaditi.</span></li>
+          <li><b lang="en">Subtitles</b><b lang="it">Sottotitoli</b><span lang="en">With <i>Manda a Kodi</i>, tracks from the playlist or the page reach Kodi with the video. Not yet tested on a real Fire TV.</span><span lang="it">Con <i>Manda a Kodi</i> le tracce della playlist o della pagina arrivano a Kodi col video. Non ancora provati sulla Fire TV vera.</span></li>
           <li><b lang="en">Favourites</b><b lang="it">Preferiti</b><span lang="en">Your sites as icons on the home page.</span><span lang="it">I tuoi siti come icone nella pagina iniziale.</span></li>
           <li><b lang="en">Share to Couch Cast</b><b lang="it">Condividi verso Couch Cast</b><span lang="en">Links from Chrome or any app open here or go straight to Kodi.</span><span lang="it">I link da Chrome o da altre app si aprono qui o vanno dritti a Kodi.</span></li>
         </ul>
@@ -507,7 +507,7 @@
           <li><b lang="en">Full quality</b><b lang="it">Qualità piena</b><span lang="en">Kodi downloads the video itself, the phone only helps at the start.</span><span lang="it">Kodi scarica il video da solo, il telefono aiuta solo all'avvio.</span></li>
           <li><b lang="en">Queue</b><b lang="it">Coda</b><span lang="en">Kodi's playlist with start times; expiring links show in red.</span><span lang="it">La playlist di Kodi con gli orari; i link che scadono sono in rosso.</span></li>
           <li><b lang="en">Keep watching</b><b lang="it">Continua a guardare</b><span lang="en">Episode and minute for every series, picture included.</span><span lang="it">Episodio e minuto di ogni serie, con l'immagine.</span></li>
-          <li><b lang="en">Next episodes by themselves</b><b lang="it">Episodi successivi da soli</b><span lang="en">On anime sites with the VixCloud player, up to 3 queued for you.</span><span lang="it">Sui siti di anime con player VixCloud, fino a 3 in coda da soli.</span></li>
+          <li><b lang="en">Next episodes by themselves</b><b lang="it">Episodi successivi da soli</b><span lang="en">Off by default. On anime sites with the VixCloud player, up to 3 queued for you.</span><span lang="it">Spenti di default. Sui siti di anime con player VixCloud, fino a 3 in coda da soli.</span></li>
         </ul>
       </div>
       <div class="feat-group">
@@ -522,7 +522,7 @@
       <div class="feat-group">
         <h3 lang="en">The app</h3><h3 lang="it">L'app</h3>
         <ul>
-          <li><b lang="en">Power on</b><b lang="it">Accensione</b><span lang="en">Wakes the Fire TV over the network, even with Kodi closed.</span><span lang="it">Sveglia la Fire TV in rete, anche con Kodi chiuso.</span></li>
+          <li><b lang="en">Power on</b><b lang="it">Accensione</b><span lang="en">Wakes the Fire TV over the network, even with Kodi closed (not from deep sleep).</span><span lang="it">Sveglia la Fire TV in rete, anche con Kodi chiuso (non dal sonno profondo).</span></li>
           <li><b lang="en">One-tap updates</b><b lang="it">Aggiornamento con un tocco</b><span lang="en">Shows what's new and installs over the old version.</span><span lang="it">Mostra le novità e installa sopra la versione vecchia.</span></li>
           <li><b lang="en">Backup</b><b lang="it">Backup</b><span lang="en">Favourites, series and settings in a .zip, weekly if you like.</span><span lang="it">Preferiti, serie e impostazioni in un .zip, anche ogni settimana.</span></li>
           <li><b lang="en">Kodi log</b><b lang="it">Log di Kodi</b><span lang="en">Read it from the phone when Kodi says <i>Playback failed</i>.</span><span lang="it">Lo leggi dal telefono quando Kodi dice <i>Playback failed</i>.</span></li>
@@ -543,8 +543,8 @@
         <li><span lang="en"><b>Kodi</b> with remote control via HTTP turned on (usually port <code>8080</code>).</span><span lang="it"><b>Kodi</b> con il controllo remoto via HTTP attivo (di solito porta <code>8080</code>).</span></li>
         <li><span lang="en">Phone and TV on the <b>same Wi-Fi</b>.</span><span lang="it">Telefono e TV sulla <b>stessa rete Wi-Fi</b>.</span></li>
       </ul>
-      <p class="small" lang="en">The app finds Kodi by itself. If it doesn't, type <code>IP:port</code>, e.g. <code>192.168.1.50:8080</code>.</p>
-      <p class="small" lang="it">L'app trova Kodi da sola. Se non ci riesce, scrivi <code>IP:porta</code>, es. <code>192.168.1.50:8080</code>.</p>
+      <p class="small" lang="en">The app looks for Kodi by itself. If it doesn't find it, type <code>IP:port</code>, e.g. <code>192.168.1.50:8080</code>.</p>
+      <p class="small" lang="it">L'app cerca Kodi da sola. Se non lo trova, scrivi <code>IP:porta</code>, es. <code>192.168.1.50:8080</code>.</p>
     </div>
     <div>
       <div style="overflow-x:auto">
@@ -552,8 +552,8 @@
           <thead><tr><th lang="en">Device</th><th lang="it">Dispositivo</th><th lang="en">Works</th><th lang="it">Funziona</th></tr></thead>
           <tbody>
             <tr><td>Fire TV <span lang="en">with</span><span lang="it">con</span> Fire OS</td><td class="y"><span lang="en">Yes, tested</span><span lang="it">Sì, provato</span></td></tr>
-            <tr><td>Android TV, Nvidia Shield, Google TV</td><td class="y"><span lang="en">Yes</span><span lang="it">Sì</span></td></tr>
-            <tr><td><span lang="en">PC, Raspberry Pi, Xbox with Kodi</span><span lang="it">PC, Raspberry Pi, Xbox con Kodi</span></td><td class="y"><span lang="en">Yes, no power button</span><span lang="it">Sì, senza accensione</span></td></tr>
+            <tr><td>Android TV, Nvidia Shield, Google TV</td><td class="m"><span lang="en">Should work, not tested</span><span lang="it">Dovrebbe, non provato</span></td></tr>
+            <tr><td><span lang="en">PC, Raspberry Pi, Xbox with Kodi</span><span lang="it">PC, Raspberry Pi, Xbox con Kodi</span></td><td class="m"><span lang="en">Should work, not tested, no power button</span><span lang="it">Dovrebbe, non provato, senza accensione</span></td></tr>
             <tr><td>Fire TV <span lang="en">with</span><span lang="it">con</span> Vega OS</td><td class="n"><span lang="en">No Kodi</span><span lang="it">Niente Kodi</span></td></tr>
             <tr><td>Samsung Tizen, Roku</td><td class="n"><span lang="en">No Kodi</span><span lang="it">Niente Kodi</span></td></tr>
           </tbody>
@@ -581,8 +581,8 @@
     </details>
     <details>
       <summary><span lang="en">Why isn't it on the Play Store?</span><span lang="it">Perché non è sul Play Store?</span></summary>
-      <p lang="en">It's a personal project. Every APK is signed with the same key, so it installs over the previous one; the app tells you when there's a new version. With Obtainium updates take one tap.</p>
-      <p lang="it">È un progetto personale. Ogni APK è firmato con la stessa chiave, quindi si installa sopra il precedente; l'app avvisa quando c'è una versione nuova. Con Obtainium si aggiorna con un tocco.</p>
+      <p lang="en">It's a personal project. Every APK is signed with the same key, so it installs over the previous one; the app tells you when there's a new version and installs it with one tap. Obtainium works too.</p>
+      <p lang="it">È un progetto personale. Ogni APK è firmato con la stessa chiave, quindi si installa sopra il precedente; l'app avvisa quando c'è una versione nuova e la installa con un tocco. Funziona anche Obtainium.</p>
     </details>
     <details>
       <summary><span lang="en">Is the app in English?</span><span lang="it">L'app è in italiano?</span></summary>
@@ -626,8 +626,8 @@
 </section>
 <footer>
   <div class="wrap">
-    <span lang="en">Personal open source project. No tracking, no cookies.</span>
-    <span lang="it">Progetto personale open source. Nessun tracciamento, nessun cookie.</span>
+    <span lang="en">Personal project, code on GitHub. No tracking, no cookies.</span>
+    <span lang="it">Progetto personale, codice su GitHub. Nessun tracciamento, nessun cookie.</span>
     <a href="https://github.com/Fpippi/cast-to-kodi">github.com/Fpippi/cast-to-kodi</a>
     <p class="legal" lang="en">Couch Cast is not affiliated with or endorsed by Kodi or the XBMC Foundation. Kodi® is a registered trademark of the XBMC Foundation. Fire TV is a trademark of Amazon.</p>
     <p class="legal" lang="it">Couch Cast non è affiliato né approvato da Kodi o dalla XBMC Foundation. Kodi® è un marchio registrato della XBMC Foundation. Fire TV è un marchio di Amazon.</p>
