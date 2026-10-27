@@ -109,12 +109,12 @@ fun videoFor(url: String, referer: String, host: String?, path: String?, query: 
             val quality = Regex("\\b(\\d{3,4})p\\b").find(url)?.groupValues?.get(1)
             // Parole semplici: chi sceglie non sa cos'è una playlist HLS
             val kind = when {
-                main -> "Video completo, tutte le qualità (consigliato)"
-                quality != null -> "Solo la qualità ${quality}p"
-                p.endsWith(".mp4") -> "Video (file MP4)"
-                else -> "Altro video trovato nella pagina"
+                main -> tr("Video completo, tutte le qualità (consigliato)", "Full video, all qualities (recommended)")
+                quality != null -> tr("Solo la qualità ${quality}p", "Only the ${quality}p quality")
+                p.endsWith(".mp4") -> tr("Video (file MP4)", "Video (MP4 file)")
+                else -> tr("Altro video trovato nella pagina", "Other video found on the page")
             }
-            Video(url, referer, "$kind\nda ${shortHost(host)}", main)
+            Video(url, referer, tr("$kind\nda ${shortHost(host)}", "$kind\nfrom ${shortHost(host)}"), main)
         }
     }
 }
@@ -376,7 +376,7 @@ fun queueLabel(file: String, kodiTitle: String, titles: Map<String, String>): St
     titles[queueKey(file)]?.let { return it }
     val host = Regex("^\\w+://([^/:?|]+)").find(file)?.groupValues?.get(1)
     if (kodiTitle.isNotBlank() && (host == null || ('?' !in kodiTitle && '/' !in kodiTitle))) return kodiTitle
-    return if (host != null) "Video da ${shortHost(host)}" else file
+    return if (host != null) tr("Video da ${shortHost(host)}", "Video from ${shortHost(host)}") else file
 }
 
 // Nella barra in alto, quando non la si sta scrivendo: solo il sito ("animeunity.co"), come Chrome.
@@ -398,14 +398,14 @@ class QueueNote(val text: String, val warning: Boolean = false)
 fun queueNote(state: KodiState, index: Int, expires: Long?, now: Long, zone: ZoneId = ZoneId.systemDefault()): QueueNote {
     val running = state.playerId != null && state.fromQueue
     return when {
-        running && index == state.position -> QueueNote("In riproduzione · finisce alle ${clockAt(now + state.remaining, zone)}")
-        state.fromQueue && index < state.position -> QueueNote("Già visto")
-        expires != null && expires < now -> QueueNote("Link scaduto: rimandalo dalla pagina dell'episodio", warning = true)
-        !running -> QueueNote("In coda")
+        running && index == state.position -> QueueNote(tr("In riproduzione · finisce alle ${clockAt(now + state.remaining, zone)}", "Playing · ends at ${clockAt(now + state.remaining, zone)}"))
+        state.fromQueue && index < state.position -> QueueNote(tr("Già visto", "Already watched"))
+        expires != null && expires < now -> QueueNote(tr("Link scaduto: rimandalo dalla pagina dell'episodio", "Link expired: send it again from the episode page"), warning = true)
+        !running -> QueueNote(tr("In coda", "Queued"))
         else -> {
             val start = now + state.secondsUntil(index)
-            if (expires != null && start + EXPIRY_MARGIN >= expires) QueueNote("Il link scade prima del suo turno", warning = true)
-            else QueueNote("Parte alle ${clockAt(start, zone)}")
+            if (expires != null && start + EXPIRY_MARGIN >= expires) QueueNote(tr("Il link scade prima del suo turno", "The link expires before its turn"), warning = true)
+            else QueueNote(tr("Parte alle ${clockAt(start, zone)}", "Starts at ${clockAt(start, zone)}"))
         }
     }
 }
@@ -431,16 +431,16 @@ fun clockLabel(seconds: Long): String {
 
 // Seconda riga del mini-player: "Su Kodi · 12:40 di 23:50", "In pausa · …"; senza durata (una diretta) solo il tempo
 fun miniPlayerStatus(paused: Boolean, time: Long, total: Long): String {
-    val state = if (paused) "In pausa" else "Su Kodi"
-    return if (total > 0) "$state · ${clockLabel(time)} di ${clockLabel(total)}" else "$state · ${clockLabel(time)}"
+    val state = if (paused) tr("In pausa", "Paused") else tr("Su Kodi", "On Kodi")
+    return if (total > 0) tr("$state · ${clockLabel(time)} di ${clockLabel(total)}", "$state · ${clockLabel(time)} of ${clockLabel(total)}") else "$state · ${clockLabel(time)}"
 }
 
 // Nome di una traccia audio o di sottotitoli: la lingua in italiano ("ita" -> "Italiano"), più il nome se dice altro
 // ("Inglese · Commento"); "Traccia N" se Kodi non sa niente
 fun trackLabel(language: String, name: String, number: Int): String {
     val lang = language.trim().takeIf { it.isNotEmpty() && it != "und" }
-        ?.let { Locale.forLanguageTag(it).getDisplayLanguage(Locale.ITALIAN).takeIf { d -> d.isNotBlank() && d != it } ?: it }
-        ?.replaceFirstChar { it.titlecase(Locale.ITALIAN) }
+        ?.let { Locale.forLanguageTag(it).getDisplayLanguage(Lang.locale).takeIf { d -> d.isNotBlank() && d != it } ?: it }
+        ?.replaceFirstChar { it.titlecase(Lang.locale) }
     val extra = name.trim().takeIf { it.isNotEmpty() && !it.equals(lang, ignoreCase = true) && !it.equals(language, ignoreCase = true) }
-    return listOfNotNull(lang, extra).joinToString(" · ").ifEmpty { "Traccia $number" }
+    return listOfNotNull(lang, extra).joinToString(" · ").ifEmpty { tr("Traccia $number", "Track $number") }
 }

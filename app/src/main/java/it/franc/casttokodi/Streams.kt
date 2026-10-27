@@ -70,7 +70,7 @@ class Streams(private val relay: Relay, private val localIp: () -> String?) {
 
     // La master con la qualità passata dal telefono e i sottotitoli, servita anche lei dal telefono
     private fun withSubtitles(playlist: String, seconds: Double, bandwidth: Long, tracks: List<SubtitleTrack>): String? = try {
-        val ip = localIp() ?: throw IOException("niente Wi-Fi")
+        val ip = localIp() ?: throw IOException(tr("niente Wi-Fi", "no Wi-Fi"))
         val base = "http://$ip:${relay.port()}"
         val id = System.currentTimeMillis()
         val entries = tracks.mapIndexed { i, track ->
@@ -95,7 +95,7 @@ class Streams(private val relay: Relay, private val localIp: () -> String?) {
         var error: String? = null
         val sample = try {
             val segment = segmentAt(media, mediaUrl, previewPoint(seconds ?: 0.0, fraction))
-            if (segment == null) error = "nessun pezzo leggibile nella playlist (protetto?)"
+            if (segment == null) error = tr("nessun pezzo leggibile nella playlist (protetto?)", "no readable segment in the playlist (protected?)")
             segment?.let { sample(it, headers, limit) }
         } catch (e: Exception) {
             error = e.message ?: e.javaClass.simpleName
@@ -124,7 +124,7 @@ class Streams(private val relay: Relay, private val localIp: () -> String?) {
         conn.readTimeout = 5000
         headers.forEach { (name, value) -> conn.setRequestProperty(name, value) }
         val body = conn.inputStream.use { it.readNBytes(limit + 1) }
-        if (body.size > limit) throw IOException("$url: più di $limit byte")
+        if (body.size > limit) throw IOException(tr("$url: più di $limit byte", "$url: more than $limit bytes"))
         return body
     }
 

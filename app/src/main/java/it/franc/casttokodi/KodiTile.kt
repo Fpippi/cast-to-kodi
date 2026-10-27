@@ -21,6 +21,7 @@ class KodiTile : TileService() {
 
     override fun onStartListening() {
         super.onStartListening()
+        KodiAccess.useLanguage(this)
         listening = true
         refresh()
     }
@@ -66,7 +67,7 @@ class KodiTile : TileService() {
             read.paused -> R.drawable.ic_play
             else -> R.drawable.ic_pause
         })
-        tile.contentDescription = if (video) "Couch Cast: pausa o riprendi su Kodi" else "Couch Cast: apri l'app"
+        tile.contentDescription = if (video) tr("Couch Cast: pausa o riprendi su Kodi", "Couch Cast: pause or resume on Kodi") else tr("Couch Cast: apri l'app", "Couch Cast: open the app")
         tile.updateTile()
     }
 

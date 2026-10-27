@@ -89,7 +89,7 @@ class Kodi(val host: String, val auth: String) {
         when (conn.responseCode) {
             200 -> {}
             401 -> throw Unauthorized()
-            else -> throw KodiError("Kodi ha risposto HTTP ${conn.responseCode}.")
+            else -> throw KodiError(tr("Kodi ha risposto HTTP ${conn.responseCode}.", "Kodi replied HTTP ${conn.responseCode}."))
         }
         val reply = JSONObject(conn.inputStream.bufferedReader().readText())
         reply.optJSONObject("error")?.let { throw KodiError("$method: ${it.optString("message")}") }
@@ -132,13 +132,13 @@ class Kodi(val host: String, val auth: String) {
                 val position = state.position + 1
                 call("Playlist.Insert", playlist().put("position", position).put("item", item))
                 call("Player.GoTo", JSONObject().put("playerid", state.playerId).put("to", position))
-                Sent("Inviato a Kodi", position)
+                Sent(tr("Inviato a Kodi", "Sent to Kodi"), position)
             } else {
                 // Kodi fermo o con un video non partito dall'app: in fondo alla coda, e si parte da lì
                 val position = state.queueLength
                 call("Playlist.Add", playlist().put("item", item))
                 call("Player.Open", JSONObject().put("item", playlist().put("position", position)))
-                Sent("Inviato a Kodi", position)
+                Sent(tr("Inviato a Kodi", "Sent to Kodi"), position)
             }
         } catch (e: KodiError) {
             openWithoutQueue(item)
@@ -148,7 +148,7 @@ class Kodi(val host: String, val auth: String) {
     // Con alcuni link la playlist di Kodi è più severa di Player.Open {file}: il video parte da solo, senza coda dietro
     private fun openWithoutQueue(item: JSONObject): Sent {
         call("Player.Open", JSONObject().put("item", item))
-        return Sent("Inviato a Kodi, ma senza coda: Kodi non riproduce questo video dalla playlist", null)
+        return Sent(tr("Inviato a Kodi, ma senza coda: Kodi non riproduce questo video dalla playlist", "Sent to Kodi, but without the queue: Kodi won't play this video from the playlist"), null)
     }
 
     // "+ Coda": accoda solo se l'episodio partirà davvero, altrimenti Refused con il motivo, da mostrare.
@@ -158,8 +158,8 @@ class Kodi(val host: String, val auth: String) {
         if (state.playerId == null) return playNow(item(true))
         if (!state.fromQueue) {
             throw Refused(
-                "Il video in corso su Kodi non è partito dall'app: quando finisce, Kodi non passa alla coda.\n\n" +
-                    "Premi \"Manda a Kodi\" su questo episodio: parte subito e da lì puoi accodare gli altri."
+                tr("Il video in corso su Kodi non è partito dall'app: quando finisce, Kodi non passa alla coda.\n\n", "The video playing on Kodi wasn't started from the app: when it ends, Kodi won't move on to the queue.\n\n") +
+                    tr("Premi \"Manda a Kodi\" su questo episodio: parte subito e da lì puoi accodare gli altri.", "Tap \"Send to Kodi\" on this episode: it starts right away and you can queue the others from there.")
             )
         }
         val position = state.queueLength
@@ -167,9 +167,9 @@ class Kodi(val host: String, val auth: String) {
         try {
             call("Playlist.Add", playlist().put("item", item(false)))
         } catch (e: KodiError) {
-            throw Refused("Kodi non accetta questo video in coda (${e.message}).")
+            throw Refused(tr("Kodi non accetta questo video in coda (${e.message}).", "Kodi won't take this video in the queue (${e.message})."))
         }
-        return Sent("Aggiunto alla coda (la vedi in ⋮ → Coda di Kodi)", position)
+        return Sent(tr("Aggiunto alla coda (la vedi in ⋮ → Coda di Kodi)", "Added to the queue (see it in ⋮ → Kodi queue)"), position)
     }
 
     // Episodio successivo messo in coda da solo, in posizione position. Il motivo se non si può, altrimenti null
@@ -348,7 +348,7 @@ class Kodi(val host: String, val auth: String) {
                     // Ancora in apertura: durata non nota o tempo fermo a 0
                     playing.total <= seconds || playing.time < 1 -> Unit
                     i - lastSeek < seekPause -> Unit
-                    done >= seeks -> return "Kodi non è andato al punto dopo $done salti (è a ${playing.time} s)"
+                    done >= seeks -> return tr("Kodi non è andato al punto dopo $done salti (è a ${playing.time} s)", "Kodi didn't jump to the spot after $done tries (it's at ${playing.time} s)")
                     else -> try {
                         seekTo(id, seconds)
                         done++
@@ -363,9 +363,9 @@ class Kodi(val host: String, val auth: String) {
             Thread.sleep(wait)
         }
         val reason = when {
-            done > 0 -> "Kodi non è andato al punto"
-            seen -> "il video su Kodi non è partito in tempo"
-            else -> "Kodi non ha mostrato il video in riproduzione"
+            done > 0 -> tr("Kodi non è andato al punto", "Kodi didn't jump to the spot")
+            seen -> tr("il video su Kodi non è partito in tempo", "the video on Kodi didn't start in time")
+            else -> tr("Kodi non ha mostrato il video in riproduzione", "Kodi never showed the video playing")
         }
         return reason + (lastError?.let { " ($it)" } ?: "")
     }

@@ -24,6 +24,10 @@ private const val LOGIN_KEY = "kodi-login"
 object KodiAccess {
     fun prefs(context: Context): SharedPreferences = context.getSharedPreferences("kodi", Context.MODE_PRIVATE)
 
+    // Lingua dei testi: quella scelta nelle Impostazioni (prefs["language"]) o, in automatico, quella del telefono.
+    // La chiamano l'Activity, il player della tendina, il riquadro e il timer, perché ognuno può partire da solo
+    fun useLanguage(context: Context) = Lang.choose(prefs(context).getString("language", Lang.AUTO))
+
     // Il Kodi scelto con le credenziali salvate per questa rete, senza chiedere niente; null se Kodi non è scelto
     fun quietKodi(context: Context): Kodi? {
         val prefs = prefs(context)
@@ -90,7 +94,7 @@ object KodiAccess {
     fun shows(prefs: SharedPreferences): List<Show> = showsFromJson(prefs.getString("shows", null))
 
     // Cartella delle immagini delle serie (vedi saveFrame nell'Activity)
-    fun framesDir(context: Context) = File(context.filesDir, "serie").apply { mkdirs() }
+    fun framesDir(context: Context) = File(context.filesDir, "serie").apply { mkdirs() } // non tradurre: nome della cartella
 
     // Video (queueKey) per cui i sottotitoli della serie sono già stati sistemati: si accendono una volta sola, così
     // se poi li spegni dal telecomando restano spenti

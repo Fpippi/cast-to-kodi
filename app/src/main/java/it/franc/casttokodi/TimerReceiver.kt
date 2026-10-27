@@ -10,6 +10,7 @@ import kotlin.concurrent.thread
 class TimerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val prefs = KodiAccess.prefs(context)
+        KodiAccess.useLanguage(context)
         // Un timer annullato o sostituito non fa niente
         if (intent.getLongExtra("token", 0) != prefs.getLong("timerToken", -1)) return
         prefs.edit().remove("timerAt").remove("timerToken").remove("timerOnPhone").apply()

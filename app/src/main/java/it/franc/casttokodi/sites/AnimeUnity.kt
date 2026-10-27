@@ -1,6 +1,7 @@
 package it.franc.casttokodi.sites
 
 import it.franc.casttokodi.domainOf
+import it.franc.casttokodi.tr
 
 // Addon AnimeUnity: dopo l'invio si accodano da soli gli episodi successivi (#15).
 // Il giro (pagina -> player VixCloud -> Kodi) lo fa MainActivity.queueNextEpisodes; qui ciò che dipende dal sito.
@@ -13,9 +14,9 @@ const val DEFAULT_AUTO_NEXT = 0
 
 // Come si legge la scelta nelle Impostazioni
 fun autoNextLabel(count: Int): String = when {
-    count <= 0 -> "Spento"
-    count == 1 -> "Accoda da solo l'episodio dopo"
-    else -> "Accoda da solo i prossimi $count episodi"
+    count <= 0 -> tr("Spento", "Off")
+    count == 1 -> tr("Accoda da solo l'episodio dopo", "Queues the next episode by itself")
+    else -> tr("Accoda da solo i prossimi $count episodi", "Queues the next $count episodes by itself")
 }
 
 private val EPISODE_PATH = Regex("/anime/[^/]+/\\d+/?")
@@ -53,11 +54,12 @@ const val NEXT_EPISODES_JS = """(function (n) {
 })(COUNT)"""
 
 // Nome in coda di un episodio accodato da solo, dal nome della pagina di quello mandato:
-// "JoJo Episodio 3" -> "JoJo Episodio 4"; se la pagina non dice il numero, lo si aggiunge
+// "JoJo Episodio 3" -> "JoJo Episodio 4"; se la pagina non dice il numero, lo si aggiunge. In italiano come il sito
+// anche con l'app in inglese: il nome segue quello della pagina (e Watching riconosce sia "Episodio" sia "Episode")
 fun nextEpisodeTitle(current: String, number: String): String {
     val episode = Regex("(?i)\\b(episodio|ep\\.?)\\s*\\d+")
-    val last = episode.findAll(current).lastOrNull() ?: return "$current · Episodio $number".trimStart(' ', '·')
-    return current.replaceRange(last.range, "Episodio $number")
+    val last = episode.findAll(current).lastOrNull() ?: return "$current · Episodio $number".trimStart(' ', '·') // non tradurre
+    return current.replaceRange(last.range, "Episodio $number") // non tradurre
 }
 
 private val SERIES_PATH = Regex("(/anime/[^/]+)(?:/\\d+)?/?")

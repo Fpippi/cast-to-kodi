@@ -80,8 +80,8 @@ fun adbRead(input: DataInputStream): AdbMessage {
     val arg1 = b.int
     val length = b.int
     b.int // somma dei byte: TCP è già affidabile
-    if (b.int != command.inv()) throw IOException("Messaggio ADB non valido")
-    if (length !in 0..1024 * 1024) throw IOException("Messaggio ADB troppo lungo")
+    if (b.int != command.inv()) throw IOException(tr("Messaggio ADB non valido", "Invalid ADB message"))
+    if (length !in 0..1024 * 1024) throw IOException(tr("Messaggio ADB troppo lungo", "ADB message too long"))
     return AdbMessage(command, arg0, arg1, ByteArray(length).also { input.readFully(it) })
 }
 
@@ -178,7 +178,7 @@ fun adbShell(
         when (m.command) {
             A_CNXN -> break
             A_AUTH -> if (m.arg0 != AUTH_TOKEN) {
-                throw AdbError("Risposta ADB inattesa")
+                throw AdbError(tr("Risposta ADB inattesa", "Unexpected ADB reply"))
             } else if (!signed) {
                 signed = true
                 send(A_AUTH, AUTH_SIGNATURE, 0, adbSign(keys.private, m.data))
@@ -189,8 +189,8 @@ fun adbShell(
                 socket.soTimeout = confirmTimeout
             }
             // Solo il "Debug wireless" di Android 11+ vuole TLS; il Debug ADB della Fire TV no
-            A_STLS -> throw AdbError("La Fire TV chiede ADB con TLS, che l'app non supporta")
-            else -> throw AdbError("Risposta ADB inattesa")
+            A_STLS -> throw AdbError(tr("La Fire TV chiede ADB con TLS, che l'app non supporta", "The Fire TV wants ADB over TLS, which the app doesn't support"))
+            else -> throw AdbError(tr("Risposta ADB inattesa", "Unexpected ADB reply"))
         }
     }
     // Il comando aspetta che la TV si accenda prima di chiedere l'ingresso: più tempo per la risposta
@@ -210,7 +210,7 @@ fun adbShell(
                 send(A_CLSE, LOCAL_ID, m.arg0)
                 break
             }
-            else -> throw AdbError("Risposta ADB inattesa")
+            else -> throw AdbError(tr("Risposta ADB inattesa", "Unexpected ADB reply"))
         }
     }
     out.toString("UTF-8")

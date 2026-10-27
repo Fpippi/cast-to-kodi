@@ -2,12 +2,20 @@
 
 Sono disegni, non registrazioni dell'app: seguono l'interfaccia della 2.1 (barra a pillola con ★ e ⋮, pagina
 iniziale, "Manda a Kodi" galleggiante, barra di Kodi in fondo, telecomando a schermo intero con la scheda Coda).
-Per rifarle (serve Pillow): python3 docs/img/disegna.py docs/img
+Per rifarle (serve Pillow): python3 docs/img/disegna.py docs/img, e in inglese python3 docs/img/disegna.py docs/img/en en
+(le stesse animazioni con i testi dell'app in inglese, per README.md e TUTORIAL.en.md).
 """
 import sys
 from PIL import Image, ImageDraw, ImageFont
 
 OUT = sys.argv[1]
+EN = len(sys.argv) > 2 and sys.argv[2] == "en"
+
+
+def tl(it, en):
+    """Il testo nella lingua scelta: italiano di default, inglese con "en"."""
+    return en if EN else it
+
 S = 2  # disegno a 2x e riduco: bordi morbidi
 W, H = 760, 480
 F = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
@@ -26,7 +34,7 @@ def font(size, bold=False):
 BG = "#EEF3F3"
 ACCENT = "#1F6B78"
 ON_ACCENT = "#FFFFFF"
-CONTAINER = "#B9EAF4"  # "Manda a Kodi": contenitore dell'accento
+CONTAINER = "#B9EAF4"  # tl("Manda a Kodi", "Send to Kodi"): contenitore dell'accento
 ON_CONTAINER = "#002A31"
 TONAL = "#CDE7EC"
 ON_TONAL = "#123A42"
@@ -175,7 +183,7 @@ def phone(f, address="", typing=False, page="home", cast="none", mini="idle", st
     if address:
         f.text(tx, y + 15, fit(f, address, 10, room) + ("|" if typing else ""), 10, TEXT, anchor="lm")
     else:
-        f.text(tx, y + 15, "Cerca o scrivi un indirizzo", 9, MUTED, anchor="lm")
+        f.text(tx, y + 15, tl("Cerca o scrivi un indirizzo", "Search or type an address"), 9, MUTED, anchor="lm")
     if shield:
         sx = SX + 6 + pw - 38
         f.rect(sx, y + 6, 32, 18, None, r=9, outline="#A3ABAC")
@@ -200,7 +208,7 @@ def phone(f, address="", typing=False, page="home", cast="none", mini="idle", st
         f.text(SX + 18, over - 13, toast, size, WHITE, anchor="lm")
         over -= 34
     if cast != "none":
-        label = "Invio a Kodi…" if cast == "sending" else "Manda a Kodi"
+        label = tl("Invio a Kodi…", "Sending to Kodi…") if cast == "sending" else tl("Manda a Kodi", "Send to Kodi")
         bw = f.text_w(label, 10, True) + 40
         bx, by = SX + SW - 10 - bw, over - 32
         f.rect(bx + 1, by + 2, bw, 32, "#00000022", r=10)
@@ -228,17 +236,17 @@ def mini_player(f, state):
     if playing:
         f.rect(x + 6, y + 6, 28, 28, ACCENT, r=7)
         icon_play(f, x + 20, y + 20, 6, "#DDF4F8")
-        title = f"JoJo – Episodio {state[1]}"
+        title = tl(f"JoJo – Episodio {state[1]}", f"JoJo – Episode {state[1]}")
         frac = state[2]
         total = 23 * 60 + 50
         t = int(total * frac)
-        status = f"Su Kodi · {t // 60}:{t % 60:02d} di 23:50"
+        status = tl(f"Su Kodi · {t // 60}:{t % 60:02d} di 23:50", f"On Kodi · {t // 60}:{t % 60:02d} of 23:50")
         dot = DOT_ON
     else:
         f.circle(x + 20, y + 20, 14, "#D4DCDD")
         icon_remote(f, x + 20, y + 20, MUTED)
         title = KODI
-        status = "Acceso, niente in riproduzione" if state == "idle" else "Spento o non raggiungibile"
+        status = tl("Acceso, niente in riproduzione", "On, nothing playing") if state == "idle" else tl("Spento o non raggiungibile", "Off or not reachable")
         dot = DOT_ON if state == "idle" else DOT_OFF
     f.text(x + 42, y + 13, fit(f, title, 10, w - 100, True), 10, TEXT, bold=True, anchor="lm")
     f.circle(x + 45, y + 28, 2.5, dot)
@@ -260,13 +268,13 @@ def page_home(f, x, y, w, h, mini, kodi_button=None, status=None, favorites=("Se
     f.circle(cx + 20, y + 31, 12, TONAL)
     icon_remote(f, cx + 20, y + 31, ON_TONAL)
     if mini is None:
-        title, status, button = "Kodi non ancora scelto", status or "Scegli la Fire TV con Kodi", "Scegli"
+        title, status, button = tl("Kodi non ancora scelto", "Kodi not chosen yet"), status or tl("Scegli la Fire TV con Kodi", "Pick the Fire TV with Kodi"), tl("Scegli", "Choose")
     elif mini == "off":
-        title, status, button = KODI, status or "Spento o non raggiungibile", "Accendi"
+        title, status, button = KODI, status or tl("Spento o non raggiungibile", "Off or not reachable"), tl("Accendi", "Turn on")
     elif mini == "idle":
-        title, status, button = KODI, status or "Acceso, nessun video in corso", "Telecomando"
+        title, status, button = KODI, status or tl("Acceso, nessun video in corso", "On, no video playing"), tl("Telecomando", "Remote")
     else:
-        title, status, button = KODI, status or f"Sta riproducendo: JoJo – Ep. {mini[1]}", "Telecomando"
+        title, status, button = KODI, status or tl(f"Sta riproducendo: JoJo – Ep. {mini[1]}", f"Playing: JoJo – Ep. {mini[1]}"), tl("Telecomando", "Remote")
     button = kodi_button or button
     bw = f.text_w(button, 8, True) + 16
     f.text(cx + 38, y + 24, fit(f, title, 9, cw - bw - 50, True), 9, TEXT, bold=True, anchor="lm")
@@ -275,17 +283,17 @@ def page_home(f, x, y, w, h, mini, kodi_button=None, status=None, favorites=("Se
     f.text(cx + cw - bw / 2 - 8, y + 31, button, 8, ON_ACCENT, bold=True, anchor="mm")
     ty = y + 66
     if resume:
-        f.text(cx + 2, ty, "RIPRENDI", 7, ACCENT, bold=True)
+        f.text(cx + 2, ty, tl("RIPRENDI", "RESUME"), 7, ACCENT, bold=True)
         f.rect(cx, ty + 12, cw, 36, CARD, r=12)
         f.circle(cx + 18, ty + 30, 10, "#1B1D2B")
         f.text(cx + 18, ty + 30, "A", 8, WHITE, bold=True, anchor="mm")
-        f.text(cx + 36, ty + 24, "JoJo – Episodio 1", 9, TEXT, bold=True, anchor="lm")
+        f.text(cx + 36, ty + 24, tl("JoJo – Episodio 1", "JoJo – Episode 1"), 9, TEXT, bold=True, anchor="lm")
         f.text(cx + 36, ty + 37, "animetv.example", 7, MUTED, anchor="lm")
         ty += 60
-    f.text(cx + 2, ty, "PREFERITI", 7, ACCENT, bold=True)
+    f.text(cx + 2, ty, tl("PREFERITI", "FAVOURITES"), 7, ACCENT, bold=True)
     tiles = {}
     if not favorites:
-        f.text(cx + 2, ty + 16, "Apri un sito e premi ★ in alto: lo ritrovi qui.", 7, MUTED)
+        f.text(cx + 2, ty + 16, tl("Apri un sito e premi ★ in alto: lo ritrovi qui.", "Open a site and tap ★ at the top: you'll find it here."), 7, MUTED)
     for i, name in enumerate(favorites):
         tx = cx + 4 + i * (cw / 4)
         mid = tx + cw / 8 - 2
@@ -293,8 +301,8 @@ def page_home(f, x, y, w, h, mini, kodi_button=None, status=None, favorites=("Se
         f.text(mid, ty + 32, name[0], 11, WHITE if name.startswith("Anime") else ON_TONAL, bold=True, anchor="mm")
         f.text(mid, ty + 56, fit(f, name, 7, cw / 4 - 4), 7, MUTED, anchor="mm")
         tiles[name] = (mid, ty + 32)
-    f.text(cx + 2, ty + 78, "Per mandare un video: apri l'episodio e", 7, MUTED)
-    f.text(cx + 2, ty + 89, "avvia il player. \"Manda a Kodi\" compare da solo.", 7, MUTED)
+    f.text(cx + 2, ty + 78, tl("Per mandare un video: apri l'episodio e", "To send a video: open the episode and"), 7, MUTED)
+    f.text(cx + 2, ty + 89, tl("avvia il player. \"Manda a Kodi\" compare da solo.", "start the player. \"Send to Kodi\" shows up."), 7, MUTED)
     return tiles
 
 
@@ -313,8 +321,8 @@ def page_google(f, x, y, w, h):
 
 def page_results(f, x, y, w, h):
     f.rect(x, y, w, h, WHITE)
-    rows = [("animetv.example", "JoJo's Bizarre Adventure – Episodi"), ("wikipedia.org", "Le bizzarre avventure di JoJo"),
-            ("youtube.com", "JoJo – Trailer ufficiale")]
+    rows = [("animetv.example", tl("JoJo's Bizarre Adventure – Episodi", "JoJo's Bizarre Adventure – Episodes")), ("wikipedia.org", tl("Le bizzarre avventure di JoJo", "JoJo's Bizarre Adventure")),
+            ("youtube.com", tl("JoJo – Trailer ufficiale", "JoJo – Official trailer"))]
     for i, (site, title) in enumerate(rows):
         ry = y + 14 + i * 56
         f.text(x + 14, ry, site, 8, MUTED)
@@ -327,7 +335,7 @@ def page_episode(f, x, y, w, h, episode=1, state="poster"):
     f.rect(x, y, w, h, WHITE)
     f.rect(x, y, w, 26, "#1B1D2B")
     f.text(x + 10, y + 7, "AnimeTV", 10, WHITE, bold=True)
-    f.text(x + 12, y + 36, f"JoJo – Episodio {episode}", 12, TEXT, bold=True)
+    f.text(x + 12, y + 36, tl(f"JoJo – Episodio {episode}", f"JoJo – Episode {episode}"), 12, TEXT, bold=True)
     vx, vy, vw, vh = x + 10, y + 58, w - 20, 120
     if state == "poster":
         f.rect(vx, vy, vw, vh, "#2B2F45")
@@ -338,7 +346,7 @@ def page_episode(f, x, y, w, h, episode=1, state="poster"):
         scene(f, vx, vy, vw, vh, episode)
         f.rect(vx + 8, vy + vh - 10, vw - 16, 3, "#FFFFFF80")
         f.rect(vx + 8, vy + vh - 10, (vw - 16) * 0.08, 3, "#E53935")
-    f.text(x + 12, y + 190, "Episodi", 10, TEXT, bold=True)
+    f.text(x + 12, y + 190, tl("Episodi", "Episodes"), 10, TEXT, bold=True)
     for i in range(6):
         bx = x + 12 + i * 35
         sel = i + 1 == episode
@@ -371,7 +379,7 @@ def cast_positions(toast=False):
     """Centro di "Manda a Kodi" e di "+ Coda" (stessi conti di phone, con la barra di Kodi)."""
     over = MINI_Y - 4 - 8 - (34 if toast else 0)
     f = Frame()
-    bw = f.text_w("Manda a Kodi", 10, True) + 40
+    bw = f.text_w(tl("Manda a Kodi", "Send to Kodi"), 10, True) + 40
     bx, by = SX + SW - 10 - bw, over - 32
     return {"cast": (bx + bw / 2, by + 16), "queue": (bx - 20, by + 16)}
 
@@ -402,24 +410,24 @@ def radio(f, cx, cy, on):
 
 
 def dialog_kodi(f, step):
-    x, y, w, pos = dialog(f, "Dov'è Kodi?", 280, ("Annulla", "Salva"))
+    x, y, w, pos = dialog(f, tl("Dov'è Kodi?", "Where is Kodi?"), 280, (tl("Annulla", "Cancel"), tl("Salva", "Save")))
     radio(f, x + 22, y + 52, True)
-    f.text(x + 32, y + 52, "Automatico", 10, TEXT, anchor="lm")
+    f.text(x + 32, y + 52, tl("Automatico", "Automatic"), 10, TEXT, anchor="lm")
     radio(f, x + 112, y + 52, False)
-    f.text(x + 122, y + 52, "Manuale", 10, TEXT, anchor="lm")
+    f.text(x + 122, y + 52, tl("Manuale", "Manual"), 10, TEXT, anchor="lm")
     if step == 0:
         f.d.arc(s(x + 16, y + 70, x + 30, y + 84), start=0, end=270, fill=ACCENT, width=2 * S)
-        f.text(x + 38, y + 77, "Cerco Kodi sul Wi-Fi…", 10, MUTED, anchor="lm")
+        f.text(x + 38, y + 77, tl("Cerco Kodi sul Wi-Fi…", "Looking for Kodi on the Wi-Fi…"), 10, MUTED, anchor="lm")
     else:
-        f.text(x + 16, y + 77, "Trovato:", 10, MUTED, anchor="lm")
+        f.text(x + 16, y + 77, tl("Trovato:", "Found:"), 10, MUTED, anchor="lm")
         sel = step >= 2
         radio(f, x + 22, y + 98, sel)
         f.text(x + 32, y + 98, HOST, 10, TEXT, anchor="lm")
     f.rect(x + 16, y + 114, 90, 22, TONAL, r=11)
-    f.text(x + 61, y + 125, "Cerca di nuovo", 8, ON_TONAL, bold=True, anchor="mm")
-    f.text(x + 16, y + 150, "Accesso, se impostato in Kodi", 9, MUTED)
+    f.text(x + 61, y + 125, tl("Cerca di nuovo", "Search again"), 8, ON_TONAL, bold=True, anchor="mm")
+    f.text(x + 16, y + 150, tl("Accesso, se impostato in Kodi", "Login, if set in Kodi"), 9, MUTED)
     f.rect(x + 16, y + 166, w - 32, 26, FIELD, r=6)
-    f.text(x + 24, y + 173, "kodi" if step >= 3 else "Utente", 10, TEXT if step >= 3 else MUTED)
+    f.text(x + 24, y + 173, "kodi" if step >= 3 else tl("Utente", "Username"), 10, TEXT if step >= 3 else MUTED)
     f.rect(x + 16, y + 198, w - 32, 26, FIELD, r=6)
     f.text(x + 24, y + 205, "••••••" if step >= 3 else "Password", 10, TEXT if step >= 3 else MUTED)
     return pos, (x + 60, y + 98)
@@ -437,12 +445,12 @@ def sheet(f, title, height):
 
 def sheet_favorites(f, rows, add=True):
     h = 70 + 40 * len(rows) + (44 if add else 0)
-    x, y, w = sheet(f, "Preferiti", h)
+    x, y, w = sheet(f, tl("Preferiti", "Favourites"), h)
     ry = y + 46
     pos = {}
     if add:
         f.rect(x + 16, ry, w - 32, 32, ACCENT, r=16)
-        f.text(x + w / 2, ry + 16, "+ Aggiungi questa pagina", 10, ON_ACCENT, bold=True, anchor="mm")
+        f.text(x + w / 2, ry + 16, tl("+ Aggiungi questa pagina", "+ Add this page"), 10, ON_ACCENT, bold=True, anchor="mm")
         pos["add"] = (x + w / 2, ry + 16)
         ry += 44
     for name, site in rows:
@@ -457,7 +465,7 @@ def sheet_favorites(f, rows, add=True):
 
 
 def dialog_name(f, typed):
-    x, y, w, pos = dialog(f, "Aggiungi ai preferiti", 130, ("Annulla", "Salva"))
+    x, y, w, pos = dialog(f, tl("Aggiungi ai preferiti", "Add to favourites"), 130, (tl("Annulla", "Cancel"), tl("Salva", "Save")))
     f.rect(x + 16, y + 48, w - 32, 28, FIELD, r=6)
     f.d.line(s(x + 16, y + 76, x + w - 16, y + 76), fill=ACCENT, width=2 * S)
     f.text(x + 24, y + 56, typed + "|", 11, TEXT)
@@ -476,9 +484,9 @@ def player_queue(f, rows, offset=0.0):
     tx, tw = SX + 14, SW - 28
     f.rect(tx, y0 + 34, tw, 26, PILL, r=13)
     f.rect(tx + tw / 2, y0 + 34, tw / 2, 26, TONAL, r=13)
-    f.text(tx + tw / 4, y0 + 47, "Telecomando", 9, MUTED, anchor="mm")
+    f.text(tx + tw / 4, y0 + 47, tl("Telecomando", "Remote"), 9, MUTED, anchor="mm")
     waiting = sum(1 for r in rows if not r[2] and not r[3])
-    f.text(tx + 3 * tw / 4, y0 + 47, f"Coda · {waiting}" if waiting else "Coda", 9, ON_TONAL, bold=True, anchor="mm")
+    f.text(tx + 3 * tw / 4, y0 + 47, tl(f"Coda · {waiting}", f"Queue · {waiting}") if waiting else tl("Coda", "Queue"), 9, ON_TONAL, bold=True, anchor="mm")
     ry = y0 + 74
     for i, (name, note, playing, done) in enumerate(rows):
         if playing:
@@ -493,7 +501,7 @@ def player_queue(f, rows, offset=0.0):
         icon_more(f, SX + SW - 20, ry + 17, MUTED)
         ry += 50
     f.rect(SX + 14, ry + 6, 110, 26, None, r=13, outline="#A3ABAC")
-    f.text(SX + 69, ry + 19, "Svuota la coda", 9, ACCENT, bold=True, anchor="mm")
+    f.text(SX + 69, ry + 19, tl("Svuota la coda", "Clear the queue"), 9, ACCENT, bold=True, anchor="mm")
 
 
 # --- TV -----------------------------------------------------------------------------------------------------------
@@ -513,22 +521,22 @@ def tv(f, state="off", episode=1, note=None):
     elif state in ("kodi", "loading"):
         f.rect(x, y, w, h, "#0F2A44", r=4)
         f.rect(x, y, 90, h, "#0A1E31", r=4)
-        for i, t in enumerate(["Film", "Serie TV", "Musica", "Add-on", "Impostazioni"]):
+        for i, t in enumerate(tl(["Film", "Serie TV", "Musica", "Add-on", "Impostazioni"], ["Movies", "TV shows", "Music", "Add-ons", "Settings"])):
             f.text(x + 12, y + 40 + i * 24, t, 10, "#9DB6CC")
         f.text(x + w / 2 + 45, y + h / 2 - 10, "KODI", 30, WHITE, bold=True, anchor="mm")
         if state == "loading":
-            f.text(x + w / 2 + 45, y + h / 2 + 26, "Caricamento…", 10, "#9DB6CC", anchor="mm")
+            f.text(x + w / 2 + 45, y + h / 2 + 26, tl("Caricamento…", "Loading…"), 10, "#9DB6CC", anchor="mm")
     elif state == "playing":
         scene(f, x, y, w, h, episode)
         f.rect(x, y + h - 28, w, 28, "#00000088")
-        f.text(x + 12, y + h - 20, f"JoJo – Episodio {episode}", 10, WHITE, bold=True)
+        f.text(x + 12, y + h - 20, tl(f"JoJo – Episodio {episode}", f"JoJo – Episode {episode}"), 10, WHITE, bold=True)
         f.rect(x + 160, y + h - 15, w - 176, 3, "#FFFFFF66")
         f.rect(x + 160, y + h - 15, (w - 176) * 0.05, 3, "#2EA8E0")
     if note:
         nw = f.text_w(note, 10) + 20
         f.rect(x + w - nw - 10, y + 10, nw, 24, "#000000AA", r=6)
         f.text(x + w - nw / 2 - 10, y + 22, note, 10, WHITE, anchor="mm")
-    f.text(TX + TW / 2, TY + TH + 30, "TV con Fire TV e Kodi", 10, MUTED, anchor="mm")
+    f.text(TX + TW / 2, TY + TH + 30, tl("TV con Fire TV e Kodi", "TV with Fire TV and Kodi"), 10, MUTED, anchor="mm")
 
 
 def caption(f, t):
@@ -571,11 +579,11 @@ def configura():
             if tap_at == "row":
                 tap(f, *row)
             elif tap_at == "save":
-                tap(f, *pos["Salva"])
+                tap(f, *pos[tl("Salva", "Save")])
         return a
-    c1 = "1. Apri Kodi sulla TV, poi Couch Cast"
-    c2 = "2. Tocca il Kodi trovato (utente e password se servono)"
-    c3 = "3. Salva: in fondo compare la barra di Kodi"
+    c1 = tl("1. Apri Kodi sulla TV, poi Couch Cast", "1. Open Kodi on the TV, then Couch Cast")
+    c2 = tl("2. Tocca il Kodi trovato (utente e password se servono)", "2. Tap the Kodi found (login if needed)")
+    c3 = tl("3. Salva: in fondo compare la barra di Kodi", "3. Save: the Kodi bar shows up at the bottom")
     first = dict(mini=None, home=dict(resume=False, favorites=()))
     render("configura", [
         (step(c1, **first), 900),
@@ -590,12 +598,12 @@ def configura():
 
 
 def manda():
-    c1 = "1. Cerca il sito dalla barra in alto"
-    c2 = "2. Apri l'episodio e avvia il player"
-    c3 = "3. Compare Manda a Kodi: premilo"
-    c4 = "4. Il video parte sulla TV"
+    c1 = tl("1. Cerca il sito dalla barra in alto", "1. Search for the site in the top bar")
+    c2 = tl("2. Apri l'episodio e avvia il player", "2. Open the episode and start the player")
+    c3 = tl("3. Compare Manda a Kodi: premilo", "3. Send to Kodi shows up: tap it")
+    c4 = tl("4. Il video parte sulla TV", "4. The video starts on the TV")
     seq = []
-    q = "jojo episodio 1"
+    q = tl("jojo episodio 1", "jojo episode 1")
     seq.append((step(c1, after=lambda f: tap(f, SX + 80, BAR_Y + 15)), 600))
     for n in (4, 9, 15):
         seq.append((step(c1, address=q[:n], typing=True), 280))
@@ -611,24 +619,24 @@ def manda():
                      after=lambda f: tap(f, *cast_positions()["cast"])), 500))
     seq.append((step(c3, page=("episode", 1, "play"), address=ep, shield=2, cast="sending", tv_state="loading"), 1000))
     seq.append((step(c4, page=("episode", 1, "play"), address=ep, shield=2, cast="ready", tv_state="playing",
-                     mini=("playing", 1, 0.01), toast="Inviato a Kodi"), 1400))
-    seq.append((step(c4 + ": il telefono si può bloccare", page=("episode", 1, "play"), address=ep, shield=2,
+                     mini=("playing", 1, 0.01), toast=tl("Inviato a Kodi", "Sent to Kodi")), 1400))
+    seq.append((step(c4 + tl(": il telefono si può bloccare", ": you can lock the phone"), page=("episode", 1, "play"), address=ep, shield=2,
                      cast="ready", tv_state="playing", mini=("playing", 1, 0.03)), 1800))
     render("manda-a-kodi", seq)
 
 
 def coda():
     ep = "animetv.example"
-    c1 = "1. Sulla TV va l'episodio 1. Apri il 2 e avvia il player"
-    c2 = "2. + Coda: va in fondo, l'episodio 1 continua"
-    c3 = "3. Tocca la barra di Kodi, scheda Coda"
-    c4 = "4. Finito l'1, Kodi passa da solo al 2"
+    c1 = tl("1. Sulla TV va l'episodio 1. Apri il 2 e avvia il player", "1. Episode 1 plays on the TV. Open 2, start the player")
+    c2 = tl("2. + Coda: va in fondo, l'episodio 1 continua", "2. + queue: it goes last, episode 1 keeps playing")
+    c3 = tl("3. Tocca la barra di Kodi, scheda Coda", "3. Tap the Kodi bar, Queue tab")
+    c4 = tl("4. Finito l'1, Kodi passa da solo al 2", "4. When 1 ends, Kodi moves on to 2 by itself")
     common = dict(address=ep, tv_state="playing")
-    rows1 = [("JoJo – Episodio 1", "In riproduzione · finisce alle 21:52", True, False),
-             ("JoJo – Episodio 2", "Parte alle 21:52", False, False)]
-    rows2 = [("JoJo – Episodio 1", "Già visto", False, True),
-             ("JoJo – Episodio 2", "In riproduzione · finisce alle 22:16", True, False)]
-    toast = "Aggiunto alla coda (la vedi in ⋮ → Coda di Kodi)"
+    rows1 = [(tl("JoJo – Episodio 1", "JoJo – Episode 1"), tl("In riproduzione · finisce alle 21:52", "Playing · ends at 21:52"), True, False),
+             (tl("JoJo – Episodio 2", "JoJo – Episode 2"), tl("Parte alle 21:52", "Starts at 21:52"), False, False)]
+    rows2 = [(tl("JoJo – Episodio 1", "JoJo – Episode 1"), tl("Già visto", "Already watched"), False, True),
+             (tl("JoJo – Episodio 2", "JoJo – Episode 2"), tl("In riproduzione · finisce alle 22:16", "Playing · ends at 22:16"), True, False)]
+    toast = tl("Aggiunto alla coda (la vedi in ⋮ → Coda di Kodi)", "Added to the queue (see it in ⋮ → Kodi queue)")
     render("coda", [
         (step(c1, page=("episode", 2, "poster"), mini=("playing", 1, 0.2), **common), 1200),
         (step(c1, page=("episode", 2, "poster"), mini=("playing", 1, 0.2), after=lambda f: tap(f, *PLAYER_BUTTON), **common), 500),
@@ -648,24 +656,24 @@ def coda():
 
 
 def accendi():
-    c1 = "1. TV spenta: premi l'accensione nella barra di Kodi"
-    c2 = "2. L'app trova la Fire TV e la sveglia"
-    c3 = "3. La TV passa sull'ingresso giusto e apre Kodi"
+    c1 = tl("1. TV spenta: premi l'accensione nella barra di Kodi", "1. TV off: tap power in the Kodi bar")
+    c2 = tl("2. L'app trova la Fire TV e la sveglia", "2. The app finds the Fire TV and wakes it")
+    c3 = tl("3. La TV passa sull'ingresso giusto e apre Kodi", "3. The TV switches input and Kodi opens")
     render("accendi", [
         (step(c1, tv_state="off", mini="off"), 1200),
         (step(c1, tv_state="off", mini="off", after=lambda f: tap(f, *mini_positions()["play"])), 500),
-        (step(c2, tv_state="off", mini="off", toast="Accendo la TV…"), 1100),
-        (step(c2, tv_state="input", mini="off", toast="Cerco la Fire TV in rete…"), 1200),
-        (step(c3, tv_state="kodi", mini="off", toast="Cerco la Fire TV in rete…"), 1000),
-        (step(c3, tv_state="kodi", mini="idle", toast=f"Kodi è pronto a {HOST}"), 2200),
+        (step(c2, tv_state="off", mini="off", toast=tl("Accendo la TV…", "Turning on the TV…")), 1100),
+        (step(c2, tv_state="input", mini="off", toast=tl("Cerco la Fire TV in rete…", "Looking for the Fire TV on the network…")), 1200),
+        (step(c3, tv_state="kodi", mini="off", toast=tl("Cerco la Fire TV in rete…", "Looking for the Fire TV on the network…")), 1000),
+        (step(c3, tv_state="kodi", mini="idle", toast=tl(f"Kodi è pronto a {HOST}", f"Kodi is ready at {HOST}")), 2200),
     ])
 
 
 def preferiti():
     ep = "animetv.example"
-    c1 = "1. Sulla pagina da salvare premi ★"
-    c2 = "2. Aggiungi questa pagina e scegli un nome"
-    c3 = "3. Lo ritrovi nella pagina iniziale: toccalo"
+    c1 = tl("1. Sulla pagina da salvare premi ★", "1. On the page to save, tap ★")
+    c2 = tl("2. Aggiungi questa pagina e scegli un nome", "2. Add this page and pick a name")
+    c3 = tl("3. Lo ritrovi nella pagina iniziale: toccalo", "3. It's on the home page: tap it")
     pg = dict(page=("episode", 1, "poster"), address=ep)
     old = [("SerieTV", "serietv.example")]
     seq = [
@@ -675,8 +683,8 @@ def preferiti():
     ]
     for t in ("Ani", "Anime", "AnimeTV"):
         seq.append((step(c2, after=lambda f, t=t: dialog_name(f, t), **pg), 300))
-    seq.append((step(c2, after=lambda f: tap(f, *dialog_name(f, "AnimeTV")["Salva"]), **pg), 500))
-    seq.append((step(c2, star=True, toast="Aggiunto ai preferiti", **pg), 1200))
+    seq.append((step(c2, after=lambda f: tap(f, *dialog_name(f, "AnimeTV")[tl("Salva", "Save")]), **pg), 500))
+    seq.append((step(c2, star=True, toast=tl("Aggiunto ai preferiti", "Added to favourites"), **pg), 1200))
     favs = ("SerieTV", "AnimeTV")
     home = dict(home=dict(favorites=favs))
     seq.append((step(c3, **home), 900))

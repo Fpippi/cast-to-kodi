@@ -48,9 +48,9 @@ fun releaseNotes(markdown: String, max: Int = 12): String {
 // "12,4 MB" accanto al pulsante e durante lo scaricamento
 fun sizeLabel(bytes: Long): String = when {
     bytes < 1_000_000 -> "${(bytes + 500) / 1000} kB"
-    else -> "%.1f MB".format(java.util.Locale.ITALIAN, bytes / 1_000_000.0)
+    else -> "%.1f MB".format(Lang.locale, bytes / 1_000_000.0)
 }
 
 // "Scarico… 3,1 MB di 12,4 MB"
 fun downloadLabel(done: Long, total: Long): String =
-    if (total > 0) "Scarico… ${sizeLabel(done)} di ${sizeLabel(total)}" else "Scarico… ${sizeLabel(done)}"
+    if (total > 0) tr("Scarico… ${sizeLabel(done)} di ${sizeLabel(total)}", "Downloading… ${sizeLabel(done)} of ${sizeLabel(total)}") else tr("Scarico… ${sizeLabel(done)}", "Downloading… ${sizeLabel(done)}")
