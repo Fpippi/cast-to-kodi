@@ -196,6 +196,13 @@ dragging down. At the top right there is Kodi's name with a lit dot if it answer
 - **Audio** and **Sottotitoli** (Subtitles): pick the language among the video's own, or turn subtitles off.
 - **Scrivi** (Type): first open a text field in Kodi (e.g. search), then type with the phone keyboard.
 - **Accendi la TV** (Turn on the TV): like the ⏻ button.
+- **Timer** (sleep timer): to fall asleep in front of an episode. Choose when (**Fine di questo episodio** "end of this
+  episode", **Fine della coda** "end of the queue", **Tra 30 minuti** / **Tra 1 ora** "in 30 minutes / 1 hour" or **Altro
+  tempo…** "other time", each with the time it fires) and what to do (**Pausa** "pause", **Ferma il video** "stop" or
+  **Spegni la TV** "turn the TV off": the Fire TV goes to standby and with HDMI-CEC the TV turns off too). The Fire TV
+  keeps the timer, through ADB debugging like ⏻, so the phone can be switched off; if the Fire TV doesn't answer the phone
+  keeps it and must stay on. While it runs the remote shows "Si spegne alle 23:13" (turns off at 23:13) with **+15 min**
+  and **Annulla** (Cancel), and the Kodi bar shows the timer's time.
 
 ### Without opening the app: notification shade and lock screen
 

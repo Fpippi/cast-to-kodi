@@ -3,7 +3,9 @@ package it.franc.casttokodi
 import android.R
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.AlarmManager
 import android.app.Dialog
+import android.app.PendingIntent
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.content.res.Configuration
@@ -1928,9 +1930,42 @@ class MainActivity : Activity() {
             }
         }
 
+        // Timer di spegnimento attivo: una striscia al posto della pillola, con +15 min e Annulla
+        val timerText = TextView(this).apply {
+            textSize = 14f
+            setTextColor(sys(R.color.system_accent1_900, R.color.system_accent1_100))
+            setCompoundDrawablesRelativeWithIntrinsicBounds(icon(it.franc.casttokodi.R.drawable.ic_schedule, sys(R.color.system_accent1_900, R.color.system_accent1_100), 20), null, null, null)
+            compoundDrawablePadding = dp(10)
+        }
+        fun timerButton(text: String, onClick: () -> Unit) = TextView(this).apply {
+            this.text = text
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setTextColor(sys(R.color.system_accent1_900, R.color.system_accent1_100))
+            setPadding(dp(12), 0, dp(12), 0)
+            background = rounded(sys(R.color.system_accent1_200, R.color.system_accent1_700), 16)
+            setOnClickListener { onClick() }
+        }
+        val timerStrip = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), dp(8), dp(8), dp(8))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(16).toFloat()
+                setColor(sys(R.color.system_accent1_100, R.color.system_accent1_800))
+            }
+            addView(timerText, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(timerButton("+15 min") { extendTimer() }, LinearLayout.LayoutParams(-2, dp(32)).apply { marginStart = dp(6) })
+            addView(timerButton("Annulla") { cancelTimer() }, LinearLayout.LayoutParams(-2, dp(32)).apply { marginStart = dp(6) })
+            visibility = View.GONE
+        }
+
         fun show(playing: NowPlaying?, problem: String?) {
             now = playing
             onRead(playing)
+            val timer = activeTimerLabel()
+            timerStrip.visibility = if (timer != null) View.VISIBLE else View.GONE
+            timerText.text = timer
             if (playing == null) {
                 title.text = "Kodi non risponde"
                 status.text = problem
@@ -2069,6 +2104,7 @@ class MainActivity : Activity() {
         }
         val more = LinearLayout(this).apply {
             listOf(
+                pill("Timer") { chooseTimer() },
                 pill("Accendi la TV") { wakeKodi() },
                 pill("−30 s") { video { kodi, id -> kodi.skip(id, -30) } },
                 pill("+30 s") { video { kodi, id -> kodi.skip(id, 30) } },
@@ -2125,10 +2161,11 @@ class MainActivity : Activity() {
                 gap(dpad, 24, 216, 216, Gravity.CENTER_HORIZONTAL),
                 gap(keys, 24),
                 gap(volume, 4),
+                gap(timerStrip, 20),
                 gap(HorizontalScrollView(context).apply {
                     isHorizontalScrollBarEnabled = false
                     addView(more)
-                }, 20),
+                }, 12),
                 gap(hint, 16),
             ).forEach { (view, params) -> addView(view, params) }
             addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
@@ -2544,7 +2581,7 @@ class MainActivity : Activity() {
         miniPlay.visibility = View.VISIBLE
         KodiPlayer.startIfWanted(this)
         miniTitle.text = queueLabel(playing.file, playing.title, loadTitles())
-        miniStatus.text = miniPlayerStatus(playing.paused, playing.time, playing.total)
+        miniStatus.text = miniPlayerStatus(playing.paused, playing.time, playing.total) + (timerAt()?.let { " · timer ${clockAt(it)}" } ?: "")
         miniProgress.progress = if (playing.total > 0) (playing.time * 1000 / playing.total).toInt() else 0
         miniPlay.setImageDrawable(icon(
             if (playing.paused) it.franc.casttokodi.R.drawable.ic_play else it.franc.casttokodi.R.drawable.ic_pause,
@@ -3047,6 +3084,139 @@ class MainActivity : Activity() {
             }
             .setNegativeButton("Annulla", null)
             .show()
+    }
+
+    // ---- Timer di spegnimento (2026-10-27): scelte e comando in SleepTimer.kt, ripiego sul telefono in TimerReceiver ----
+
+    // Ora (secondi) in cui scatta il timer attivo, null se non ce n'è
+    private fun timerAt(): Long? = prefs.getLong("timerAt", 0).takeIf { it > System.currentTimeMillis() / 1000 }
+
+    private fun activeTimerLabel(): String? = timerAt()?.let { timerLabel(timerAction(prefs.getString("timerAction", null)), it) }
+
+    // Prima si chiede a Kodi a che punto è, per offrire "Fine di questo episodio" e "Fine della coda" con l'ora giusta
+    private fun chooseTimer() {
+        thread {
+            val kodi = quietKodi()
+            val playing = runCatching { kodi?.nowPlaying() }.getOrNull()
+            val state = if (playing?.playerId != null) runCatching { kodi?.state() }.getOrNull() else null
+            runOnUiThread { showTimerSheet(timerChoices(playing, state, System.currentTimeMillis() / 1000)) }
+        }
+    }
+
+    // Una riga che si sceglie toccandola, evidenziata quando è quella scelta (come in choiceSheet, ma senza chiudere)
+    private fun pickRow(title: String, detail: String?, selected: Boolean, onClick: () -> Unit) = LinearLayout(this).apply {
+        gravity = Gravity.CENTER_VERTICAL
+        minimumHeight = dp(52)
+        setPadding(dp(16), dp(6), dp(16), dp(6))
+        background = if (selected) rounded(sys(R.color.system_accent1_100, R.color.system_accent1_800), 16)
+            else RippleDrawable(ColorStateList.valueOf(0x33808080), null, GradientDrawable().apply { cornerRadius = dp(16).toFloat(); setColor(Color.WHITE) })
+        setOnClickListener { onClick() }
+        val name = homeText(title, 16f, bold = selected).apply { setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50)) }
+        addView(detail?.let { section(name, homeText(it, 13f, bold = false)) } ?: section(name), LinearLayout.LayoutParams(0, -2, 1f))
+        if (selected) addView(ImageView(context).apply {
+            setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_check, sys(R.color.system_accent1_600, R.color.system_accent1_200)))
+            scaleType = ImageView.ScaleType.CENTER
+        }, LinearLayout.LayoutParams(dp(32), dp(32)))
+    }
+
+    private fun showTimerSheet(choices: List<TimerChoice>) {
+        var chosen = 0
+        var action = timerAction(prefs.getString("timerAction", null))
+        val list = section()
+        fun draw() {
+            list.removeAllViews()
+            choices.forEachIndexed { i, choice ->
+                list.addView(pickRow(choice.title, choice.detail, i == chosen) { chosen = i; draw() },
+                    LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(2) })
+            }
+            list.addView(settingsHeading("Poi"))
+            TimerAction.entries.forEach { option ->
+                list.addView(pickRow(option.label, null, option == action) { action = option; draw() },
+                    LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(2) })
+            }
+            activeTimerLabel()?.let { list.addView(homeText("Adesso: $it. Il nuovo prende il suo posto.", 13f, bold = false).apply { setPadding(dp(16), dp(8), dp(16), 0) }) }
+        }
+        draw()
+        sheet("Timer di spegnimento", list.apply { setPadding(dp(16), 0, dp(16), dp(8)) }, "Avvia il timer" to {
+            val seconds = choices[chosen].seconds
+            if (seconds != null) startTimer(seconds, action) else askTimerMinutes { startTimer(it * 60L, action) }
+        })
+    }
+
+    private fun askTimerMinutes(done: (Int) -> Unit) {
+        val field = EditText(this).apply {
+            hint = "Minuti, es. 45"
+            inputType = InputType.TYPE_CLASS_NUMBER
+            isSingleLine = true
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Tra quanti minuti?")
+            .setView(FrameLayout(this).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(field) })
+            .setPositiveButton("Avvia") { _, _ ->
+                parseTimerMinutes(field.text.toString())?.let(done) ?: toast("Scrivi i minuti, da 1 a 720")
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+
+    // Il timer va alla Fire TV via ADB; se non risponde lo tiene il telefono, con una sveglia di Android
+    private fun startTimer(seconds: Long, action: TimerAction) {
+        val ip = prefs.getString("adbHost", null) ?: adbHost(prefs.getString("host", "").orEmpty())
+        val token = System.currentTimeMillis()
+        val at = System.currentTimeMillis() / 1000 + seconds
+        prefs.edit().putString("timerAction", action.id).apply()
+        toast("Avvio il timer…")
+        thread {
+            val onTv = ip.isNotBlank() && runCatching {
+                adbShell(ip, adbKeys(), ADB_KEY_NAME, timerCommand(seconds, action, token), onConfirm = {
+                    runOnUiThread { notice("Conferma sulla TV", "La Fire TV chiede se consentire il debug da questo telefono: spunta \"Consenti sempre da questo computer\" e premi OK.") }
+                })
+            }.isSuccess
+            runOnUiThread {
+                cancelPhoneTimer()
+                if (!onTv) phoneTimer(seconds, action, token)
+                prefs.edit().putLong("timerAt", at).putLong("timerToken", token).putBoolean("timerOnPhone", !onTv).apply()
+                readMini()
+                val label = timerLabel(action, at)
+                if (onTv) toast("Timer avviato: $label")
+                else notice("Timer sul telefono", "$label, ma la Fire TV non risponde in ADB, quindi il timer lo tiene il telefono: deve restare acceso e sul Wi-Fi di casa fino ad allora" +
+                    (if (action == TimerAction.TV_OFF) ", e la TV non si spegne (Kodi si ferma soltanto)." else ".") +
+                    "\n\nPer lasciarlo alla Fire TV serve il Debug ADB, come per il pulsante di accensione.")
+            }
+        }
+    }
+
+    private fun timerIntent(action: TimerAction? = null, token: Long = 0) = PendingIntent.getBroadcast(
+        this, 0,
+        Intent(this, TimerReceiver::class.java).apply { action?.let { putExtra("action", it.id) }; putExtra("token", token) },
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    private fun phoneTimer(seconds: Long, action: TimerAction, token: Long) {
+        getSystemService(AlarmManager::class.java)?.setAndAllowWhileIdle(
+            AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + seconds * 1000, timerIntent(action, token))
+    }
+
+    private fun cancelPhoneTimer() {
+        getSystemService(AlarmManager::class.java)?.cancel(timerIntent())
+    }
+
+    private fun cancelTimer() {
+        val onPhone = prefs.getBoolean("timerOnPhone", false)
+        val ip = prefs.getString("adbHost", null) ?: adbHost(prefs.getString("host", "").orEmpty())
+        prefs.edit().remove("timerAt").remove("timerToken").remove("timerOnPhone").apply()
+        cancelPhoneTimer()
+        readMini()
+        if (onPhone || ip.isBlank()) return toast("Timer annullato")
+        thread {
+            val done = runCatching { adbShell(ip, adbKeys(), ADB_KEY_NAME, cancelTimerCommand(), onConfirm = {}) }.isSuccess
+            toast(if (done) "Timer annullato" else "Non riesco ad annullare il timer sulla Fire TV: riprova tra poco")
+        }
+    }
+
+    private fun extendTimer() {
+        val at = timerAt() ?: return
+        startTimer(at - System.currentTimeMillis() / 1000 + TIMER_EXTEND, timerAction(prefs.getString("timerAction", null)))
     }
 
     // ---- Tendina (2026-10-27): player di Android in KodiPlayer.kt, riquadro in KodiTile.kt ----
