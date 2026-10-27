@@ -7,6 +7,12 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.4.0
+
+- **Couch Cast parla anche inglese**: l'app segue la lingua del telefono (italiano se il telefono è in italiano,
+  altrimenti inglese). Si cambia in *⋮ → Impostazioni → Lingua dell'app*, e la scelta va nel backup.
+- Guida, README e sito con le animazioni anche in inglese.
+
 ## 2.3.0
 
 - **Aggiornamento con un tocco**: all'avvio, se c'è una versione nuova, si apre un pannello con le novità e
