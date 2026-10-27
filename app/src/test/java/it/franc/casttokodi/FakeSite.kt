@@ -41,6 +41,18 @@ class FakeSite(private val oneShot: Boolean = false, private val broken: Boolean
 1080p.m3u8?token=x
 """
 
+        // La stessa master con due tracce di sottotitoli: l'italiano in due pezzi, l'inglese "Forced"
+        val MASTER_SUBS = """#EXTM3U
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="s",NAME="Italiano",LANGUAGE="ita",URI="subs/ita.m3u8"
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="s",NAME="English",LANGUAGE="eng",FORCED=YES,URI="subs/eng.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=1200000,RESOLUTION=854x480,SUBTITLES="s"
+480p.m3u8?token=x
+#EXT-X-STREAM-INF:BANDWIDTH=4500000,RESOLUTION=1920x1080,SUBTITLES="s"
+1080p.m3u8?token=x
+"""
+
+        fun subs(vararg parts: String) = "#EXTM3U\n#EXT-X-TARGETDURATION:4\n" + parts.joinToString("") { "#EXTINF:4.000,\n$it\n" } + "#EXT-X-ENDLIST\n"
+
         fun media(quality: String) = """#EXTM3U
 #EXT-X-TARGETDURATION:4
 #EXT-X-KEY:METHOD=AES-128,URI="/storage/enc.key",IV=0x01
@@ -53,6 +65,14 @@ $quality/0001.ts
 
         private val files = mapOf(
             "/master.m3u8" to MASTER.toByteArray(),
+            "/master-subs.m3u8" to MASTER_SUBS.toByteArray(),
+            "/subs/ita.m3u8" to subs("ita/0.vtt", "ita/1.vtt").toByteArray(),
+            "/subs/ita/0.vtt" to "WEBVTT\nX-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000\n\n00:00:01.000 --> 00:00:02.000\nCiao\n".toByteArray(),
+            "/subs/ita/1.vtt" to "WEBVTT\nX-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000\n\n00:00:05.000 --> 00:00:06.000\nArrivederci\n".toByteArray(),
+            "/subs/eng.m3u8" to subs("eng/0.vtt").toByteArray(),
+            "/subs/eng/0.vtt" to "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n[SIGN]\n".toByteArray(),
+            // Un .srt caricato dalla pagina, a parte
+            "/page/episodio_ita.srt" to "1\r\n00:00:01,000 --> 00:00:02,500\r\nDal sito\r\n".toByteArray(),
             "/480p.m3u8" to media("480p").toByteArray(),
             "/1080p.m3u8" to media("1080p").toByteArray(),
             "/storage/enc.key" to KEY,

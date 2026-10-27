@@ -26,7 +26,7 @@ on the phone, start the video, press a button and the video plays on the TV. The
 7. [The episode queue](#7-the-episode-queue)
 8. [Favourites](#8-favourites)
 9. [Kodi log: when something doesn't play](#9-kodi-log-when-something-doesnt-play)
-10. [Update the app](#10-update-the-app)
+10. [Update the app and make a backup](#10-update-the-app-and-make-a-backup)
 11. [Common problems](#-common-problems)
 
 ---
@@ -54,7 +54,7 @@ on the phone, start the video, press a button and the video plays on the TV. The
 | **🛡 with a number** | Shows up when the app blocked popups or jumps to other sites on this page. Tap it to see which ones and open one, if you needed it. |
 | **★** | Your favourite sites. Filled if the open page is already a favourite. |
 | **Kodi bar** (at the bottom) | Always there, as soon as the app knows where Kodi is. It shows what is playing, with the time, play/pause and a thin line at the bottom that moves forward. The dot next to the status is lit if Kodi answers. If Kodi is on but idle it says *Acceso, niente in riproduzione* (On, nothing playing); if it is off or not answering there is the **⏻** button to turn the TV on. The button on the right, or a tap on the bar, opens the remote with the queue. |
-| **⋮** | A small menu: *Telecomando* (Remote), *Coda di Kodi* (Kodi queue), *Pagina iniziale* (Home page), *Impostazioni* (Settings: where Kodi is, power on, next episodes, history, Kodi log, guide, version). |
+| **⋮** | A small menu: *Telecomando* (Remote), *Coda di Kodi* (Kodi queue), *Pagina iniziale* (Home page), *Impostazioni* (Settings: where Kodi is, power on, next episodes, history, shade, backup, Kodi log, guide, version). |
 | **Manda a Kodi** (Send to Kodi) | Plays the page's video on the TV right away. It shows up at the bottom right, over the site, only when a video starts on the page. |
 | **+ Coda** (+ Queue: the round icon with lines and a +, next to *Manda a Kodi*) | Puts the video at the end of Kodi's queue, without interrupting what you are watching. Long-press it to open the queue. |
 
@@ -163,7 +163,8 @@ Press **Manda a Kodi** (Send to Kodi).
   *Video completo* (Full video), is almost always the right one: it is already picked, marked *Consigliato*
   (Recommended), with the **Manda** (Send) and **In coda** (Queue) buttons under it. Tap another video to move the
   buttons there. Videos under a minute are faded (*Probabile pubblicità*, "Probably an ad"). On some protected videos
-  the frame does not arrive and only the length is shown: you can still pick it.
+  the frame does not arrive and only the length is shown: you can still pick it. **CC** on the frame means there are
+  subtitles, with their languages.
 - From here on the phone **is no longer needed**: you can lock it or use it for something else. The video reaches the
   TV directly from the site.
 
@@ -193,9 +194,37 @@ dragging down. At the top right there is Kodi's name with a lit dot if it answer
   queue stays).
 - **Vai al minuto** (Go to minute): type e.g. `12:30` (12 minutes 30 seconds) or `1:02:30`.
 - **Velocità** (Speed): normal, 1.25x or 1.5x. With some videos Kodi won't change it, and the app says so.
-- **Audio** and **Sottotitoli** (Subtitles): pick the language among the video's own, or turn subtitles off.
+- **Audio**: pick the language among the video's own.
+- **Sottotitoli** (Subtitles): a panel with *Spenti* (Off) and the tracks, with "dal sito" (from the site) under the
+  ones taken from the page. The phone hands Kodi, together with the video, both the playlist's subtitles and the
+  `.vtt`/`.srt` files the site loads separately (only with *Manda a Kodi*: in the queue Kodi only sees the ones inside
+  the video). On an episode of a series in *Continua a guardare* there is **Accendili sempre in italiano** (Always
+  turn them on in Italian, or in the chosen language): in the next and queued episodes the app turns them on by
+  itself, while the Kodi bar or the notification player is running. If the video has none, **Cerca con l'add-on di
+  Kodi** (Search with the Kodi add-on) opens Kodi's subtitle search on the TV (it needs an add-on such as
+  OpenSubtitles).
 - **Scrivi** (Type): first open a text field in Kodi (e.g. search), then type with the phone keyboard.
 - **Accendi la TV** (Turn on the TV): like the ⏻ button.
+- **Timer** (sleep timer): to fall asleep in front of an episode. Choose when (**Fine di questo episodio** "end of this
+  episode", **Fine della coda** "end of the queue", **Tra 30 minuti** / **Tra 1 ora** "in 30 minutes / 1 hour" or **Altro
+  tempo…** "other time", each with the time it fires) and what to do (**Pausa** "pause", **Ferma il video** "stop" or
+  **Spegni la TV** "turn the TV off": the Fire TV goes to standby and with HDMI-CEC the TV turns off too). The Fire TV
+  keeps the timer, through ADB debugging like ⏻, so the phone can be switched off; if the Fire TV doesn't answer the phone
+  keeps it and must stay on. While it runs the remote shows "Si spegne alle 23:13" (turns off at 23:13) with **+15 min**
+  and **Annulla** (Cancel), and the Kodi bar shows the timer's time.
+
+### Without opening the app: notification shade and lock screen
+
+While Kodi is playing, **Android's media player** appears in the notification shade and on the lock screen, like for
+music: the show's picture, title, episode, the time bar (drag it to jump) and the buttons **Salta sigla** (Skip intro,
+only if you already chose the time for that show), **−10 s**, **pause**, **+10 s** and **Next** (if the queue has another
+video). Tapping it opens the remote. With the screen off it doesn't talk to Kodi, so it doesn't drain the battery; it goes
+away by itself when Kodi stops. Turn it off in **⋮ → Impostazioni → Controlli nella tendina** (Settings, Controls in the
+shade).
+
+There is also the **Couch Cast** quick settings tile: **⋮ → Impostazioni → Aggiungi il riquadro** (Add the tile), or the
+shade's pencil. It says what Kodi is doing; a tap pauses or resumes, with Kodi stopped or off it opens the app; a long
+press opens the remote.
 
 ---
 
@@ -322,11 +351,33 @@ If **Playback failed** appears on the TV or the video doesn't start:
 
 ---
 
-## 10. Update the app
+## 10. Update the app and make a backup
 
-On startup, if there is a new version, **Nuova versione disponibile** ("New version available") appears: press
-**Scarica** (Download) and install the APK over the old one (no need to uninstall). To check by hand: **⋮ → Impostazioni →
-Versione** (Settings, Version). To update with one tap you can use **Obtainium** with the repo address.
+On startup, if there is a new version, the **Nuova versione** (New version) panel opens with what's new. Press
+**Aggiorna** (Update): the app downloads the APK (with a progress bar) and Android asks you to confirm installing it
+over the old one (no need to uninstall, your data stays). The first time Android asks you to allow Couch Cast to install
+apps: allow it, go back and press **Aggiorna** again. If something goes wrong, **Apri GitHub** (Open GitHub) opens the
+release page in the browser. To check by hand: **⋮ → Impostazioni → Versione** (Settings, Version). **Obtainium**, with
+the repo address, keeps working too.
+
+### Backup: changing phone or reinstalling the app
+
+1. **⋮ → Impostazioni → Salva un backup** (Settings, Save a backup). The panel says what goes in the file: **Preferiti**
+   (Favorites), **Continua a guardare** (the shows with their pictures and the last page) and **Impostazioni** (Settings:
+   Kodi, intro, next episodes). Untick what you don't want.
+2. Leave **Aggiorna questo file ogni settimana** (Update this file every week) if you want the app to rewrite it by
+   itself: it does so on startup, when the last backup is more than a week old.
+3. **Scegli dove salvarlo** (Choose where to save it): Drive, Downloads or another folder. The file is called
+   `couchcast-` plus the date, `.zip`.
+
+To get everything back: **⋮ → Impostazioni → Ripristina da un backup** (Restore from a backup), pick the file and see
+what it holds compared to the phone. **Unisci** (Merge) adds what is missing (for a show it keeps the furthest episode,
+the phone's settings stay), **Sostituisci tutto** (Replace everything) puts the phone back as it was in the backup. Right
+after, the notice at the bottom has **Annulla** (Undo).
+
+Kodi's password and the Fire TV key are left out of the file on purpose: they are encrypted with a key that never leaves
+the phone. After restoring, the app asks for Kodi's password on the first send, and the TV asks *Allow* again on the
+first ⏻.
 
 ---
 

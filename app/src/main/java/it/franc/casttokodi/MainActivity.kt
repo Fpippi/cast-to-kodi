@@ -3,8 +3,11 @@ package it.franc.casttokodi
 import android.R
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.AlarmManager
 import android.app.Dialog
+import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.net.ConnectivityManager
@@ -29,6 +32,12 @@ import android.net.nsd.NsdServiceInfo
 import android.os.Build
 import android.os.Bundle
 import android.os.Message
+import android.service.quicksettings.TileService
+import android.app.StatusBarManager
+import android.content.ComponentName
+import android.graphics.drawable.Icon
+import android.provider.OpenableColumns
+import android.provider.Settings
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.text.InputType
@@ -86,7 +95,9 @@ import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
+import java.time.LocalDate
 import java.util.Date
+import java.util.Locale
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -122,8 +133,9 @@ private const val POPUP_SINK_MS = 10_000L
 // "copertina-" dalla 2.2.4: le copertine "cover-" della 2.2.3 erano salvate troppo piccole e così si riscaricano
 private const val COVER_PREFIX = "copertina-"
 
-// Alias nell'Android Keystore della chiave che cifra le password di Kodi
-private const val LOGIN_KEY = "kodi-login"
+// Scelta del file per Salva un backup e Ripristina (onActivityResult)
+private const val REQUEST_BACKUP = 41
+private const val REQUEST_RESTORE = 42
 
 // Nome della chiave ADB del telefono, salvato dalla Fire TV con la chiave
 private const val ADB_KEY_NAME = "Couch Cast"
@@ -172,7 +184,7 @@ class MainActivity : Activity() {
     // Ogni avvio del ciclo di lettura del mini-player ha il suo numero: in onPause si cambia e il ciclo vecchio si ferma
     @Volatile private var miniGeneration = 0
     private lateinit var progress: ProgressBar
-    private val prefs by lazy { getSharedPreferences("kodi", MODE_PRIVATE) }
+    private val prefs by lazy { KodiAccess.prefs(this) }
 
     // url del video -> Referer con cui la pagina l'ha richiesto (molti host rifiutano richieste senza)
     private val videos = LinkedHashMap<String, String>()
@@ -194,6 +206,9 @@ class MainActivity : Activity() {
     // Continua a guardare: le immagini già lette nella scelta del video (diventano quella della serie), gli avvisi
     // "Eri all'episodio" chiusi in questa sessione e, per ogni scheda della pagina iniziale, come aggiornarla in silenzio
     private val previews = HashMap<String, Bitmap>()
+
+    // File di sottotitoli (.vtt, .srt) caricati dalla pagina: indirizzo → Referer, passati a Kodi con il video
+    private val subtitleFiles = LinkedHashMap<String, String>()
     private val bannerClosed = mutableSetOf<String>()
     private val tileUpdaters = HashMap<String, (Show) -> Unit>()
     private lateinit var banner: View
@@ -347,15 +362,26 @@ class MainActivity : Activity() {
         migrateAuth()
         migrateAutoNext()
         cleanFrames()
+        autoBackup()
         showHome()
         if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress()
         openShared(intent)
+        openRemote(intent)
         checkUpdate()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         openShared(intent)
+        openRemote(intent)
+        installStatus(intent)
+    }
+
+    // Tocco sul player di Android o pressione lunga sul riquadro della tendina: il telecomando
+    private fun openRemote(intent: Intent?) {
+        if (intent?.action != ACTION_OPEN_REMOTE && intent?.action != TileService.ACTION_QS_TILE_PREFERENCES) return
+        intent.action = null
+        if (!prefs.getString("host", "").isNullOrBlank()) showPlayer()
     }
 
     // Condividi → Couch Cast da Chrome o da un'altra app: la pagina si apre qui, dove il video si trova come al solito.
@@ -383,31 +409,156 @@ class MainActivity : Activity() {
     private fun checkUpdate(asked: Boolean = false) {
         val installed = installedVersion()
         thread {
-            val latest = try {
+            val release = try {
                 val conn = URL("https://api.github.com/repos/$REPO/releases/latest").openConnection() as HttpURLConnection
                 conn.connectTimeout = 5000
                 conn.readTimeout = 10000
                 conn.setRequestProperty("Accept", "application/vnd.github+json")
                 if (conn.responseCode != 200) throw IOException("HTTP ${conn.responseCode}")
-                JSONObject(conn.inputStream.bufferedReader().readText()).optString("tag_name")
+                parseRelease(conn.inputStream.bufferedReader().readText())
             } catch (e: Exception) {
                 if (asked) toast("Non riesco a controllare gli aggiornamenti: c'è la rete?")
                 return@thread
             }
-            if (!isNewerVersion(latest, installed)) {
+            if (!isNewerVersion(release.tag, installed)) {
                 if (asked) toast("Hai già l'ultima versione ($installed)")
                 return@thread
             }
-            runOnUiThread {
-                AlertDialog.Builder(this)
-                    .setTitle("Nuova versione disponibile")
-                    .setMessage("Installata: $installed\nUltima: ${latest.removePrefix("v")}")
-                    .setPositiveButton("Scarica") { _, _ ->
-                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/$REPO/releases/latest")))
-                    }
-                    .setNegativeButton("Dopo", null)
-                    .show()
+            runOnUiThread { showUpdate(release, installed) }
+        }
+    }
+
+    // Aggiornamento con un tocco (2026-10-27, mockup approvato): le novità della release e "Aggiorna", che scarica
+    // l'APK nell'app e lo passa all'installatore di Android (logica in Update.kt). Se non va, resta GitHub nel browser
+    private fun showUpdate(release: Release, installed: String) {
+        val onSurface = sys(R.color.system_neutral1_900, R.color.system_neutral1_100)
+        val github = { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/$REPO/releases/latest"))) }
+        val status = homeText("", 13f, bold = false).apply { visibility = View.GONE }
+        val progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 1000
+            progressTintList = ColorStateList.valueOf(sys(R.color.system_accent1_600, R.color.system_accent1_200))
+            visibility = View.GONE
+        }
+        val notes = releaseNotes(release.notes)
+        val button = Button(this).apply {
+            text = if (release.apkSize > 0) "Aggiorna · ${sizeLabel(release.apkSize)}" else "Aggiorna"
+            isAllCaps = false
+            stateListAnimator = null
+            textSize = 15f
+            background = rounded(sys(R.color.system_accent1_600, R.color.system_accent1_200), 24)
+            setTextColor(sys(R.color.system_accent1_0, R.color.system_accent1_800))
+            setCompoundDrawablesRelativeWithIntrinsicBounds(icon(it.franc.casttokodi.R.drawable.ic_download, sys(R.color.system_accent1_0, R.color.system_accent1_800), 20), null, null, null)
+            compoundDrawablePadding = dp(8)
+            setPadding(dp(20), 0, dp(20), 0)
+        }
+        val content = section(
+            homeText("Installata ${installed.ifBlank { "?" }} · nuova ${release.tag.removePrefix("v")}", 13f, bold = false),
+            homeText(notes.ifBlank { "Le novità sono nella pagina della release." }, 14f, bold = false).apply {
+                setTextColor(onSurface)
+                setPadding(0, dp(12), 0, dp(12))
+                setLineSpacing(dp(2).toFloat(), 1f)
+            },
+            progress, status,
+        ).apply { setPadding(dp(24), 0, dp(24), dp(8)) }
+        content.addView(button, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
+        sheet("Nuova versione ${release.tag.removePrefix("v")}", content, "Dopo" to {}, "Apri GitHub" to github)
+        fun say(text: String) {
+            status.text = text
+            status.visibility = View.VISIBLE
+        }
+        button.setOnClickListener {
+            val apk = release.apkUrl ?: return@setOnClickListener github()
+            // La prima volta Android chiede di consentire a Couch Cast di installare app: poi si preme di nuovo
+            if (!packageManager.canRequestPackageInstalls()) {
+                say("Consenti a Couch Cast di installare app (solo la prima volta), poi torna qui e premi di nuovo Aggiorna.")
+                startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+                return@setOnClickListener
             }
+            button.isEnabled = false
+            button.alpha = 0.5f
+            progress.visibility = View.VISIBLE
+            progress.isIndeterminate = release.apkSize <= 0
+            say(downloadLabel(0, release.apkSize))
+            thread {
+                try {
+                    installUpdate(apk, release.apkSize) { done, total ->
+                        runOnUiThread {
+                            if (total > 0) progress.progress = (done * 1000 / total).toInt()
+                            status.text = downloadLabel(done, total)
+                        }
+                    }
+                    runOnUiThread {
+                        progress.visibility = View.GONE
+                        say("Scaricato: conferma l'installazione. L'app si chiude e si riapre aggiornata.")
+                    }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        progress.visibility = View.GONE
+                        button.isEnabled = true
+                        button.alpha = 1f
+                        say("Non riesco a scaricarlo (${e.message ?: e.javaClass.simpleName}). Riprova, o scaricalo da GitHub.")
+                    }
+                }
+            }
+        }
+    }
+
+    // Da un thread di background: l'APK va dal sito direttamente in una sessione dell'installatore, senza file
+    // intermedi; l'esito (e la richiesta di conferma) arriva in installStatus
+    private fun installUpdate(url: String, size: Long, progress: (Long, Long) -> Unit) {
+        val installer = packageManager.packageInstaller
+        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+            setAppPackageName(packageName)
+            if (size > 0) setSize(size)
+        }
+        val id = installer.createSession(params)
+        val session = installer.openSession(id)
+        try {
+            val conn = URL(url).openConnection() as HttpURLConnection
+            conn.connectTimeout = 10_000
+            conn.readTimeout = 30_000
+            if (conn.responseCode != 200) throw IOException("HTTP ${conn.responseCode}")
+            val total = conn.contentLengthLong.takeIf { it > 0 } ?: size
+            conn.inputStream.use { input ->
+                session.openWrite(APK_NAME, 0, total.takeIf { it > 0 } ?: -1).use { out ->
+                    val buffer = ByteArray(64 * 1024)
+                    var done = 0L
+                    var shown = 0L
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        out.write(buffer, 0, n)
+                        done += n
+                        if (done - shown > 256 * 1024) { shown = done; progress(done, total) }
+                    }
+                    progress(done, total)
+                    session.fsync(out)
+                }
+            }
+            val status = PendingIntent.getActivity(
+                this, 1, Intent(this, MainActivity::class.java).setAction(ACTION_INSTALL),
+                PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            session.commit(status.intentSender)
+            session.close()
+        } catch (e: Exception) {
+            session.abandon()
+            throw e
+        }
+    }
+
+    // Esito dell'installatore: la conferma di Android da mostrare, o un errore
+    private fun installStatus(intent: Intent?) {
+        if (intent?.action != ACTION_INSTALL) return
+        intent.action = null
+        when (intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
+            PackageInstaller.STATUS_PENDING_USER_ACTION ->
+                intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)?.let { startActivity(it) }
+            PackageInstaller.STATUS_SUCCESS -> toast("Couch Cast aggiornata")
+            PackageInstaller.STATUS_FAILURE_ABORTED -> toast("Aggiornamento annullato")
+            else -> notice("Aggiornamento non installato",
+                (intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "Android non l'ha installato.") +
+                    "\n\nPuoi scaricarlo da GitHub: ⋮ → Impostazioni → Versione, poi Apri GitHub.")
         }
     }
 
@@ -478,6 +629,7 @@ class MainActivity : Activity() {
                 if (!address.hasFocus()) address.setText(addressLabel(url))
                 videos.clear()
                 previews.clear()
+                subtitleFiles.clear()
                 blocked.clear()
                 refreshShield()
                 refreshStar()
@@ -515,6 +667,11 @@ class MainActivity : Activity() {
                     runOnUiThread {
                         if (videos.putIfAbsent(video, referer) == null) refreshCastButton()
                     }
+                }
+                if (isSubtitlePath(request.url.path)) {
+                    val referer = request.requestHeaders["Referer"] ?: pageUrl
+                    val file = request.url.toString()
+                    runOnUiThread { subtitleFiles.putIfAbsent(file, referer) }
                 }
                 if (request.method == "GET" && isHlsPath(request.url.path)) return capturePlaylist(request)
                 return null
@@ -702,6 +859,8 @@ class MainActivity : Activity() {
         }
         val userAgent = web.settings.userAgentString
         val cards = mutableListOf<View>()
+        // Sottotitoli caricati dalla pagina: valgono per qualunque video si mandi da qui
+        val siteLanguages = siteSubtitleFiles(subtitleFiles.keys.toList()).map { subtitleLanguage(it) }
         list.forEachIndexed { i, video ->
             val image = ImageView(this).apply {
                 scaleType = ImageView.ScaleType.CENTER_CROP
@@ -724,11 +883,24 @@ class MainActivity : Activity() {
                 }
                 visibility = View.GONE
             }
+            // "CC Italiano, Inglese": sottotitoli nella playlist o sulla pagina
+            val cc = TextView(this).apply {
+                textSize = 10f
+                typeface = Typeface.DEFAULT_BOLD
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_900))
+                setPadding(dp(5), dp(1), dp(5), dp(1))
+                background = rounded(sys(R.color.system_neutral1_10, R.color.system_neutral1_10), 4)
+                text = ccLabel(siteLanguages)
+                visibility = if (siteLanguages.isEmpty()) View.GONE else View.VISIBLE
+            }
             val frame = FrameLayout(this).apply {
                 addView(image, FrameLayout.LayoutParams(-1, -1))
                 addView(duration, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, dp(6), dp(6)) })
+                addView(cc, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply { setMargins(dp(6), 0, dp(52), dp(6)) })
             }
-            val host = "da ${shortHost(Uri.parse(video.url).host)}"
+            val host = "da ${shortHost(Uri.parse(video.url).host)}" + if (siteLanguages.isNotEmpty()) " · sottotitoli dal sito" else ""
             val detail = TextView(this).apply {
                 text = host
                 textSize = 13f
@@ -766,8 +938,13 @@ class MainActivity : Activity() {
             content.addView(card, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
             if (i == 0) content.addView(actions)
             thread {
-                val (seconds, picture) = videoPreview(video, userAgent)
+                var inPlaylist: List<String?> = emptyList()
+                val (seconds, picture) = videoPreview(video, userAgent, subtitles = { inPlaylist = it })
                 runOnUiThread {
+                    if (inPlaylist.isNotEmpty()) {
+                        cc.text = ccLabel(inPlaylist + siteLanguages)
+                        cc.visibility = View.VISIBLE
+                    }
                     picture?.let {
                         previews[video.url] = it
                         image.setImageBitmap(it)
@@ -796,7 +973,11 @@ class MainActivity : Activity() {
     // della qualità più leggera (già decifrato) e il fotogramma si prende da lì. Video protetti: niente immagine.
     // width: larghezza massima del fotogramma in pixel (quella delle anteprime nell'elenco dei video, se non detta).
     // failed: perché il fotogramma non c'è, se manca
-    private fun videoPreview(video: Video, userAgent: String, width: Int = dp(224), fraction: Double? = null, failed: (String) -> Unit = {}): Pair<Long?, Bitmap?> {
+    // subtitles: le lingue dei sottotitoli nella playlist, quando ci sono
+    private fun videoPreview(
+        video: Video, userAgent: String, width: Int = dp(224), fraction: Double? = null, failed: (String) -> Unit = {},
+        subtitles: (List<String?>) -> Unit = {},
+    ): Pair<Long?, Bitmap?> {
         val headers = streamHeaders(video.url, video.referer, userAgent)
         val retriever = MediaMetadataRetriever()
         var file: File? = null
@@ -807,6 +988,7 @@ class MainActivity : Activity() {
             } else {
                 val preview = streams.preview(video.url, headers, fraction = fraction)
                 seconds = preview.seconds
+                if (preview.subtitles.isNotEmpty()) subtitles(preview.subtitles)
                 val sample = preview.sample ?: return (seconds to null).also { failed(preview.error ?: "pezzo del video non scaricato") }
                 // Senza gli eventuali byte finti davanti al pezzo (2.2.9: con la 2.2.8 il telefono non leggeva il fotogramma)
                 val start = tsStart(sample)
@@ -948,6 +1130,9 @@ class MainActivity : Activity() {
         val episode = if (historyOn()) episodeFromPage(pageUri.host, pageUri.path, pageUri.encodedQuery, pageTitle) else null
         val resume = if (!queued && episode != null) resumePoint(loadShows(), episode.site, episode.path) else null
         var sentFile: String? = null
+        // Sottotitoli della pagina (solo se il video è di questa pagina) e quelli passati davvero a Kodi
+        val siteSubtitles = if (page == pageUrl) pageSubtitles(userAgent) else emptyList()
+        var subtitlesSent: List<SubtitleTrack> = emptyList()
         sending = true
         refreshCastButton()
         // Il pulsante torna attivo prima di qualunque dialogo, così il nuovo tentativo che ne parte non viene scartato
@@ -962,11 +1147,11 @@ class MainActivity : Activity() {
         thread {
             val sent = try {
                 if (queued) {
-                    kodi.enqueue({ kodiItem(video.url, video.referer, userAgent, title, viaPhone = it).also { item -> sentFile = item.getString("file") } }) {
+                    kodi.enqueue({ kodiItem(video.url, video.referer, userAgent, title, viaPhone = it, siteSubtitles) { tracks -> subtitlesSent = tracks }.also { item -> sentFile = item.getString("file") } }) {
                         expiryProblem(video.url, it)
                     }
                 } else {
-                    kodi.playNow(kodiItem(video.url, video.referer, userAgent, title, viaPhone = true).also { sentFile = it.getString("file") })
+                    kodi.playNow(kodiItem(video.url, video.referer, userAgent, title, viaPhone = true, siteSubtitles) { subtitlesSent = it }.also { sentFile = it.getString("file") })
                 }
             } catch (e: IOException) {
                 done { relocateKodi(host) { sendToKodi(video, queued, typed, page, name) } }
@@ -990,6 +1175,8 @@ class MainActivity : Activity() {
                 // Con Kodi fermo "+ Coda" fa partire il video: anche lui diventa quello in corso
                 val playing = !queued || sent.message.startsWith("Inviato")
                 val file = sentFile
+                // "Inviato a Kodi, con sottotitoli in italiano"
+                val message = subtitlesNote(subtitlesSent)?.let { "${sent.message}, $it" } ?: sent.message
                 // 2.2.1: su AnimeUnity la serie non compariva e dal codice non si capisce perché. Finché non è chiaro,
                 // l'app dice cosa è andato storto invece di tacere
                 if (episode != null && file != null) {
@@ -1003,14 +1190,14 @@ class MainActivity : Activity() {
                     notice("Continua a guardare non ha salvato", "Episodio: ${episode != null}, video: ${file != null}\n\n$page")
                 }
                 if (resume != null && playing && file != null) {
-                    toast("${sent.message}: riparte da ${clockLabel(resume)}")
+                    toast("$message: riparte da ${clockLabel(resume)}")
                     thread {
                         val failed = runCatching { kodi.resumeAt(file, resume) }.getOrElse { it.message ?: it.javaClass.simpleName }
                         // 2.2.5: la ripresa non funzionava sulla Fire TV vera; finché non è provata, l'app dice perché
                         if (failed != null) runOnUiThread { notice("Non riparte da ${clockLabel(resume)}", "$failed.\n\nPuoi andare al minuto dal telecomando.") }
                     }
                 } else {
-                    toast(sent.message)
+                    toast(message)
                 }
                 readMini()
                 sent.position?.let { queueNextEpisodes(kodi, page, it, userAgent, title) }
@@ -1028,10 +1215,19 @@ class MainActivity : Activity() {
     }
 
     // Il video per Kodi (vedi Streams.kodiFile), da un thread di background. title è il nome da mostrare nella coda (vedi queueLabel)
-    private fun kodiItem(url: String, referer: String, userAgent: String, title: String, viaPhone: Boolean = false): JSONObject {
-        val file = streams.kodiFile(url, streamHeaders(url, referer, userAgent), viaPhone)
+    // subtitles: i file di sottotitoli della pagina, che vanno con il video solo se passa dal telefono
+    private fun kodiItem(
+        url: String, referer: String, userAgent: String, title: String, viaPhone: Boolean = false,
+        subtitles: List<SiteSubtitle> = emptyList(), onSubtitles: (List<SubtitleTrack>) -> Unit = {},
+    ): JSONObject {
+        val file = streams.kodiFile(url, streamHeaders(url, referer, userAgent), viaPhone, subtitles, onSubtitles)
         rememberTitle(queueKey(file), title)
         return JSONObject().put("file", file)
+    }
+
+    // I sottotitoli caricati dalla pagina aperta, con gli header del browser (da leggere sul thread principale)
+    private fun pageSubtitles(userAgent: String): List<SiteSubtitle> = siteSubtitleFiles(subtitleFiles.keys.toList()).map {
+        SiteSubtitle(it, streamHeaders(it, subtitleFiles[it].orEmpty(), userAgent))
     }
 
     // Gli header che manderebbe il browser: oltre a Referer e User-Agent, l'Origin della pagina del player quando il
@@ -1911,9 +2107,42 @@ class MainActivity : Activity() {
             }
         }
 
+        // Timer di spegnimento attivo: una striscia al posto della pillola, con +15 min e Annulla
+        val timerText = TextView(this).apply {
+            textSize = 14f
+            setTextColor(sys(R.color.system_accent1_900, R.color.system_accent1_100))
+            setCompoundDrawablesRelativeWithIntrinsicBounds(icon(it.franc.casttokodi.R.drawable.ic_schedule, sys(R.color.system_accent1_900, R.color.system_accent1_100), 20), null, null, null)
+            compoundDrawablePadding = dp(10)
+        }
+        fun timerButton(text: String, onClick: () -> Unit) = TextView(this).apply {
+            this.text = text
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setTextColor(sys(R.color.system_accent1_900, R.color.system_accent1_100))
+            setPadding(dp(12), 0, dp(12), 0)
+            background = rounded(sys(R.color.system_accent1_200, R.color.system_accent1_700), 16)
+            setOnClickListener { onClick() }
+        }
+        val timerStrip = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), dp(8), dp(8), dp(8))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(16).toFloat()
+                setColor(sys(R.color.system_accent1_100, R.color.system_accent1_800))
+            }
+            addView(timerText, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(timerButton("+15 min") { extendTimer() }, LinearLayout.LayoutParams(-2, dp(32)).apply { marginStart = dp(6) })
+            addView(timerButton("Annulla") { cancelTimer() }, LinearLayout.LayoutParams(-2, dp(32)).apply { marginStart = dp(6) })
+            visibility = View.GONE
+        }
+
         fun show(playing: NowPlaying?, problem: String?) {
             now = playing
             onRead(playing)
+            val timer = activeTimerLabel()
+            timerStrip.visibility = if (timer != null) View.VISIBLE else View.GONE
+            timerText.text = timer
             if (playing == null) {
                 title.text = "Kodi non risponde"
                 status.text = problem
@@ -2052,12 +2281,16 @@ class MainActivity : Activity() {
         }
         val more = LinearLayout(this).apply {
             listOf(
+                pill("Timer") { chooseTimer() },
                 pill("Accendi la TV") { wakeKodi() },
                 pill("−30 s") { video { kodi, id -> kodi.skip(id, -30) } },
                 pill("+30 s") { video { kodi, id -> kodi.skip(id, 30) } },
                 pill("Vai al minuto") { now?.let { askSeek(it) { seconds -> video { kodi, id -> kodi.seekTo(id, seconds) } } } },
                 pill("Audio") { now?.takeIf { it.playerId != null }?.let { chooseAudio(it) { track -> video { kodi, id -> kodi.setAudio(id, track) } } } },
-                pill("Sottotitoli") { now?.takeIf { it.playerId != null }?.let { chooseSubtitle(it) { track -> video { kodi, id -> kodi.setSubtitle(id, track) } } } },
+                pill("Sottotitoli") {
+                    val playing = now?.takeIf { it.playerId != null } ?: return@pill toast("Kodi non sta riproducendo niente")
+                    showSubtitles(playing, { track -> video { kodi, id -> kodi.setSubtitle(id, track) } }, { kodi { it.openSubtitleSearch() } })
+                },
                 pill("Velocità") {
                     val id = now?.playerId ?: return@pill toast("Kodi non sta riproducendo niente")
                     chooseTempo { tempo -> tempoAt(tempo, id) }
@@ -2108,10 +2341,11 @@ class MainActivity : Activity() {
                 gap(dpad, 24, 216, 216, Gravity.CENTER_HORIZONTAL),
                 gap(keys, 24),
                 gap(volume, 4),
+                gap(timerStrip, 20),
                 gap(HorizontalScrollView(context).apply {
                     isHorizontalScrollBarEnabled = false
                     addView(more)
-                }, 20),
+                }, 12),
                 gap(hint, 16),
             ).forEach { (view, params) -> addView(view, params) }
             addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
@@ -2160,6 +2394,17 @@ class MainActivity : Activity() {
                 then { toggleHistory() }),
             settingsRow(it.franc.casttokodi.R.drawable.ic_delete, "Cancella la cronologia", "Toglie le serie e l'ultima pagina dalla pagina iniziale",
                 then { askClearHistory() }),
+            settingsHeading("Tendina"),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_play, "Controlli nella tendina",
+                if (KodiPlayer.enabled(this)) "Acceso: player di Android mentre Kodi riproduce" else "Spento",
+                then { toggleMediaControls() }),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_cast, "Aggiungi il riquadro", "Couch Cast tra le impostazioni rapide",
+                then { askAddTile() }),
+            settingsHeading("Backup"),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_download, "Salva un backup", backupLabel(),
+                then { askBackup() }),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_upload, "Ripristina da un backup", "Da un file salvato prima",
+                then { askRestore() }),
             settingsHeading("Aiuto"),
             settingsRow(it.franc.casttokodi.R.drawable.ic_article, "Log di Kodi", "Le ultime righe, da condividere se un video non parte",
                 then { showKodiLog() }),
@@ -2469,7 +2714,8 @@ class MainActivity : Activity() {
         if (host.isBlank()) return null
         val login = savedLogin(host, currentNetwork())
         return try {
-            Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty()).nowPlaying()
+            val kodi = Kodi(host, login?.let { (user, password) -> "$user:$password" }.orEmpty())
+            kodi.nowPlaying().also { KodiAccess.autoSubtitles(prefs, kodi, it) }
         } catch (e: Exception) {
             null
         }
@@ -2514,8 +2760,9 @@ class MainActivity : Activity() {
         }
         miniProgress.visibility = View.VISIBLE
         miniPlay.visibility = View.VISIBLE
+        KodiPlayer.startIfWanted(this)
         miniTitle.text = queueLabel(playing.file, playing.title, loadTitles())
-        miniStatus.text = miniPlayerStatus(playing.paused, playing.time, playing.total)
+        miniStatus.text = miniPlayerStatus(playing.paused, playing.time, playing.total) + (timerAt()?.let { " · timer ${clockAt(it)}" } ?: "")
         miniProgress.progress = if (playing.total > 0) (playing.time * 1000 / playing.total).toInt() else 0
         miniPlay.setImageDrawable(icon(
             if (playing.paused) it.franc.casttokodi.R.drawable.ic_play else it.franc.casttokodi.R.drawable.ic_pause,
@@ -2799,18 +3046,48 @@ class MainActivity : Activity() {
             .show()
     }
 
-    // done(null): sottotitoli spenti
-    private fun chooseSubtitle(playing: NowPlaying, done: (Track?) -> Unit) {
-        if (playing.subtitles.isEmpty()) return notice("Sottotitoli", "Questo video non ha sottotitoli.")
-        val labels = listOf("Spenti") + playing.subtitles.mapIndexed { i, t -> trackLabel(t.language, t.name, i + 1) }
-        AlertDialog.Builder(this)
-            .setTitle("Sottotitoli")
-            .setSingleChoiceItems(labels.toTypedArray(), if (playing.subtitlesOn) playing.currentSubtitle + 1 else 0) { dialog, i ->
-                dialog.dismiss()
-                done(if (i == 0) null else playing.subtitles[i - 1])
+    // Pannello dei sottotitoli del telecomando (2026-10-27, mockup approvato): le tracce di Kodi con da dove arrivano,
+    // e per una serie nota "Accendili sempre" (Show.subtitles, poi KodiAccess.autoSubtitles). set(null): spenti.
+    // Senza tracce, la ricerca dei sottotitoli di Kodi (search), che serve un add-on installato in Kodi
+    private fun showSubtitles(playing: NowPlaying, set: (Track?) -> Unit, search: () -> Unit) {
+        if (playing.subtitles.isEmpty()) {
+            val content = section(
+                homeText("Né il video né la pagina hanno sottotitoli.", 15f, bold = false).apply { setPadding(0, dp(4), 0, dp(8)) },
+                homeText("Kodi può cercarli con un suo add-on di sottotitoli (es. OpenSubtitles), se l'hai installato: la ricerca si apre sulla TV.", 13f, bold = false),
+            ).apply { setPadding(dp(24), 0, dp(24), dp(8)) }
+            sheet("Sottotitoli", content, "Cerca con l'add-on di Kodi" to search)
+            return
+        }
+        var chosen = if (playing.subtitlesOn) playing.subtitles.getOrNull(playing.currentSubtitle) else null
+        val show = showOfFile(loadShows(), playing.file)
+        val list = section()
+        fun draw() {
+            list.removeAllViews()
+            fun row(view: View) = list.addView(view, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(2) })
+            row(pickRow("Spenti", null, chosen == null) { chosen = null; set(null); draw() })
+            playing.subtitles.forEachIndexed { i, track ->
+                row(pickRow(subtitleTitle(track, i + 1), subtitleSource(track), chosen?.index == track.index) { chosen = track; set(track); draw() })
             }
-            .setNegativeButton("Annulla", null)
-            .show()
+            val language = chosen?.let { trackLanguage(it) }
+            val current = show?.let { s -> loadShows().firstOrNull { it.key == s.key } }
+            if (current != null && language != null) {
+                list.addView(settingsHeading("Per questa serie"))
+                val name = languageName(language)?.lowercase(Locale.ITALIAN) ?: language
+                val on = current.subtitles == language
+                row(pickRow("Accendili sempre in $name", "Anche negli episodi dopo e in coda", on) {
+                    saveShows(withShowSubtitles(loadShows(), current.key, if (on) null else language))
+                    draw()
+                })
+            } else if (current?.subtitles != null) {
+                list.addView(settingsHeading("Per questa serie"))
+                row(pickRow("Accesi da soli in ${languageName(current.subtitles)?.lowercase(Locale.ITALIAN) ?: current.subtitles}", "Tocca per non accenderli più", true) {
+                    saveShows(withShowSubtitles(loadShows(), current.key, null))
+                    draw()
+                })
+            }
+        }
+        draw()
+        sheet("Sottotitoli", list.apply { setPadding(dp(16), 0, dp(16), dp(8)) })
     }
 
     // Testo per il campo che Kodi ha aperto (la ricerca, un nome): si scrive con la tastiera del telefono
@@ -2849,10 +3126,7 @@ class MainActivity : Activity() {
     }
 
     // Nomi dei video mandati a Kodi (link senza header -> nome della pagina), per mostrarli nella coda
-    private fun loadTitles(): Map<String, String> {
-        val json = JSONObject(prefs.getString("queueTitles", "{}")!!)
-        return json.keys().asSequence().associateWithTo(LinkedHashMap()) { json.getString(it) }
-    }
+    private fun loadTitles(): Map<String, String> = KodiAccess.titles(prefs)
 
     // Da più thread (invio e accodamento automatico): uno alla volta
     @Synchronized
@@ -2937,13 +3211,7 @@ class MainActivity : Activity() {
     }
 
     // Impronta della rete attuale (vedi networkKey), null senza rete o senza un gateway IPv4
-    private fun currentNetwork(): String? {
-        val cm = getSystemService(ConnectivityManager::class.java) ?: return null
-        val link = cm.getLinkProperties(cm.activeNetwork) ?: return null
-        val address = link.linkAddresses.firstOrNull { it.address is Inet4Address } ?: return null
-        val gateway = link.routes.firstOrNull { it.isDefaultRoute && it.gateway is Inet4Address }?.gateway
-        return networkKey(address.address.hostAddress, address.prefixLength, gateway?.hostAddress)
-    }
+    private fun currentNetwork(): String? = KodiAccess.currentNetwork(this)
 
     // Utente e password salvati per il Kodi a host sulla rete network, già decifrati
     private fun savedLogin(host: String, network: String?): Pair<String, String>? {
@@ -2959,14 +3227,7 @@ class MainActivity : Activity() {
     }
 
     // Credenziali in SharedPreferences come JSON, con la password cifrata da seal
-    private fun loadLogins(): List<SavedLogin> {
-        val array = JSONArray(prefs.getString("logins", "[]"))
-        return List(array.length()) { i ->
-            array.getJSONObject(i).let {
-                SavedLogin(it.getString("host"), it.getString("name"), it.getString("network"), it.getString("user"), it.getString("secret"))
-            }
-        }
-    }
+    private fun loadLogins(): List<SavedLogin> = KodiAccess.loadLogins(prefs)
 
     private fun saveLogins(list: List<SavedLogin>) {
         val array = JSONArray()
@@ -2995,33 +3256,9 @@ class MainActivity : Activity() {
     }
 
     // Password cifrate con una chiave AES dell'Android Keystore, che non esce dal telefono: "iv:testo" in Base64
-    private fun loginKey(): SecretKey {
-        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        (store.getKey(LOGIN_KEY, null) as? SecretKey)?.let { return it }
-        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-        generator.init(
-            KeyGenParameterSpec.Builder(LOGIN_KEY, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                .build()
-        )
-        return generator.generateKey()
-    }
+    private fun seal(text: String): String = KodiAccess.seal(text)
 
-    private fun seal(text: String): String {
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, loginKey()) }
-        val data = cipher.doFinal(text.toByteArray())
-        return Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(data, Base64.NO_WRAP)
-    }
-
-    // null se non si decifra (chiave persa, es. backup ripristinato su un altro telefono): si richiedono
-    private fun unseal(secret: String): String? = try {
-        val (iv, data) = secret.split(':').map { Base64.decode(it, Base64.NO_WRAP) }
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.DECRYPT_MODE, loginKey(), GCMParameterSpec(128, iv)) }
-        String(cipher.doFinal(data))
-    } catch (e: Exception) {
-        null
-    }
+    private fun unseal(secret: String): String? = KodiAccess.unseal(secret)
 
     // ---- Continua a guardare (2026-10-24): le serie ferme all'episodio giusto. La logica è in Watching.kt ----
 
@@ -3059,6 +3296,427 @@ class MainActivity : Activity() {
             .setNegativeButton("Annulla", null)
             .show()
     }
+
+    // ---- Timer di spegnimento (2026-10-27): scelte e comando in SleepTimer.kt, ripiego sul telefono in TimerReceiver ----
+
+    // Ora (secondi) in cui scatta il timer attivo, null se non ce n'è
+    private fun timerAt(): Long? = prefs.getLong("timerAt", 0).takeIf { it > System.currentTimeMillis() / 1000 }
+
+    private fun activeTimerLabel(): String? = timerAt()?.let { timerLabel(timerAction(prefs.getString("timerAction", null)), it) }
+
+    // Prima si chiede a Kodi a che punto è, per offrire "Fine di questo episodio" e "Fine della coda" con l'ora giusta
+    private fun chooseTimer() {
+        thread {
+            val kodi = quietKodi()
+            val playing = runCatching { kodi?.nowPlaying() }.getOrNull()
+            val state = if (playing?.playerId != null) runCatching { kodi?.state() }.getOrNull() else null
+            runOnUiThread { showTimerSheet(timerChoices(playing, state, System.currentTimeMillis() / 1000)) }
+        }
+    }
+
+    // Una riga che si sceglie toccandola, evidenziata quando è quella scelta (come in choiceSheet, ma senza chiudere)
+    private fun pickRow(title: String, detail: String?, selected: Boolean, onClick: () -> Unit) = LinearLayout(this).apply {
+        gravity = Gravity.CENTER_VERTICAL
+        minimumHeight = dp(52)
+        setPadding(dp(16), dp(6), dp(16), dp(6))
+        background = if (selected) rounded(sys(R.color.system_accent1_100, R.color.system_accent1_800), 16)
+            else RippleDrawable(ColorStateList.valueOf(0x33808080), null, GradientDrawable().apply { cornerRadius = dp(16).toFloat(); setColor(Color.WHITE) })
+        setOnClickListener { onClick() }
+        val name = homeText(title, 16f, bold = selected).apply { setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50)) }
+        addView(detail?.let { section(name, homeText(it, 13f, bold = false)) } ?: section(name), LinearLayout.LayoutParams(0, -2, 1f))
+        if (selected) addView(ImageView(context).apply {
+            setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_check, sys(R.color.system_accent1_600, R.color.system_accent1_200)))
+            scaleType = ImageView.ScaleType.CENTER
+        }, LinearLayout.LayoutParams(dp(32), dp(32)))
+    }
+
+    private fun showTimerSheet(choices: List<TimerChoice>) {
+        var chosen = 0
+        var action = timerAction(prefs.getString("timerAction", null))
+        val list = section()
+        fun draw() {
+            list.removeAllViews()
+            choices.forEachIndexed { i, choice ->
+                list.addView(pickRow(choice.title, choice.detail, i == chosen) { chosen = i; draw() },
+                    LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(2) })
+            }
+            list.addView(settingsHeading("Poi"))
+            TimerAction.entries.forEach { option ->
+                list.addView(pickRow(option.label, null, option == action) { action = option; draw() },
+                    LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(2) })
+            }
+            activeTimerLabel()?.let { list.addView(homeText("Adesso: $it. Il nuovo prende il suo posto.", 13f, bold = false).apply { setPadding(dp(16), dp(8), dp(16), 0) }) }
+        }
+        draw()
+        sheet("Timer di spegnimento", list.apply { setPadding(dp(16), 0, dp(16), dp(8)) }, "Avvia il timer" to {
+            val seconds = choices[chosen].seconds
+            if (seconds != null) startTimer(seconds, action) else askTimerMinutes { startTimer(it * 60L, action) }
+        })
+    }
+
+    private fun askTimerMinutes(done: (Int) -> Unit) {
+        val field = EditText(this).apply {
+            hint = "Minuti, es. 45"
+            inputType = InputType.TYPE_CLASS_NUMBER
+            isSingleLine = true
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Tra quanti minuti?")
+            .setView(FrameLayout(this).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(field) })
+            .setPositiveButton("Avvia") { _, _ ->
+                parseTimerMinutes(field.text.toString())?.let(done) ?: toast("Scrivi i minuti, da 1 a 720")
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+
+    // Il timer va alla Fire TV via ADB; se non risponde lo tiene il telefono, con una sveglia di Android
+    private fun startTimer(seconds: Long, action: TimerAction) {
+        val ip = prefs.getString("adbHost", null) ?: adbHost(prefs.getString("host", "").orEmpty())
+        val token = System.currentTimeMillis()
+        val at = System.currentTimeMillis() / 1000 + seconds
+        prefs.edit().putString("timerAction", action.id).apply()
+        toast("Avvio il timer…")
+        thread {
+            val onTv = ip.isNotBlank() && runCatching {
+                adbShell(ip, adbKeys(), ADB_KEY_NAME, timerCommand(seconds, action, token), onConfirm = {
+                    runOnUiThread { notice("Conferma sulla TV", "La Fire TV chiede se consentire il debug da questo telefono: spunta \"Consenti sempre da questo computer\" e premi OK.") }
+                })
+            }.isSuccess
+            runOnUiThread {
+                cancelPhoneTimer()
+                if (!onTv) phoneTimer(seconds, action, token)
+                prefs.edit().putLong("timerAt", at).putLong("timerToken", token).putBoolean("timerOnPhone", !onTv).apply()
+                readMini()
+                val label = timerLabel(action, at)
+                if (onTv) toast("Timer avviato: $label")
+                else notice("Timer sul telefono", "$label, ma la Fire TV non risponde in ADB, quindi il timer lo tiene il telefono: deve restare acceso e sul Wi-Fi di casa fino ad allora" +
+                    (if (action == TimerAction.TV_OFF) ", e la TV non si spegne (Kodi si ferma soltanto)." else ".") +
+                    "\n\nPer lasciarlo alla Fire TV serve il Debug ADB, come per il pulsante di accensione.")
+            }
+        }
+    }
+
+    private fun timerIntent(action: TimerAction? = null, token: Long = 0) = PendingIntent.getBroadcast(
+        this, 0,
+        Intent(this, TimerReceiver::class.java).apply { action?.let { putExtra("action", it.id) }; putExtra("token", token) },
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    private fun phoneTimer(seconds: Long, action: TimerAction, token: Long) {
+        getSystemService(AlarmManager::class.java)?.setAndAllowWhileIdle(
+            AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + seconds * 1000, timerIntent(action, token))
+    }
+
+    private fun cancelPhoneTimer() {
+        getSystemService(AlarmManager::class.java)?.cancel(timerIntent())
+    }
+
+    private fun cancelTimer() {
+        val onPhone = prefs.getBoolean("timerOnPhone", false)
+        val ip = prefs.getString("adbHost", null) ?: adbHost(prefs.getString("host", "").orEmpty())
+        prefs.edit().remove("timerAt").remove("timerToken").remove("timerOnPhone").apply()
+        cancelPhoneTimer()
+        readMini()
+        if (onPhone || ip.isBlank()) return toast("Timer annullato")
+        thread {
+            val done = runCatching { adbShell(ip, adbKeys(), ADB_KEY_NAME, cancelTimerCommand(), onConfirm = {}) }.isSuccess
+            toast(if (done) "Timer annullato" else "Non riesco ad annullare il timer sulla Fire TV: riprova tra poco")
+        }
+    }
+
+    private fun extendTimer() {
+        val at = timerAt() ?: return
+        startTimer(at - System.currentTimeMillis() / 1000 + TIMER_EXTEND, timerAction(prefs.getString("timerAction", null)))
+    }
+
+    // ---- Tendina (2026-10-27): player di Android in KodiPlayer.kt, riquadro in KodiTile.kt ----
+
+    private fun toggleMediaControls() {
+        val on = !KodiPlayer.enabled(this)
+        prefs.edit().putBoolean("mediaControls", on).apply()
+        if (on) {
+            if (miniNow?.playerId != null) KodiPlayer.startIfWanted(this)
+            toast("Controlli nella tendina accesi: compaiono mentre Kodi riproduce")
+        } else {
+            KodiPlayer.stop(this)
+            toast("Controlli nella tendina spenti")
+        }
+        showSettings()
+    }
+
+    // Android 13 chiede "Aggiungere il riquadro?" con un tocco, senza cercarlo nella matita della tendina
+    private fun askAddTile() {
+        getSystemService(StatusBarManager::class.java)?.requestAddTileService(
+            ComponentName(this, KodiTile::class.java), "Couch Cast",
+            Icon.createWithResource(this, it.franc.casttokodi.R.drawable.ic_cast), mainExecutor,
+        ) { result ->
+            toast(when (result) {
+                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> "Riquadro aggiunto: lo trovi nella tendina"
+                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED -> "Il riquadro c'è già nella tendina"
+                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_NOT_ADDED -> "Riquadro non aggiunto"
+                else -> "Aggiungilo a mano: matita della tendina, poi trascina Couch Cast"
+            })
+        }
+    }
+
+    // ---- Backup e ripristino (2026-10-27): formato del file, unione e regole in Backup.kt ----
+
+    // Le scelte del pannello Salva un backup, per quando torna la scelta del file
+    private var backupParts = BackupPart.entries.toSet()
+    private var backupWeekly = true
+
+    private fun backupLabel(): String {
+        val at = prefs.getLong("backupAt", 0)
+        if (at == 0L) return "Preferiti, serie e impostazioni in un file, da tenere su Drive o in Download"
+        val day = DateUtils.formatDateTime(this, at, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH)
+        return "Ultimo: $day" + if (prefs.getString("backupUri", null) != null) " · si aggiorna ogni settimana" else ""
+    }
+
+    // Riga con la casella: si cambia toccando tutta la riga
+    private fun checkRow(title: String, detail: String?, checked: Boolean, changed: (Boolean) -> Unit): View {
+        val box = CheckBox(this).apply {
+            isChecked = checked
+            setOnCheckedChangeListener { _, on -> changed(on) }
+        }
+        val name = homeText(title, 16f, bold = false).apply { setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50)) }
+        return LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(56)
+            setPadding(dp(4), dp(4), dp(8), dp(4))
+            setBackgroundResource(attr(R.attr.selectableItemBackground))
+            setOnClickListener { box.toggle() }
+            addView(box)
+            addView(detail?.let { section(name, homeText(it, 13f, bold = false).apply { maxLines = 2 }) } ?: section(name),
+                LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(8) })
+        }
+    }
+
+    private fun askBackup() {
+        val values = prefs.all
+        val count = backupCount(values)
+        val bytes = backupImages(values).sumOf { File(framesDir(), it).length() }
+        val parts = BackupPart.entries.toMutableSet()
+        fun part(part: BackupPart): (Boolean) -> Unit = { on -> if (on) parts += part else parts -= part }
+        val series = when (count.shows) {
+            0 -> "nessuna serie"
+            1 -> "1 serie"
+            else -> "${count.shows} serie"
+        }
+        val images = if (bytes > 0) ", con le immagini · ${android.text.format.Formatter.formatShortFileSize(this, bytes)}" else ""
+        backupWeekly = true
+        val content = section(
+            homeText("Nel file ci sono:", 14f, bold = false).apply { setPadding(dp(8), 0, 0, dp(4)) },
+            checkRow("Preferiti", if (count.favorites == 1) "1 sito, con nome e icona" else "${count.favorites} siti, con nomi e icone",
+                true, part(BackupPart.FAVORITES)),
+            checkRow("Continua a guardare", "$series$images, l'ultima pagina", true, part(BackupPart.SHOWS)),
+            checkRow("Impostazioni", "Kodi, sigla, episodi successivi, nomi dei video in coda", true, part(BackupPart.SETTINGS)),
+            homeText("Password di Kodi e chiave della Fire TV restano su questo telefono: dopo il ripristino l'app chiede la password una volta e la TV chiede di nuovo Consenti.", 13f, bold = false).apply {
+                setPadding(dp(16), dp(12), dp(16), dp(12))
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(16).toFloat()
+                    setColor(sys(R.color.system_neutral2_100, R.color.system_neutral2_800))
+                }
+            },
+            checkRow("Aggiorna questo file ogni settimana", "All'avvio dell'app, nello stesso posto", true) { backupWeekly = it },
+        ).apply { setPadding(dp(16), 0, dp(16), dp(8)) }
+        sheet("Salva un backup", content, "Scegli dove salvarlo" to {
+            if (parts.isEmpty()) {
+                toast("Scegli almeno una cosa da salvare")
+            } else {
+                backupParts = parts.toSet()
+                startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT)
+                    .addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("application/zip")
+                    .putExtra(Intent.EXTRA_TITLE, "couchcast-${LocalDate.now()}.zip"), REQUEST_BACKUP)
+            }
+        })
+    }
+
+    private fun askRestore() {
+        startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT)
+            .addCategory(Intent.CATEGORY_OPENABLE)
+            .setType("*/*")
+            .putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")), REQUEST_RESTORE)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        val uri = data?.data
+        if (resultCode != RESULT_OK || uri == null) return
+        when (requestCode) {
+            REQUEST_BACKUP -> saveBackup(uri, backupParts, backupWeekly)
+            REQUEST_RESTORE -> readRestore(uri)
+        }
+    }
+
+    // Da un thread di background
+    private fun writeBackupTo(uri: Uri, parts: Set<BackupPart>) {
+        val values = prefs.all
+        val json = backupJson(values, parts, installedVersion(), System.currentTimeMillis())
+        val images: Map<String, () -> ByteArray?> = if (BackupPart.SHOWS in parts) {
+            backupImages(values).associateWith { name -> { File(framesDir(), name).takeIf { it.isFile }?.readBytes() } }
+        } else emptyMap()
+        (contentResolver.openOutputStream(uri, "wt") ?: throw IOException("Non riesco a scrivere il file")).use { writeBackup(it, json, images) }
+        prefs.edit().putLong("backupAt", System.currentTimeMillis()).apply()
+    }
+
+    private fun saveBackup(uri: Uri, parts: Set<BackupPart>, weekly: Boolean) {
+        val name = displayName(uri)
+        thread {
+            try {
+                writeBackupTo(uri, parts)
+            } catch (e: Exception) {
+                runOnUiThread { notice("Backup non salvato", "Non riesco a scrivere il file (${e.message ?: e.javaClass.simpleName}). Prova a sceglierne un altro, per esempio in Download.") }
+                return@thread
+            }
+            forgetAutoBackup(keep = if (weekly) uri else null)
+            val automatic = weekly && try {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                prefs.edit().putString("backupUri", uri.toString()).putString("backupParts", parts.joinToString(",") { it.id }).apply()
+                true
+            } catch (e: SecurityException) {
+                false
+            }
+            toast(if (automatic || !weekly) "Backup salvato in $name"
+                else "Backup salvato in $name, ma lì non posso aggiornarlo da solo: rifallo a mano ogni tanto")
+        }
+    }
+
+    // Spegne il backup automatico e lascia il permesso sul vecchio file, tranne se è proprio keep
+    private fun forgetAutoBackup(keep: Uri? = null) {
+        val old = prefs.getString("backupUri", null)?.let(Uri::parse) ?: return
+        if (old == keep) return
+        runCatching { contentResolver.releasePersistableUriPermission(old, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+        prefs.edit().remove("backupUri").remove("backupParts").apply()
+    }
+
+    // All'avvio: con il backup automatico acceso, se l'ultimo ha più di una settimana si riscrive lo stesso file
+    private fun autoBackup() {
+        val uri = prefs.getString("backupUri", null)?.let(Uri::parse) ?: return
+        if (System.currentTimeMillis() - prefs.getLong("backupAt", 0) < BACKUP_EVERY) return
+        val saved = prefs.getString("backupParts", "").orEmpty().split(",")
+        val parts = BackupPart.entries.filter { it.id in saved }.toSet().ifEmpty { BackupPart.entries.toSet() }
+        thread {
+            try {
+                writeBackupTo(uri, parts)
+            } catch (e: Exception) {
+                runOnUiThread {
+                    forgetAutoBackup()
+                    notice("Backup automatico non riuscito", "Non riesco più a scrivere il file del backup (spostato, cancellato o senza rete?). Salvane uno nuovo da ⋮ → Impostazioni → Salva un backup.")
+                }
+            }
+        }
+    }
+
+    private fun displayName(uri: Uri): String = runCatching {
+        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    }.getOrNull() ?: uri.lastPathSegment ?: "il file scelto"
+
+    private fun readRestore(uri: Uri) {
+        val name = displayName(uri)
+        thread {
+            val backup = try {
+                (contentResolver.openInputStream(uri) ?: throw IOException("Non riesco ad aprire il file")).use { readBackup(it) }
+            } catch (e: Exception) {
+                runOnUiThread { notice("Ripristino non riuscito", "${e.message ?: "Il file non si legge"}.\n\nScegli un file salvato da Couch Cast con Salva un backup.") }
+                return@thread
+            }
+            runOnUiThread { showRestore(backup, name) }
+        }
+    }
+
+    private fun showRestore(backup: Backup, name: String) {
+        val mine = backupCount(prefs.all)
+        val theirs = backupCount(backup.values)
+        val day = if (backup.created > 0) DateUtils.formatDateTime(this, backup.created, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_YEAR) else null
+        val lines = listOfNotNull(
+            if (BackupPart.FAVORITES in backup.parts) "Preferiti: ${theirs.favorites} (qui ${mine.favorites})" else null,
+            if (BackupPart.SHOWS in backup.parts) "Serie: ${theirs.shows} (qui ${mine.shows})" else null,
+            if (BackupPart.SETTINGS in backup.parts) "Impostazioni: sì" else null,
+        )
+        var replace = false
+        val options = section()
+        fun drawOptions() {
+            options.removeAllViews()
+            listOf(
+                Triple("Unisci", "Aggiunge quello che manca; per una serie tiene l'episodio più avanti", false),
+                Triple("Sostituisci tutto", "Questo telefono torna com'era nel backup", true),
+            ).forEach { (title, detail, value) ->
+                val selected = replace == value
+                options.addView(LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    minimumHeight = dp(56)
+                    setPadding(dp(16), dp(8), dp(16), dp(8))
+                    background = if (selected) rounded(sys(R.color.system_accent1_100, R.color.system_accent1_800), 16)
+                        else RippleDrawable(ColorStateList.valueOf(0x33808080), null, GradientDrawable().apply { cornerRadius = dp(16).toFloat(); setColor(Color.WHITE) })
+                    setOnClickListener { replace = value; drawOptions() }
+                    addView(homeText(title, 16f, bold = selected).apply { setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50)) })
+                    addView(homeText(detail, 13f, bold = false))
+                }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(4) })
+            }
+        }
+        drawOptions()
+        val content = section(
+            homeText(listOfNotNull(name, day, backup.version.ifBlank { null }?.let { "versione $it" }).joinToString(" · "), 13f, bold = false)
+                .apply { setPadding(dp(8), 0, dp(8), dp(8)) },
+            homeText(lines.joinToString("\n").ifEmpty { "Il backup è vuoto" }, 15f, bold = false).apply {
+                setPadding(dp(16), dp(12), dp(16), dp(12))
+                setLineSpacing(0f, 1.3f)
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(16).toFloat()
+                    setColor(sys(R.color.system_neutral2_100, R.color.system_neutral2_800))
+                }
+            },
+            options.apply { setPadding(0, dp(12), 0, 0) },
+        ).apply { setPadding(dp(16), 0, dp(16), dp(8)) }
+        sheet("Ripristina il backup", content, "Ripristina" to {
+            applyRestore(backup, if (replace) replaceWith(backup) else mergeWith(prefs.all, backup))
+        })
+    }
+
+    private fun applyRestore(backup: Backup, restore: Restore) {
+        val before = prefs.all.filterKeys { it in BACKED_UP }
+        val counted = backupCount(before)
+        // Le immagini hanno nomi unici: quelle già sul telefono non si toccano, quelle che non servono le toglie cleanFrames
+        backup.images.forEach { (name, bytes) -> runCatching { File(framesDir(), name).takeIf { !it.exists() }?.writeBytes(bytes) } }
+        writePrefs(restore.write, restore.remove)
+        afterRestore()
+        val now = backupCount(prefs.all)
+        val added = listOfNotNull(
+            (now.favorites - counted.favorites).takeIf { it > 0 }?.let { if (it == 1) "1 preferito" else "$it preferiti" },
+            (now.shows - counted.shows).takeIf { it > 0 }?.let { if (it == 1) "1 serie" else "$it serie" },
+        )
+        val message = "Ripristinato" + (if (added.isNotEmpty()) ": ${added.joinToString(" e ")} in più" else "") +
+            (if (backup.skipped > 0) " (saltati dati di una versione più nuova)" else "")
+        toast(message) {
+            writePrefs(before.mapNotNull { (key, value) -> value?.let { key to it } }.toMap(), BACKED_UP.keys - before.keys)
+            afterRestore()
+        }
+    }
+
+    private fun writePrefs(write: Map<String, Any>, remove: Set<String>) {
+        val edit = prefs.edit()
+        remove.forEach { edit.remove(it) }
+        write.forEach { (key, value) ->
+            when (value) {
+                is String -> edit.putString(key, value)
+                is Int -> edit.putInt(key, value)
+                is Long -> edit.putLong(key, value)
+                is Boolean -> edit.putBoolean(key, value)
+            }
+        }
+        edit.apply()
+    }
+
+    private fun afterRestore() {
+        refreshStar()
+        if (home.visibility == View.VISIBLE) refreshHome()
+    }
+
 
     // Le serie in prefs["shows"] (vedi showsToJson). Si leggono e scrivono solo dal thread principale
     private fun loadShows(): List<Show> = showsFromJson(prefs.getString("shows", null))
@@ -3140,7 +3798,7 @@ class MainActivity : Activity() {
             var frame: Bitmap? = null
             var light = -1.0
             for (point in episodeFramePoints(from = from / 100.0, to = to / 100.0)) {
-                val picture = videoPreview(video, userAgent, width, point) { reason = it }.second ?: continue
+                val picture = videoPreview(video, userAgent, width, point, failed = { reason = it }).second ?: continue
                 val level = frameBrightness(picture)
                 if (level > light) { frame = picture; light = level }
                 if (level >= DARK_FRAME) break
@@ -3185,7 +3843,7 @@ class MainActivity : Activity() {
     }
 
     // Le immagini delle serie stanno in file a parte; quelle che iniziano con COVER_PREFIX sono copertine del sito, così prefs["shows"] resta piccolo (si rilegge ogni 3 secondi)
-    private fun framesDir() = File(filesDir, "serie").apply { mkdirs() }
+    private fun framesDir() = KodiAccess.framesDir(this)
 
     // Si rimpicciolisce solo finché copre ancora la scheda (larga quanto lo schermo, 16:9) dopo il taglio: le
     // copertine del sito sono spesso strisce larghe e basse, e portarle a 480 di larghezza le lasciava alte 100 pixel

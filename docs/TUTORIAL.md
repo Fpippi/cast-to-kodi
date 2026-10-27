@@ -23,7 +23,7 @@ _Le animazioni di questa guida sono disegni dell'interfaccia della versione 2.1,
 7. [La coda degli episodi](#7-la-coda-degli-episodi)
 8. [Preferiti](#8-preferiti)
 9. [Log di Kodi: quando qualcosa non parte](#9-log-di-kodi-quando-qualcosa-non-parte)
-10. [Aggiornare l'app](#10-aggiornare-lapp)
+10. [Aggiornare l'app e fare un backup](#10-aggiornare-lapp-e-fare-un-backup)
 11. [Problemi comuni](#-problemi-comuni)
 
 ---
@@ -51,7 +51,7 @@ _Le animazioni di questa guida sono disegni dell'interfaccia della versione 2.1,
 | **🛡 con un numero** | Compare quando l'app ha bloccato popup o salti verso altri siti su questa pagina. Toccalo per vedere quali e aprirne uno, se serviva. |
 | **★** | I tuoi siti preferiti. Piena se la pagina aperta è già tra i preferiti. |
 | **Barra di Kodi** (in fondo) | C'è sempre, appena l'app sa dov'è Kodi. Mostra cosa riproduce, con il tempo, play/pausa e una linea sottile in basso che avanza. Il pallino accanto allo stato è acceso se Kodi risponde. Se Kodi è acceso ma fermo scrive *Acceso, niente in riproduzione*; se è spento o non risponde c'è il pulsante **⏻** per accendere la TV. Il pulsante a destra, o un tocco sulla barra, apre il telecomando con la coda. |
-| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Pagina iniziale*, *Impostazioni* (dov'è Kodi, accensione, episodi successivi, cronologia, log di Kodi, guida, versione). |
+| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Pagina iniziale*, *Impostazioni* (dov'è Kodi, accensione, episodi successivi, cronologia, tendina, backup, log di Kodi, guida, versione). |
 | **Manda a Kodi** | Fa partire subito sulla TV il video della pagina. Compare in basso a destra, sopra il sito, solo quando sulla pagina parte un video. |
 | **+ Coda** (l'icona tonda con le righe e il +, accanto a *Manda a Kodi*) | Mette il video in fondo alla coda di Kodi, senza interrompere quello che stai guardando. Tenendola premuta si apre la coda. |
 
@@ -159,7 +159,8 @@ Premi **Manda a Kodi**.
   ognuno con un'**immagine presa dal video** e la **durata** sopra (dopo un paio di secondi). Il primo, *Video completo*,
   è quasi sempre quello giusto: è già scelto, con la scritta *Consigliato* e sotto i pulsanti **Manda** e **In coda**.
   Tocca un altro video per spostare lì i pulsanti. Quelli sotto il minuto sono sbiaditi (*Probabile pubblicità*). Su
-  alcuni video protetti l'immagine non arriva e resta solo la durata: puoi scegliere lo stesso.
+  alcuni video protetti l'immagine non arriva e resta solo la durata: puoi scegliere lo stesso. **CC** sull'immagine
+  vuol dire che ci sono sottotitoli, con le lingue.
 - Da qui il telefono **non serve più**: puoi bloccarlo o usarlo per altro. Il video arriva alla TV direttamente dal sito.
 
 ### Il telecomando nell'app
@@ -186,9 +187,33 @@ In alto a destra c'è il nome di Kodi con un pallino acceso se risponde. Nella s
   **Sottotitoli**, **Velocità**, **Muto**, **Menu**, **Scrivi** e **Ferma** (chiede conferma, la coda resta).
 - **Vai al minuto**: scrivi per esempio `12:30` (12 minuti e 30 secondi) o `1:02:30`.
 - **Velocità**: normale, 1,25x o 1,5x. Con alcuni video Kodi non la cambia, e l'app lo dice.
-- **Audio** e **Sottotitoli**: scegli la lingua tra quelle del video, o spegni i sottotitoli.
+- **Audio**: scegli la lingua tra quelle del video.
+- **Sottotitoli**: un pannello con *Spenti* e le tracce, con "dal sito" sotto quelle prese dalla pagina. Il telefono
+  passa a Kodi, insieme al video, sia i sottotitoli della playlist sia i file `.vtt`/`.srt` che il sito carica a parte
+  (solo con *Manda a Kodi*: in coda Kodi vede soltanto quelli dentro il video). Su un episodio di una serie di
+  *Continua a guardare* c'è **Accendili sempre in italiano** (o nella lingua scelta): negli episodi dopo e in coda
+  l'app li accende da sola, finché la barra di Kodi o la tendina sono attive. Se il video non ne ha, **Cerca con
+  l'add-on di Kodi** apre sulla TV la ricerca dei sottotitoli di Kodi (serve un add-on come OpenSubtitles).
 - **Scrivi**: apri prima in Kodi un campo di testo (per esempio la ricerca), poi scrivi con la tastiera del telefono.
 - **Accendi la TV**: come il pulsante ⏻.
+- **Timer**: per addormentarsi davanti a un episodio. Scegli quando (**Fine di questo episodio**, **Fine della coda**,
+  **Tra 30 minuti**, **Tra 1 ora** o **Altro tempo…**, ognuno con l'ora in cui scatta) e cosa fare (**Pausa**, **Ferma
+  il video** o **Spegni la TV**: la Fire TV va in standby e con l'HDMI-CEC si spegne anche la TV). Il timer lo tiene la
+  Fire TV, con il Debug ADB come ⏻, quindi il telefono si può spegnere; se la Fire TV non risponde lo tiene il
+  telefono, che deve restare acceso. Mentre è attivo il telecomando mostra "Si spegne alle 23:13" con **+15 min** e
+  **Annulla**, e la barra di Kodi l'ora del timer.
+
+### Senza aprire l'app: tendina e schermata di blocco
+
+Mentre Kodi riproduce, nella tendina e sulla schermata di blocco compare il **player di Android**, come per la musica:
+immagine della serie, titolo, episodio, la barra del tempo (si trascina per andare a un punto) e i tasti **Salta sigla**
+(solo se per quella serie hai già scelto il tempo), **−10 s**, **pausa**, **+10 s** e **Prossimo** (se nella coda c'è un
+altro video). Toccandolo si apre il telecomando. Con lo schermo spento non parla con Kodi, quindi non consuma; sparisce da
+solo quando Kodi si ferma. Si spegne in **⋮ → Impostazioni → Controlli nella tendina**.
+
+In più c'è il riquadro **Couch Cast** delle impostazioni rapide: **⋮ → Impostazioni → Aggiungi il riquadro** (o la matita
+della tendina). Dice cosa fa Kodi; un tocco mette in pausa o fa ripartire, con Kodi fermo o spento apre l'app; la pressione
+lunga apre il telecomando.
 
 ---
 
@@ -310,11 +335,31 @@ Se sulla TV compare **Playback failed** o il video non parte:
 
 ---
 
-## 10. Aggiornare l'app
+## 10. Aggiornare l'app e fare un backup
 
-All'avvio, se c'è una versione nuova, compare **Nuova versione disponibile**: premi **Scarica** e installa l'APK sopra
-quello vecchio (non serve disinstallare). Per controllare a mano: **⋮ → Impostazioni → Versione**. Per aggiornare con un
-tocco si può usare **Obtainium** con l'indirizzo del repo.
+All'avvio, se c'è una versione nuova, si apre il pannello **Nuova versione** con le novità. Premi **Aggiorna**: l'app
+scarica l'APK (con la barra che avanza) e Android chiede di confermare l'installazione sopra quella vecchia (non serve
+disinstallare, i dati restano). La prima volta Android chiede di consentire a Couch Cast di installare app: consenti,
+torna indietro e premi di nuovo **Aggiorna**. Se qualcosa va storto, **Apri GitHub** apre la pagina della release nel
+browser. Per controllare a mano: **⋮ → Impostazioni → Versione**. Anche **Obtainium**, con l'indirizzo del repo,
+continua a funzionare.
+
+### Backup: cambiare telefono o reinstallare l'app
+
+1. **⋮ → Impostazioni → Salva un backup**. Il pannello dice cosa c'è nel file: **Preferiti**, **Continua a guardare**
+   (le serie con le immagini e l'ultima pagina) e **Impostazioni** (Kodi, sigla, episodi successivi). Togli la spunta a
+   quello che non vuoi.
+2. Lascia **Aggiorna questo file ogni settimana** se vuoi che l'app lo riscriva da sola: lo fa all'avvio, se l'ultimo
+   backup ha più di una settimana.
+3. **Scegli dove salvarlo**: Drive, Download o un'altra cartella. Il file si chiama `couchcast-` con la data, `.zip`.
+
+Per ritrovare tutto: **⋮ → Impostazioni → Ripristina da un backup**, scegli il file e guarda cosa contiene rispetto al
+telefono. **Unisci** aggiunge quello che manca (per una serie tiene l'episodio più avanti, le impostazioni del telefono
+restano), **Sostituisci tutto** riporta il telefono com'era nel backup. Subito dopo l'avviso in fondo ha **Annulla**.
+
+Password di Kodi e chiave della Fire TV non vanno nel file, apposta: sono cifrate con una chiave che non esce dal
+telefono. Dopo il ripristino l'app chiede la password di Kodi al primo invio, e la TV chiede di nuovo *Consenti* al
+primo ⏻.
 
 ---
 
