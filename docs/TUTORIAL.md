@@ -10,7 +10,7 @@ sul telefono, avvii il video, premi un pulsante e il video parte sulla TV. Poi p
 > [!IMPORTANT]
 > Telefono e Fire TV devono essere collegati **allo stesso Wi-Fi**.
 
-_Le animazioni di questa guida sono disegni dell'interfaccia della versione 2.1, non registrazioni dello schermo: colori e dettagli dell'app vera possono essere un po' diversi._
+_L'app parla italiano e inglese: segue la lingua del telefono e si cambia in **⋮ → Impostazioni → Lingua dell'app**. Le animazioni di questa guida sono disegni dell'interfaccia della versione 2.1, non registrazioni dello schermo: colori e dettagli dell'app vera possono essere un po' diversi._
 
 ## Indice
 
@@ -51,7 +51,7 @@ _Le animazioni di questa guida sono disegni dell'interfaccia della versione 2.1,
 | **🛡 con un numero** | Compare quando l'app ha bloccato popup o salti verso altri siti su questa pagina. Toccalo per vedere quali e aprirne uno, se serviva. |
 | **★** | I tuoi siti preferiti. Piena se la pagina aperta è già tra i preferiti. |
 | **Barra di Kodi** (in fondo) | C'è sempre, appena l'app sa dov'è Kodi. Mostra cosa riproduce, con il tempo, play/pausa e una linea sottile in basso che avanza. Il pallino accanto allo stato è acceso se Kodi risponde. Se Kodi è acceso ma fermo scrive *Acceso, niente in riproduzione*; se è spento o non risponde c'è il pulsante **⏻** per accendere la TV. Il pulsante a destra, o un tocco sulla barra, apre il telecomando con la coda. |
-| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Pagina iniziale*, *Impostazioni* (dov'è Kodi, accensione, episodi successivi, cronologia, tendina, backup, log di Kodi, guida, versione). |
+| **⋮** | Un piccolo menu: *Telecomando*, *Coda di Kodi*, *Pagina iniziale*, *Impostazioni* (dov'è Kodi, accensione, episodi successivi, cronologia, tendina, backup, lingua, log di Kodi, guida, versione). |
 | **Manda a Kodi** | Fa partire subito sulla TV il video della pagina. Compare in basso a destra, sopra il sito, solo quando sulla pagina parte un video. |
 | **+ Coda** (l'icona tonda con le righe e il +, accanto a *Manda a Kodi*) | Mette il video in fondo alla coda di Kodi, senza interrompere quello che stai guardando. Tenendola premuta si apre la coda. |
 
@@ -347,7 +347,7 @@ continua a funzionare.
 ### Backup: cambiare telefono o reinstallare l'app
 
 1. **⋮ → Impostazioni → Salva un backup**. Il pannello dice cosa c'è nel file: **Preferiti**, **Continua a guardare**
-   (le serie con le immagini e l'ultima pagina) e **Impostazioni** (Kodi, sigla, episodi successivi). Togli la spunta a
+   (le serie con le immagini e l'ultima pagina) e **Impostazioni** (Kodi, sigla, episodi successivi, lingua). Togli la spunta a
    quello che non vuoi.
 2. Lascia **Aggiorna questo file ogni settimana** se vuoi che l'app lo riscriva da sola: lo fa all'avvio, se l'ultimo
    backup ha più di una settimana.

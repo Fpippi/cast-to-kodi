@@ -27,6 +27,9 @@
 
 App Android personale (Android 13 o più recente) per guardare i video dei siti di streaming sulla Fire TV. Sul telefono si chiama **Couch Cast**; repo, release e APK (`CastToKodi.apk`) mantengono il vecchio nome, così aggiornamenti e Obtainium continuano a funzionare.
 
+> [!NOTE]
+> L'app parla italiano e inglese: segue la lingua del telefono (italiano se il telefono è in italiano, altrimenti inglese) e si cambia in **⋮ → Impostazioni → Lingua dell'app**.
+
 ## ✨ Come funziona
 
 ```
