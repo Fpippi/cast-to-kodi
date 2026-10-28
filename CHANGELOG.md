@@ -7,6 +7,18 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.5.0
+
+- **Salta sigla al punto giusto**: con un anime che [AniSkip](https://aniskip.com) conosce, il tasto porta alla fine
+  della sigla (o del riassunto) da qualunque punto prima, e verso la fine diventa **Salta titoli di coda**. La serie si
+  riconosce dalla pagina o cercandola su AniList; se non è certa la scegli nel pannello della serie. Se i tempi mancano
+  resta il salto fisso di prima. Vale nel telecomando, nella tendina e nel widget; si spegne in *⋮ → Impostazioni*.
+- **Widget sulla schermata Home**: con Kodi fermo mostra la serie da riprendere, con **Riprendi su Kodi**, l'episodio
+  dopo, *Altre serie* e l'accensione della TV; con un video in corso diventa un piccolo telecomando (Salta sigla, −10 s,
+  pausa, +10 s). Si aggiorna mentre usi l'app o c'è il player nella tendina, quindi a schermo spento non consuma.
+- **Scorciatoie sull'icona**: tenendo premuta l'icona di Couch Cast ci sono *Accendi la TV*, *Telecomando*, *Riprendi*
+  l'ultima serie e *Coda di Kodi*. Ognuna si può trascinare sulla Home.
+
 ## 2.4.0
 
 - **Couch Cast parla anche inglese**: l'app segue la lingua del telefono (italiano se il telefono è in italiano,
