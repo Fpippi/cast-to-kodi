@@ -77,7 +77,8 @@ fun animeUnitySlugTitle(series: String): String =
         .joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
 
 // Eseguito nella pagina di un episodio AnimeUnity, come NEXT_EPISODES_JS: nome della serie, numero dell'episodio,
-// quanti sono, quello dopo (id e numero), il player di questo (embed_url) e la copertina della serie, per "Continua a guardare".
+// quanti sono, quello dopo (id e numero), il player di questo (embed_url) e la copertina della serie, per "Continua a guardare";
+// gli id MyAnimeList/AniList della serie per i tempi di AniSkip.
 const val EPISODE_INFO_JS = """(function () {
   function pageImage(html) {
     var m = new DOMParser().parseFromString(html, 'text/html').querySelector('meta[property="og:image"]');
@@ -110,7 +111,12 @@ const val EPISODE_INFO_JS = """(function () {
       count: anime.episodes_count || episodes.length,
       next: next ? { id: String(next.id), number: String(next.number) } : null,
       embed: p.getAttribute('embed_url') || '',
-      image: anime.imageurl_cover || anime.cover || anime.imageurl || pageImage(x.responseText)
+      image: anime.imageurl_cover || anime.cover || anime.imageurl || pageImage(x.responseText),
+      // Per AniSkip (#150): la serie su MyAnimeList o AniList (nomi dei campi non verificati sul sito vero) e il numero
+      // del primo episodio elencato, per le parti che continuano la numerazione (aniSkipShift)
+      mal: String(anime.mal_id || anime.myanimelist_id || ''),
+      anilist: String(anime.anilist_id || ''),
+      first: episodes.length ? String(episodes[0].number) : ''
     });
   } catch (e) {
     return JSON.stringify({ error: String(e) });

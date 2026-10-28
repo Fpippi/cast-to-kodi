@@ -22,7 +22,7 @@ sealed class WidgetContent {
     class Resume(val key: String, val title: String, val note: String, val picture: String?, val action: String, val after: String?) : WidgetContent()
 
     // Kodi riproduce: progress da 0 a 1000; intro = secondi di Salta sigla, null se per quel video non è ancora scelto
-    class Playing(val title: String, val status: String, val progress: Int, val paused: Boolean, val intro: Int?, val picture: String?) : WidgetContent()
+    class Playing(val title: String, val status: String, val progress: Int, val paused: Boolean, val intro: String?, val picture: String?) : WidgetContent()
 }
 
 // playing: l'ultima lettura di Kodi, null se non risponde. hosts: sito -> ultimo dominio visto (prefs["siteHosts"])
@@ -46,7 +46,8 @@ fun widgetContent(
             status = status,
             progress = if (playing.total > 0) (playing.time * 1000 / playing.total).toInt().coerceIn(0, 1000) else 0,
             paused = playing.paused,
-            intro = introOf(shows, playing.file, generalIntro),
+            // Il nome del tasto Salta sigla (sigla, riassunto o titoli di coda), null se non sa dove andare
+            intro = skipPressOf(shows, playing.file, playing.time, playing.total, generalIntro).takeIf { it != SkipPress.Choose }?.let(::skipShortLabel),
             picture = pictureOfFile(shows, playing.file),
         )
     }

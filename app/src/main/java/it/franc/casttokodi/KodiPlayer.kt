@@ -87,7 +87,11 @@ class KodiPlayer : Service() {
                 override fun onSkipToNext() = command { kodi, id -> kodi.next(id) }
                 override fun onSeekTo(position: Long) = command { kodi, id -> kodi.seekTo(id, position / 1000) }
                 override fun onCustomAction(action: String, extras: android.os.Bundle?) = when (action) {
-                    INTRO -> buttons.intro?.let { seconds -> command { kodi, id -> kodi.skip(id, seconds) } } ?: Unit
+                    INTRO -> when (val press = buttons.intro) {
+                        is SkipPress.To -> command { kodi, id -> kodi.seekTo(id, press.seconds) }
+                        is SkipPress.Forward -> command { kodi, id -> kodi.skip(id, press.seconds) }
+                        else -> Unit
+                    }
                     BACK -> command { kodi, id -> kodi.skip(id, -MEDIA_SKIP) }
                     FORWARD -> command { kodi, id -> kodi.skip(id, MEDIA_SKIP) }
                     else -> Unit
@@ -144,9 +148,11 @@ class KodiPlayer : Service() {
         if (playing.playerId == null) return true
         val state = runCatching { kodi.state() }.getOrNull()
         val prefs = KodiAccess.prefs(this)
-        val shows = KodiAccess.shows(prefs)
+        var shows = KodiAccess.shows(prefs)
         KodiAccess.autoSubtitles(prefs, kodi, playing)
+        KodiAccess.fetchSkips(prefs, playing.file)
         val general = if (prefs.contains("intro")) prefs.getInt("intro", DEFAULT_INTRO) else null
+        shows = KodiAccess.shows(prefs)
         buttons = mediaButtons(playing, state, shows, general)
         val text = mediaText(playing, shows, KodiAccess.titles(prefs), prefs.getString("name", "").orEmpty())
         // Con il timer di spegnimento attivo, la sua ora (anche sulla schermata di blocco)
@@ -174,7 +180,7 @@ class KodiPlayer : Service() {
         val state = PlaybackState.Builder()
             .setActions(actions)
             .setState(if (playing.paused) PlaybackState.STATE_PAUSED else PlaybackState.STATE_PLAYING, playing.time * 1000, if (playing.paused) 0f else 1f)
-        if (buttons.intro != null) state.addCustomAction(INTRO, tr("Salta sigla", "Skip intro"), R.drawable.ic_skip_intro)
+        buttons.intro?.let { state.addCustomAction(INTRO, skipShortLabel(it), R.drawable.ic_skip_intro) }
         state.addCustomAction(BACK, tr("Indietro di $MEDIA_SKIP secondi", "Back $MEDIA_SKIP seconds"), R.drawable.ic_replay)
         state.addCustomAction(FORWARD, tr("Avanti di $MEDIA_SKIP secondi", "Forward $MEDIA_SKIP seconds"), R.drawable.ic_forward)
         session.setPlaybackState(state.build())

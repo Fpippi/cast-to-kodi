@@ -93,6 +93,29 @@ object KodiAccess {
 
     fun shows(prefs: SharedPreferences): List<Show> = showsFromJson(prefs.getString("shows", null))
 
+    // Tempi di sigla e titoli da AniSkip (#150), accesi di default; spenti, l'app non chiede niente ad AniSkip né ad AniList
+    fun aniSkipOn(prefs: SharedPreferences) = prefs.getBoolean("aniskip", true)
+
+    // Video (queueKey) di cui si stanno chiedendo i tempi adesso: Activity e tendina leggono Kodi insieme
+    private val askingSkips = HashSet<String>()
+
+    // Chiede ad AniSkip i tempi del video file, se è un episodio di una serie con l'id MyAnimeList e non sono già stati
+    // chiesti da poco (aniSkipRequest). Aspetta la rete: da un thread
+    fun fetchSkips(prefs: SharedPreferences, file: String?) {
+        if (file.isNullOrBlank() || !aniSkipOn(prefs)) return
+        val (mal, number) = aniSkipRequest(shows(prefs), file, System.currentTimeMillis()) ?: return
+        val key = queueKey(file)
+        if (!synchronized(askingSkips) { askingSkips.add(key) }) return
+        try {
+            val parts = AniSkipClient.skips(mal, number)
+            synchronized(this) {
+                prefs.edit().putString("shows", showsToJson(withSkips(shows(prefs), file, parts, System.currentTimeMillis()))).commit()
+            }
+        } finally {
+            synchronized(askingSkips) { askingSkips.remove(key) }
+        }
+    }
+
     // Cartella delle immagini delle serie (vedi saveFrame nell'Activity)
     fun framesDir(context: Context) = File(context.filesDir, "serie").apply { mkdirs() } // non tradurre: nome della cartella
 

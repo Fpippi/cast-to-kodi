@@ -60,6 +60,10 @@ data class Episode(
     val seen: Long = 0,
     // Fotogramma di questo episodio (file in filesDir/serie), se si è riusciti a prenderlo dal video
     val image: String? = null,
+    // Tratti da saltare presi da AniSkip (AniSkip.kt): null = non ancora chiesti (o AniSkip non ha risposto), vuota =
+    // AniSkip non li ha. skipsAt: quando si sono chiesti l'ultima volta (ms)
+    val skips: List<SkipPart>? = null,
+    val skipsAt: Long = 0,
 )
 
 // host: il dominio dell'ultimo invio, per riaprirla se il sito non si è più visto. episodes: dal meno recente.
@@ -87,6 +91,11 @@ data class Show(
     val autoNext: Int? = null,
     // Sottotitoli accesi da soli in questa lingua (codice di 3 lettere, "ita"), solo se scelto dal pannello (2026-10-27)
     val subtitles: String? = null,
+    // La serie su MyAnimeList, per i tempi di AniSkip (#150): null = non ancora trovata, NO_MAL = nessuna (scelta a
+    // mano). malTitle: il suo nome, per il pannello. episodeShift: da togliere al numero dell'episodio (aniSkipShift)
+    val malId: Int? = null,
+    val malTitle: String? = null,
+    val episodeShift: Int = 0,
 ) {
     // L'ultimo mandato o visto su Kodi
     val current: Episode get() = episodes.filter { it.seen > 0 }.maxByOrNull { it.seen } ?: episodes.last()
@@ -202,6 +211,9 @@ fun withSent(
         rewind = old?.rewind ?: 0,
         autoNext = old?.autoNext,
         subtitles = old?.subtitles,
+        malId = old?.malId,
+        malTitle = old?.malTitle,
+        episodeShift = old?.episodeShift ?: 0,
     )
     return (listOf(show) + shows.filter { it.key != page.key }).take(MAX_SHOWS)
 }
@@ -434,12 +446,13 @@ fun showsToJson(shows: List<Show>): String = JSONArray(shows.map { s ->
         .putOpt("image", s.image).put("updated", s.updated).putOpt("intro", s.intro)
         .put("cover", s.cover).putOpt("frameFrom", s.frameFrom).putOpt("frameTo", s.frameTo)
         .put("renamed", s.renamed).put("rewind", s.rewind).putOpt("autoNext", s.autoNext)
-        .putOpt("subtitles", s.subtitles)
+        .putOpt("subtitles", s.subtitles).putOpt("malId", s.malId).putOpt("malTitle", s.malTitle)
+        .put("episodeShift", s.episodeShift)
 }).toString()
 
 private fun episodeJson(e: Episode) = JSONObject().putOpt("season", e.season).putOpt("number", e.number).put("path", e.path)
     .putOpt("file", e.file).put("time", e.time).put("total", e.total).put("watched", e.watched).put("seen", e.seen)
-    .putOpt("image", e.image)
+    .putOpt("image", e.image).putOpt("skips", e.skips?.let { skipsToJson(it) }).put("skipsAt", e.skipsAt)
 
 fun showsFromJson(text: String?): List<Show> = try {
     val array = JSONArray(text ?: "[]")
@@ -461,6 +474,9 @@ fun showsFromJson(text: String?): List<Show> = try {
             rewind = o.optInt("rewind"),
             autoNext = if (o.has("autoNext")) o.getInt("autoNext") else null,
             subtitles = o.optString("subtitles").ifEmpty { null },
+            malId = if (o.has("malId")) o.getInt("malId") else null,
+            malTitle = o.optString("malTitle").ifEmpty { null },
+            episodeShift = o.optInt("episodeShift"),
         )
     }
 } catch (e: Exception) {
@@ -477,4 +493,6 @@ private fun episodeOf(o: JSONObject) = Episode(
     watched = o.optBoolean("watched"),
     seen = o.optLong("seen"),
     image = o.optString("image").ifEmpty { null },
+    skips = o.optJSONArray("skips")?.let { skipsFromJson(it) },
+    skipsAt = o.optLong("skipsAt"),
 )

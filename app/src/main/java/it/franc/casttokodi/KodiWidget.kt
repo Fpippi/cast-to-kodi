@@ -146,7 +146,7 @@ class KodiWidget : AppWidgetProvider() {
                     tint(R.id.remote, android.R.color.system_accent2_900, android.R.color.system_accent2_50)
                     v.setContentDescription(R.id.remote, tr("Apri il telecomando", "Open the remote"))
                     // Salta sigla solo se il tempo è già scelto: la prima volta si sceglie dal telecomando, come nella tendina
-                    v.setTextViewText(R.id.intro, tr("Salta sigla", "Skip intro"))
+                    v.setTextViewText(R.id.intro, content.intro ?: tr("Salta sigla", "Skip intro"))
                     secondary(R.id.intro)
                     v.setViewVisibility(R.id.intro, if (wide && content.intro != null) View.VISIBLE else View.GONE)
                     listOf(R.id.back, R.id.forward).forEach { v.setViewVisibility(it, if (wide) View.VISIBLE else View.GONE) }
@@ -265,7 +265,12 @@ class KodiWidget : AppWidgetProvider() {
                             INTRO -> {
                                 val prefs = KodiAccess.prefs(context)
                                 val general = if (prefs.contains("intro")) prefs.getInt("intro", DEFAULT_INTRO) else null
-                                introOf(KodiAccess.shows(prefs), playing.file, general)?.let { kodi.skip(id, it) }
+                                KodiAccess.fetchSkips(prefs, playing.file)
+                                when (val press = skipPressOf(KodiAccess.shows(prefs), playing.file, playing.time, playing.total, general)) {
+                                    is SkipPress.To -> kodi.seekTo(id, press.seconds)
+                                    is SkipPress.Forward -> kodi.skip(id, press.seconds)
+                                    SkipPress.Choose -> Unit
+                                }
                             }
                         }
                     }
