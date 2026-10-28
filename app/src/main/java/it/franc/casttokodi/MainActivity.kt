@@ -8,10 +8,13 @@ import android.app.Dialog
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageInstaller
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.net.ConnectivityManager
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.graphics.Color
@@ -381,11 +384,13 @@ class MainActivity : Activity() {
         migrateAuth()
         migrateAutoNext()
         cleanFrames()
+        publishShortcuts()
         autoBackup()
         showHome()
         if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress()
         openShared(intent)
         openRemote(intent)
+        openFromWidget(intent)
         checkUpdate()
     }
 
@@ -393,6 +398,7 @@ class MainActivity : Activity() {
         super.onNewIntent(intent)
         openShared(intent)
         openRemote(intent)
+        openFromWidget(intent)
         installStatus(intent)
     }
 
@@ -401,6 +407,69 @@ class MainActivity : Activity() {
         if (intent?.action != ACTION_OPEN_REMOTE && intent?.action != TileService.ACTION_QS_TILE_PREFERENCES) return
         intent.action = null
         if (!prefs.getString("host", "").isNullOrBlank()) showPlayer()
+    }
+
+    // Tocchi sul widget della Home (KodiWidget): riprendere una serie, accendere la TV, la pagina iniziale
+    private fun openFromWidget(intent: Intent?) {
+        val action = intent?.action ?: return
+        if (action != ACTION_WIDGET_RESUME && action != ACTION_WIDGET_WAKE && action != ACTION_WIDGET_HOME && action != ACTION_OPEN_QUEUE) return
+        intent.action = null
+        when (action) {
+            ACTION_WIDGET_HOME -> showHome()
+            ACTION_OPEN_QUEUE -> if (!prefs.getString("host", "").isNullOrBlank()) showPlayer(tab = 1)
+            ACTION_WIDGET_WAKE -> if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress() else wakeKodi()
+            ACTION_WIDGET_RESUME -> resumeFromWidget(intent.getStringExtra(EXTRA_SHOW), intent.getBooleanExtra(EXTRA_AFTER, false))
+        }
+    }
+
+    // Scorciatoie tenendo premuta l'icona (Shortcuts.kt): stessi intent del widget, più telecomando e coda. "Riprendi"
+    // segue la serie più recente, quindi si ripubblicano quando cambiano le serie
+    private fun publishShortcuts() {
+        val manager = getSystemService(ShortcutManager::class.java) ?: return
+        val list = appShortcuts(!prefs.getString("host", "").isNullOrBlank(), if (historyOn()) loadShows() else emptyList())
+        thread {
+            val shortcuts = list.map { shortcut ->
+                val (action, iconId) = when (shortcut.kind) {
+                    ShortcutKind.WAKE -> ACTION_WIDGET_WAKE to it.franc.casttokodi.R.drawable.ic_power
+                    ShortcutKind.REMOTE -> ACTION_OPEN_REMOTE to it.franc.casttokodi.R.drawable.ic_remote
+                    ShortcutKind.RESUME -> ACTION_WIDGET_RESUME to it.franc.casttokodi.R.drawable.ic_play
+                    ShortcutKind.QUEUE -> ACTION_OPEN_QUEUE to it.franc.casttokodi.R.drawable.ic_queue
+                }
+                val intent = Intent(this, MainActivity::class.java).setAction(action)
+                shortcut.show?.let { intent.putExtra(EXTRA_SHOW, it).putExtra(EXTRA_AFTER, false) }
+                ShortcutInfo.Builder(this, shortcut.id)
+                    .setShortLabel(shortcut.short)
+                    .setLongLabel(shortcut.long)
+                    .setIcon(shortcutIcon(iconId))
+                    .setIntent(intent)
+                    .build()
+            }
+            runCatching { manager.dynamicShortcuts = shortcuts }
+        }
+    }
+
+    // Icona adattiva della scorciatoia: il simbolo dell'app su un fondo con il colore d'accento del telefono
+    private fun shortcutIcon(iconId: Int): Icon {
+        val size = dp(108)
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(getColor(R.color.system_accent1_100))
+        icon(iconId, getColor(R.color.system_accent1_700)).apply {
+            val inset = size * 3 / 8
+            setBounds(inset, inset, size - inset, size - inset)
+            draw(canvas)
+        }
+        return Icon.createWithAdaptiveBitmap(bitmap)
+    }
+
+    // "Riprendi su Kodi" o "Ep. 8" del widget: come nel pannello della serie. Dove l'app non sa mandarlo da sola
+    // (o Kodi non è scelto) si apre l'episodio qui, dove basta avviare il player
+    private fun resumeFromWidget(key: String?, after: Boolean) {
+        val show = loadShows().firstOrNull { it.key == key } ?: return showHome()
+        val target = (if (after) widgetAfter(show) else show.upNext) ?: return showPanel(show.key)
+        val hosts = siteHosts()
+        if (widgetSendsToKodi(show, target, hosts) && !prefs.getString("host", "").isNullOrBlank()) resumeOnKodi(show, target)
+        else open(episodeUrl(show, target, hosts))
     }
 
     // Condividi → Couch Cast da Chrome o da un'altra app: la pagina si apre qui, dove il video si trova come al solito.
@@ -2094,7 +2163,8 @@ class MainActivity : Activity() {
             setOnClickListener { video { kodi, id -> kodi.playPause(id) } }
         }
 
-        // "Salta sigla": avanti di quanto vale per la serie in corso (introOf), da dove si è. Al primo tocco su una serie
+        // "Salta sigla": alla fine della sigla, del riassunto o dei titoli di coda se AniSkip ne sa i tempi (skipPress,
+        // #150), se no avanti di quanto vale per la serie in corso (introOf), da dove si è. Al primo tocco su una serie
         // senza tempo si sceglie quanto (scelta di Pippo); la pressione lunga lo cambia, anche con un tempo scritto a mano
         val intro = TextView(this).apply {
             textSize = 15f
@@ -2113,11 +2183,14 @@ class MainActivity : Activity() {
             tooltipText = contentDescription
             setOnClickListener {
                 if (now?.playerId == null) return@setOnClickListener toast(tr("Kodi non sta riproducendo niente", "Kodi isn't playing anything"))
-                val seconds = introOf(loadShows(), now?.file, generalIntro())
-                if (seconds != null) video { kodi, id -> kodi.skip(id, seconds) }
-                else chooseIntro(now?.file) { chosen ->
-                    text = introLabel(chosen)
-                    video { kodi, id -> kodi.skip(id, chosen) }
+                val playing = now!!
+                when (val press = skipPressOf(loadShows(), playing.file, playing.time, playing.total, generalIntro())) {
+                    is SkipPress.To -> video { kodi, id -> kodi.seekTo(id, press.seconds) }
+                    is SkipPress.Forward -> video { kodi, id -> kodi.skip(id, press.seconds) }
+                    SkipPress.Choose -> chooseIntro(playing.file) { chosen ->
+                        text = introLabel(chosen)
+                        video { kodi, id -> kodi.skip(id, chosen) }
+                    }
                 }
             }
             setOnLongClickListener {
@@ -2183,7 +2256,7 @@ class MainActivity : Activity() {
                 thumb.scaleType = ImageView.ScaleType.CENTER
                 thumb.setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_play, sys(R.color.system_accent1_50, R.color.system_accent1_100)))
             }
-            intro.text = introLabel(introOf(loadShows(), playing.file, generalIntro()))
+            intro.text = skipLabel(skipPressOf(loadShows(), playing.file, playing.time, playing.total, generalIntro()))
             val end = if (playing.total > 0) tr("fino alle ${clockAt(System.currentTimeMillis() / 1000 + playing.total - playing.time)}", "until ${clockAt(System.currentTimeMillis() / 1000 + playing.total - playing.time)}") else tr("in diretta", "live")
             status.text = if (playing.paused) tr("In pausa · $end", "Paused · $end") else end
             playPause.setImageDrawable(icon(
@@ -2408,6 +2481,9 @@ class MainActivity : Activity() {
             settingsHeading(tr("Siti", "Sites")),
             settingsRow(it.franc.casttokodi.R.drawable.ic_queue, tr("AnimeUnity: episodi successivi", "AnimeUnity: next episodes"), autoNextLabel(autoNext),
                 then { askAutoNext() }),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_skip_next, tr("Salta sigla e titoli con AniSkip", "Skip intro and credits with AniSkip"),
+                if (KodiAccess.aniSkipOn(prefs)) tr("Acceso: tempi degli anime presi da AniSkip", "On: anime times from AniSkip") else tr("Spento: solo il salto fisso", "Off: fixed skip only"),
+                then { toggleAniSkip() }),
             settingsHeading(tr("Cronologia", "History")),
             settingsRow(it.franc.casttokodi.R.drawable.ic_history, tr("Ricorda dove sono arrivato", "Remember where I got to"), historyLabel(),
                 then { toggleHistory() }),
@@ -2733,6 +2809,8 @@ class MainActivity : Activity() {
         thread {
             while (mine == miniGeneration) {
                 val playing = quietNowPlaying()
+                // I tempi di sigla e titoli del video in corso, se non si sanno ancora (#150)
+                if (playing?.playerId != null) KodiAccess.fetchSkips(prefs, playing.file)
                 runOnUiThread { if (mine == miniGeneration) showMini(playing) }
                 Thread.sleep(3000)
             }
@@ -2758,6 +2836,7 @@ class MainActivity : Activity() {
 
     private fun showMini(playing: NowPlaying?) {
         miniNow = playing
+        thread { KodiWidget.refresh(this, playing) }
         if (playing?.playerId != null && playing.file.isNotBlank()) trackProgress(playing)
         kodiReachable = playing != null
         refreshKodiCard()
@@ -2927,6 +3006,102 @@ class MainActivity : Activity() {
             .setMessage(tr("Il sito non lo cambierà più.", "The site won't change it any more."))
             .setView(section(field).apply { setPadding(dp(24), dp(8), dp(24), 0) })
             .setPositiveButton(tr("Salva", "Save"), null)
+            .setNegativeButton(tr("Annulla", "Cancel"), null)
+            .create()
+        field.setOnEditorActionListener { _, _, _ -> go(); true }
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { go() }
+        field.requestFocus()
+    }
+
+    // ---- Salta sigla con AniSkip (#150) ----
+
+    private fun toggleAniSkip() {
+        val on = !KodiAccess.aniSkipOn(prefs)
+        prefs.edit().putBoolean("aniskip", on).apply()
+        if (!on) updateShows { withoutSkips(it) }
+        toast(if (on) tr("AniSkip acceso: Salta sigla va alla fine della sigla quando ne sa i tempi", "AniSkip on: Skip intro jumps to the end of the intro when it knows the times")
+            else tr("AniSkip spento: Salta sigla torna al salto fisso", "AniSkip off: Skip intro goes back to the fixed jump"))
+        showSettings()
+    }
+
+    // L'id MyAnimeList della serie, per AniSkip, dai dati della pagina (info di EPISODE_INFO_JS): quello scritto lì,
+    // se no da AniList con l'id AniList della pagina o, solo se è certa, con il titolo. Una volta per serie: se non la
+    // trova si sceglie dal pannello della serie
+    private fun findMal(key: String, info: JSONObject) {
+        val show = loadShows().firstOrNull { it.key == key } ?: return
+        if (show.malId != null || !KodiAccess.aniSkipOn(prefs)) return
+        val count = info.optInt("count").takeIf { it > 0 }
+        val shift = aniSkipShift(info.optString("first").toIntOrNull(), info.optString("number").toIntOrNull(), count)
+        val title = info.optString("title")
+        val mal = info.optString("mal").toIntOrNull()?.takeIf { it > 0 }
+        if (mal != null) return updateShows { withMal(it, key, mal, title.ifBlank { null }, shift) }
+        val aniList = info.optString("anilist").toIntOrNull()?.takeIf { it > 0 }
+        thread {
+            val match = aniList?.let { AniSkipClient.byAniList(it) }
+                ?: title.takeIf { it.isNotBlank() }?.let { t -> AniSkipClient.search(t)?.let { sureMatch(it, t, count) } }
+            if (match != null) runOnUiThread { updateShows { withMal(it, key, match.malId, match.title, shift) } }
+        }
+    }
+
+    // Quale serie è su MyAnimeList: cercata per nome su AniList, con copertina, anno ed episodi per distinguere stagioni
+    // e parti. In fondo "Nessuna" (solo il salto fisso) e "Cerca con un altro nome…"
+    private fun chooseMal(show: Show, query: String) {
+        toast(tr("Cerco \"$query\"…", "Searching \"$query\"…"))
+        thread {
+            val found = AniSkipClient.search(query)
+            val covers = found.orEmpty().map { m ->
+                m.cover?.let { url ->
+                    runCatching {
+                        val conn = URL(url).openConnection() as HttpURLConnection
+                        conn.connectTimeout = 5000
+                        conn.readTimeout = 5000
+                        try { conn.inputStream.use { BitmapFactory.decodeStream(it) } } finally { conn.disconnect() }
+                    }.getOrNull()
+                }
+            }
+            runOnUiThread {
+                if (found == null) return@runOnUiThread toast(tr("AniList non risponde: riprova tra poco", "AniList isn't answering: try again shortly"))
+                val choices = found.mapIndexed { i, m ->
+                    Choice(m.title, listOfNotNull(m.other, m.year?.toString(), m.episodes?.let { tr("$it episodi", "$it episodes") }).joinToString(" · "), covers[i])
+                } + Choice(tr("Nessuna", "None"), tr("Solo il salto fisso", "Fixed skip only")) +
+                    Choice(tr("Cerca con un altro nome…", "Search with another name…"))
+                val checked = if (show.malId == NO_MAL) found.size else found.indexOfFirst { it.malId == show.malId }
+                choiceSheet(if (found.isEmpty()) tr("Niente per \"$query\"", "Nothing for \"$query\"") else tr("Quale serie è?", "Which series is it?"), choices, checked) { i ->
+                    when {
+                        i < found.size -> updateShows { withMal(it, show.key, found[i].malId, found[i].title) }
+                        i == found.size -> updateShows { withMal(it, show.key, NO_MAL, null) }
+                        else -> return@choiceSheet askMalQuery(show, query)
+                    }
+                    showPanel(show.key)
+                }
+            }
+        }
+    }
+
+    private fun askMalQuery(show: Show, current: String) {
+        val field = EditText(this).apply {
+            setText(current)
+            selectAll()
+            isSingleLine = true
+            inputType = InputType.TYPE_CLASS_TEXT
+            imeOptions = EditorInfo.IME_ACTION_SEARCH
+        }
+        lateinit var dialog: AlertDialog
+        val go = {
+            val query = field.text.toString().trim()
+            if (query.isEmpty()) toast(tr("Scrivi un nome", "Type a name"))
+            else {
+                dialog.dismiss()
+                chooseMal(show, query)
+            }
+        }
+        dialog = AlertDialog.Builder(this)
+            .setTitle(tr("Cerca la serie", "Search for the series"))
+            .setMessage(tr("Il nome in inglese o in giapponese trova di più.", "The English or Japanese name finds more."))
+            .setView(section(field).apply { setPadding(dp(24), dp(8), dp(24), 0) })
+            .setPositiveButton(tr("Cerca", "Search"), null)
             .setNegativeButton(tr("Annulla", "Cancel"), null)
             .create()
         field.setOnEditorActionListener { _, _, _ -> go(); true }
@@ -3758,6 +3933,8 @@ class MainActivity : Activity() {
 
     private fun saveShows(list: List<Show>) {
         prefs.edit().putString("shows", showsToJson(list)).apply()
+        KodiWidget.showsChanged(this)
+        publishShortcuts()
     }
 
     private fun updateShows(change: (List<Show>) -> List<Show>?) {
@@ -3799,6 +3976,7 @@ class MainActivity : Activity() {
                 }
                 val next = info.optJSONObject("next")?.let { Episode(null, it.optString("number").toIntOrNull(), "$series/${it.optString("id")}") }
                 val at = info.optString("id").takeIf { it.isNotBlank() && episode.path.trimEnd('/') == series }?.let { "$series/$it" }
+                findMal(episode.key, info)
                 updateShows {
                     withDetails(it, episode.key, title = info.optString("title").takeIf { known == null },
                         count = info.optInt("count").takeIf { c -> c > 0 }, next = next,
@@ -4220,6 +4398,9 @@ class MainActivity : Activity() {
         setting(it.franc.casttokodi.R.drawable.ic_skip_next, tr("Salta sigla", "Skip intro"), show.intro?.let { tr("Avanti di ${introTime(it)}", "Forward ${introTime(it)}") } ?: tr("Non ancora scelto", "Not chosen yet")) {
             chooseIntroOf(show) { showPanel(key) }
         }
+        setting(it.franc.casttokodi.R.drawable.ic_skip_intro, tr("Tempi da AniSkip", "Times from AniSkip"), aniSkipLabel(show, KodiAccess.aniSkipOn(prefs))) {
+            if (KodiAccess.aniSkipOn(prefs)) chooseMal(show, show.title) else showSettings()
+        }
         setting(it.franc.casttokodi.R.drawable.ic_history, tr("Riprendi", "Resume"), rewindLabel(show.rewind)) { chooseRewind(show) }
         if (isAnimeUnityEpisode(host, show.current.path)) {
             val general = prefs.getInt("autoNext", DEFAULT_AUTO_NEXT)
@@ -4348,6 +4529,7 @@ class MainActivity : Activity() {
                     done = true
                     web.post { hidden.destroy() }
                     rememberSite(Uri.parse(loaded).host)
+                    findMal(show.key, info)
                     resolveVixCloud(embed, userAgent, referer = loaded) { stream ->
                         if (stream == null) {
                             toast(tr("Non trovo il video dell'episodio: avvia il player e premi Manda a Kodi", "Can't find the episode's video: start the player and tap Send to Kodi"))

@@ -24,12 +24,12 @@ fun mediaText(playing: NowPlaying, shows: List<Show>, titles: Map<String, String
     )
 }
 
-// I tasti del player oltre a play/pausa. Salta sigla solo se per quel video il tempo è già scelto (la prima scelta si fa
-// dal telecomando); Prossimo solo se nella coda di Kodi c'è qualcosa dopo
-data class MediaButtons(val intro: Int?, val next: Boolean)
+// I tasti del player oltre a play/pausa. Salta sigla solo se per quel video sa dove andare: i tempi di AniSkip o il salto
+// già scelto (la prima scelta si fa dal telecomando); Prossimo solo se nella coda di Kodi c'è qualcosa dopo
+data class MediaButtons(val intro: SkipPress?, val next: Boolean)
 
 fun mediaButtons(playing: NowPlaying, state: KodiState?, shows: List<Show>, generalIntro: Int?) = MediaButtons(
-    intro = introOf(shows, playing.file, generalIntro),
+    intro = skipPressOf(shows, playing.file, playing.time, playing.total, generalIntro).takeIf { it != SkipPress.Choose },
     next = state?.hasNext == true,
 )
 
