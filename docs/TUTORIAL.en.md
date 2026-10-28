@@ -226,6 +226,12 @@ There is also the **Couch Cast** quick settings tile: **⋮ → Settings → Add
 shade's pencil. It says what Kodi is doing; a tap pauses or resumes, with Kodi stopped or off it opens the app; a long
 press opens the remote.
 
+### Shortcuts on the icon
+
+Long-press the Couch Cast icon: you get **Turn on the TV**, **Remote**, **Resume** with the name of the latest *Keep
+watching* series (like the widget's *Resume on Kodi*) and **Kodi queue**. Each one can be dragged to the home screen as
+its own icon. They appear only once Kodi is chosen.
+
 ### The home screen widget
 
 Long-press an empty spot on the home screen → **Widgets** → **Couch Cast** and drag it where you want; it grows and shrinks

@@ -218,6 +218,12 @@ In più c'è il riquadro **Couch Cast** delle impostazioni rapide: **⋮ → Imp
 della tendina). Dice cosa fa Kodi; un tocco mette in pausa o fa ripartire, con Kodi fermo o spento apre l'app; la pressione
 lunga apre il telecomando.
 
+### Le scorciatoie sull'icona
+
+Tieni premuta l'icona di Couch Cast: compaiono **Accendi la TV**, **Telecomando**, **Riprendi** con il nome dell'ultima
+serie di *Continua a guardare* (come *Riprendi su Kodi* del widget) e **Coda di Kodi**. Ognuna si può trascinare sulla
+Home come icona a sé. Ci sono solo dopo aver scelto Kodi.
+
 ### Il widget sulla schermata Home
 
 Tieni premuto uno spazio vuoto della schermata Home → **Widget** → **Couch Cast** e trascinalo dove vuoi; si allarga e si

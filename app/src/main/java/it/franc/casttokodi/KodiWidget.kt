@@ -21,6 +21,8 @@ import kotlin.concurrent.thread
 const val ACTION_WIDGET_RESUME = "it.franc.casttokodi.WIDGET_RESUME"
 const val ACTION_WIDGET_WAKE = "it.franc.casttokodi.WIDGET_WAKE"
 const val ACTION_WIDGET_HOME = "it.franc.casttokodi.WIDGET_HOME"
+// Dalla scorciatoia "Coda di Kodi" dell'icona: il telecomando sulla scheda Coda
+const val ACTION_OPEN_QUEUE = "it.franc.casttokodi.QUEUE"
 const val EXTRA_SHOW = "show"
 const val EXTRA_AFTER = "after"
 
