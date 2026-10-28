@@ -46,6 +46,7 @@ val BACKED_UP: Map<String, BackupPart> = mapOf(
     "mediaControls" to BackupPart.SETTINGS,
     "timerAction" to BackupPart.SETTINGS,
     "language" to BackupPart.SETTINGS,
+    "aniskip" to BackupPart.SETTINGS,
 )
 
 // Fuori dal backup, apposta: le chiavi del Keystore non escono dal telefono, quindi quello che cifrano non si

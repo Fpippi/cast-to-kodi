@@ -91,7 +91,7 @@ class WidgetTest {
         assertEquals("Fire Force · Ep. 7", c.title)
         assertEquals("12:34 / 23:40 · finisce alle 21:11", c.status)
         assertEquals(530, c.progress)
-        assertEquals(90, c.intro)
+        assertEquals("Salta sigla", c.intro)
         assertEquals("ep7.jpg", c.picture)
         val paused = content(playing("https://cdn.example/7.m3u8", time = 754, total = 1420, paused = true), listOf(fireForce)) as WidgetContent.Playing
         assertEquals("In pausa · 12:34 / 23:40", paused.status)

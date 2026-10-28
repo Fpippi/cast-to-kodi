@@ -38,14 +38,14 @@ class MediaTest {
     fun tasti() {
         val state = KodiState(playerId = 1, fromQueue = true, position = 0, remaining = 600, episode = 1400, queueLength = 2)
         val buttons = mediaButtons(playing("https://cdn.example/12.m3u8"), state, listOf(jojo), generalIntro = null)
-        assertEquals(85, buttons.intro)
+        assertEquals(SkipPress.Forward(85), buttons.intro)
         assertTrue(buttons.next)
         // Coda finita, video fuori dalle serie e senza tempo generale: niente Salta sigla né Prossimo
         val last = KodiState(playerId = 1, fromQueue = true, position = 1, remaining = 600, episode = 1400, queueLength = 2)
         val other = mediaButtons(playing("https://cdn.example/film.mp4"), last, listOf(jojo), generalIntro = null)
         assertNull(other.intro)
         assertFalse(other.next)
-        assertEquals(90, mediaButtons(playing("https://cdn.example/film.mp4"), null, listOf(jojo), generalIntro = 90).intro)
+        assertEquals(SkipPress.Forward(90), mediaButtons(playing("https://cdn.example/film.mp4"), null, listOf(jojo), generalIntro = 90).intro)
     }
 
     @Test

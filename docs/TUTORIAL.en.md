@@ -182,11 +182,13 @@ dragging down. At the top right there is Kodi's name with a lit dot if it answer
 - **⏭ when the queue is over**: if nothing is queued after the video playing, on anime sites with the VixCloud player
   ⏭ sends Kodi the next episode of the same series (the phone prepares it in a couple of seconds, like *Resume on
   Kodi*). On other sites the app tells you which episode to open. It does not turn on automatic queueing.
-- **Skip intro**: when the opening starts, tap it and the video jumps forward from where it is. The
-  first time for each series the app asks how much (30 seconds to 2 minutes, or *Other time…* to type
-  it, e.g. `1:12` or `72`) and then remembers it: one series can skip 1:30 and another 45 seconds. Long-press it to
-  change it. Videos that are not from a series in *Keep watching* share a single time. It never skips on its own: the opening does not
-  always start at the same minute.
+- **Skip intro**: with the anime that [AniSkip](https://aniskip.com) knows (a free database of times marked by users)
+  it goes straight to the end of the intro, even if you tap it before the intro starts; if the episode opens with a
+  recap the button says **Skip recap**, and from 30 seconds before the credits it becomes **Skip credits**, which goes
+  to the end of the episode (and Kodi moves on to the next video in the queue). Without AniSkip times, tap it when the
+  opening starts and the video jumps forward from where it is: the first time for each series the app asks how much
+  (30 seconds to 2 minutes, or *Other time…* to type it, e.g. `1:12` or `72`) and then remembers it. Long-press it to
+  change it. Videos that are not from a series in *Keep watching* share a single time. It never skips on its own.
 - **The round D-pad with OK** and below it **Back**, **Home**, **volume down** and **volume up** (Kodi's volume, not
   the TV's): to move around Kodi's menus.
 - In a row that scrolls sideways: **Turn on the TV**, **−30 s**, **+30 s**, **Go to minute**,
@@ -235,7 +237,7 @@ like other widgets.
   with the VixCloud player, like in the series panel; on other sites the button says **Open the episode** and opens the
   page in the app.
 - **With a video playing** it becomes a small remote: title, time and when it ends, **Skip intro** (if the time is already
-  chosen for the series), **−10 s**, **pause**, **+10 s** and the button that opens the full remote.
+  chosen for the series or AniSkip knows it), **−10 s**, **pause**, **+10 s** and the button that opens the full remote.
 
 The widget doesn't ask Kodi anything by itself: the app and the shade player update it while you use them (and at most
 every 30 minutes), so with the screen off it doesn't drain the battery. That's why it can show an old time if you haven't
@@ -328,7 +330,10 @@ a row that scrolls sideways, with a card for each series, the most recent on the
   - **Background**: the series **cover** or an **episode image**, taken at random between 25% and
     60% of the video (after the opening theme); with *Change range…* you choose where to take it
     from, in percent. The same image shows in the Kodi bar at the bottom.
-  - **Skip intro**: how far the remote's button jumps for this series.
+  - **Skip intro**: how far the remote's button jumps for this series when AniSkip has no times.
+  - **Times from AniSkip**: which series it is on MyAnimeList. It usually finds it by itself; if it says *Series not
+    found*, tap it, pick the right one from the list (cover, year and episodes help tell seasons and parts apart) or
+    *Search with another name…*; *None* leaves only the fixed jump. AniSkip can be turned off in *⋮ → Settings*.
   - **Resume**: from the exact point or a few seconds earlier (5, 10, 15, 30), to pick up the thread.
   - **Next episodes** (only on the anime site with the VixCloud player): how many to queue by
     themselves for this series, or the same as in Settings.
