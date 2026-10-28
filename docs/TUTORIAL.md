@@ -215,6 +215,21 @@ In più c'è il riquadro **Couch Cast** delle impostazioni rapide: **⋮ → Imp
 della tendina). Dice cosa fa Kodi; un tocco mette in pausa o fa ripartire, con Kodi fermo o spento apre l'app; la pressione
 lunga apre il telecomando.
 
+### Il widget sulla schermata Home
+
+Tieni premuto uno spazio vuoto della schermata Home → **Widget** → **Couch Cast** e trascinalo dove vuoi; si allarga e si
+stringe come gli altri widget.
+
+- **Con Kodi fermo** mostra la serie di *Continua a guardare* a cui sei arrivato, con l'immagine e il punto ("Ep. 7 · fermo a
+  12:34"). **Riprendi su Kodi** la manda a Kodi dal minuto giusto, il pulsante accanto (es. **Ep. 8**) manda l'episodio dopo,
+  **Altre serie** apre la pagina iniziale e **⏻** accende la TV. Va su Kodi da solo soltanto sui siti di anime con player
+  VixCloud, come nel pannello della serie; sugli altri siti il pulsante dice **Apri l'episodio** e apre la pagina nell'app.
+- **Con un video in corso** diventa un piccolo telecomando: titolo, tempo e ora in cui finisce, **Salta sigla** (se per la
+  serie il tempo è già scelto), **−10 s**, **pausa**, **+10 s** e il pulsante che apre il telecomando intero.
+
+Il widget non chiede niente a Kodi da solo: lo aggiornano l'app e il player della tendina mentre li usi (e al massimo ogni
+30 minuti), così con lo schermo spento non consuma. Per questo, se non apri l'app da un po', può mostrare un tempo vecchio.
+
 ---
 
 ## 7. La coda degli episodi

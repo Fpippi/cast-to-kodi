@@ -386,6 +386,7 @@ class MainActivity : Activity() {
         if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress()
         openShared(intent)
         openRemote(intent)
+        openFromWidget(intent)
         checkUpdate()
     }
 
@@ -393,6 +394,7 @@ class MainActivity : Activity() {
         super.onNewIntent(intent)
         openShared(intent)
         openRemote(intent)
+        openFromWidget(intent)
         installStatus(intent)
     }
 
@@ -401,6 +403,28 @@ class MainActivity : Activity() {
         if (intent?.action != ACTION_OPEN_REMOTE && intent?.action != TileService.ACTION_QS_TILE_PREFERENCES) return
         intent.action = null
         if (!prefs.getString("host", "").isNullOrBlank()) showPlayer()
+    }
+
+    // Tocchi sul widget della Home (KodiWidget): riprendere una serie, accendere la TV, la pagina iniziale
+    private fun openFromWidget(intent: Intent?) {
+        val action = intent?.action ?: return
+        if (action != ACTION_WIDGET_RESUME && action != ACTION_WIDGET_WAKE && action != ACTION_WIDGET_HOME) return
+        intent.action = null
+        when (action) {
+            ACTION_WIDGET_HOME -> showHome()
+            ACTION_WIDGET_WAKE -> if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress() else wakeKodi()
+            ACTION_WIDGET_RESUME -> resumeFromWidget(intent.getStringExtra(EXTRA_SHOW), intent.getBooleanExtra(EXTRA_AFTER, false))
+        }
+    }
+
+    // "Riprendi su Kodi" o "Ep. 8" del widget: come nel pannello della serie. Dove l'app non sa mandarlo da sola
+    // (o Kodi non è scelto) si apre l'episodio qui, dove basta avviare il player
+    private fun resumeFromWidget(key: String?, after: Boolean) {
+        val show = loadShows().firstOrNull { it.key == key } ?: return showHome()
+        val target = (if (after) widgetAfter(show) else show.upNext) ?: return showPanel(show.key)
+        val hosts = siteHosts()
+        if (widgetSendsToKodi(show, target, hosts) && !prefs.getString("host", "").isNullOrBlank()) resumeOnKodi(show, target)
+        else open(episodeUrl(show, target, hosts))
     }
 
     // Condividi → Couch Cast da Chrome o da un'altra app: la pagina si apre qui, dove il video si trova come al solito.
@@ -2758,6 +2782,7 @@ class MainActivity : Activity() {
 
     private fun showMini(playing: NowPlaying?) {
         miniNow = playing
+        thread { KodiWidget.refresh(this, playing) }
         if (playing?.playerId != null && playing.file.isNotBlank()) trackProgress(playing)
         kodiReachable = playing != null
         refreshKodiCard()
@@ -3758,6 +3783,7 @@ class MainActivity : Activity() {
 
     private fun saveShows(list: List<Show>) {
         prefs.edit().putString("shows", showsToJson(list)).apply()
+        KodiWidget.showsChanged(this)
     }
 
     private fun updateShows(change: (List<Show>) -> List<Show>?) {

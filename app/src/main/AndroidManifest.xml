@@ -48,6 +48,18 @@
         <receiver
             android:name=".TimerReceiver"
             android:exported="false" />
+        <!-- Widget Couch Cast sulla Home: la serie da riprendere o, con un video in corso, un piccolo telecomando -->
+        <receiver
+            android:name=".KodiWidget"
+            android:exported="false"
+            android:label="Couch Cast">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/kodi_widget" />
+        </receiver>
         <!-- Riquadro Couch Cast delle impostazioni rapide -->
         <service
             android:name=".KodiTile"
