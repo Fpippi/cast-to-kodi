@@ -140,6 +140,7 @@ class KodiPlayer : Service() {
             return false
         }
         now = playing
+        KodiWidget.refresh(this, playing)
         if (playing.playerId == null) return true
         val state = runCatching { kodi.state() }.getOrNull()
         val prefs = KodiAccess.prefs(this)

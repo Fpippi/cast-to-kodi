@@ -224,6 +224,23 @@ There is also the **Couch Cast** quick settings tile: **⋮ → Settings → Add
 shade's pencil. It says what Kodi is doing; a tap pauses or resumes, with Kodi stopped or off it opens the app; a long
 press opens the remote.
 
+### The home screen widget
+
+Long-press an empty spot on the home screen → **Widgets** → **Couch Cast** and drag it where you want; it grows and shrinks
+like other widgets.
+
+- **With Kodi stopped** it shows the *Keep watching* series you got to, with its picture and spot ("Ep. 7 · stopped at
+  12:34"). **Resume on Kodi** sends it to Kodi from the right minute, the button next to it (e.g. **Ep. 8**) sends the next
+  episode, **Other series** opens the home page and **⏻** turns on the TV. It goes to Kodi by itself only on anime sites
+  with the VixCloud player, like in the series panel; on other sites the button says **Open the episode** and opens the
+  page in the app.
+- **With a video playing** it becomes a small remote: title, time and when it ends, **Skip intro** (if the time is already
+  chosen for the series), **−10 s**, **pause**, **+10 s** and the button that opens the full remote.
+
+The widget doesn't ask Kodi anything by itself: the app and the shade player update it while you use them (and at most
+every 30 minutes), so with the screen off it doesn't drain the battery. That's why it can show an old time if you haven't
+opened the app for a while.
+
 ---
 
 ## 7. The episode queue
