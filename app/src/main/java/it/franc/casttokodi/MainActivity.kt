@@ -8,10 +8,13 @@ import android.app.Dialog
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageInstaller
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.net.ConnectivityManager
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.graphics.Color
@@ -381,6 +384,7 @@ class MainActivity : Activity() {
         migrateAuth()
         migrateAutoNext()
         cleanFrames()
+        publishShortcuts()
         autoBackup()
         showHome()
         if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress()
@@ -408,13 +412,54 @@ class MainActivity : Activity() {
     // Tocchi sul widget della Home (KodiWidget): riprendere una serie, accendere la TV, la pagina iniziale
     private fun openFromWidget(intent: Intent?) {
         val action = intent?.action ?: return
-        if (action != ACTION_WIDGET_RESUME && action != ACTION_WIDGET_WAKE && action != ACTION_WIDGET_HOME) return
+        if (action != ACTION_WIDGET_RESUME && action != ACTION_WIDGET_WAKE && action != ACTION_WIDGET_HOME && action != ACTION_OPEN_QUEUE) return
         intent.action = null
         when (action) {
             ACTION_WIDGET_HOME -> showHome()
+            ACTION_OPEN_QUEUE -> if (!prefs.getString("host", "").isNullOrBlank()) showPlayer(tab = 1)
             ACTION_WIDGET_WAKE -> if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress() else wakeKodi()
             ACTION_WIDGET_RESUME -> resumeFromWidget(intent.getStringExtra(EXTRA_SHOW), intent.getBooleanExtra(EXTRA_AFTER, false))
         }
+    }
+
+    // Scorciatoie tenendo premuta l'icona (Shortcuts.kt): stessi intent del widget, più telecomando e coda. "Riprendi"
+    // segue la serie più recente, quindi si ripubblicano quando cambiano le serie
+    private fun publishShortcuts() {
+        val manager = getSystemService(ShortcutManager::class.java) ?: return
+        val list = appShortcuts(!prefs.getString("host", "").isNullOrBlank(), if (historyOn()) loadShows() else emptyList())
+        thread {
+            val shortcuts = list.map { shortcut ->
+                val (action, iconId) = when (shortcut.kind) {
+                    ShortcutKind.WAKE -> ACTION_WIDGET_WAKE to it.franc.casttokodi.R.drawable.ic_power
+                    ShortcutKind.REMOTE -> ACTION_OPEN_REMOTE to it.franc.casttokodi.R.drawable.ic_remote
+                    ShortcutKind.RESUME -> ACTION_WIDGET_RESUME to it.franc.casttokodi.R.drawable.ic_play
+                    ShortcutKind.QUEUE -> ACTION_OPEN_QUEUE to it.franc.casttokodi.R.drawable.ic_queue
+                }
+                val intent = Intent(this, MainActivity::class.java).setAction(action)
+                shortcut.show?.let { intent.putExtra(EXTRA_SHOW, it).putExtra(EXTRA_AFTER, false) }
+                ShortcutInfo.Builder(this, shortcut.id)
+                    .setShortLabel(shortcut.short)
+                    .setLongLabel(shortcut.long)
+                    .setIcon(shortcutIcon(iconId))
+                    .setIntent(intent)
+                    .build()
+            }
+            runCatching { manager.dynamicShortcuts = shortcuts }
+        }
+    }
+
+    // Icona adattiva della scorciatoia: il simbolo dell'app su un fondo con il colore d'accento del telefono
+    private fun shortcutIcon(iconId: Int): Icon {
+        val size = dp(108)
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(getColor(R.color.system_accent1_100))
+        icon(iconId, getColor(R.color.system_accent1_700)).apply {
+            val inset = size * 3 / 8
+            setBounds(inset, inset, size - inset, size - inset)
+            draw(canvas)
+        }
+        return Icon.createWithAdaptiveBitmap(bitmap)
     }
 
     // "Riprendi su Kodi" o "Ep. 8" del widget: come nel pannello della serie. Dove l'app non sa mandarlo da sola
@@ -3889,6 +3934,7 @@ class MainActivity : Activity() {
     private fun saveShows(list: List<Show>) {
         prefs.edit().putString("shows", showsToJson(list)).apply()
         KodiWidget.showsChanged(this)
+        publishShortcuts()
     }
 
     private fun updateShows(change: (List<Show>) -> List<Show>?) {
