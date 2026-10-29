@@ -412,12 +412,17 @@ class MainActivity : Activity() {
     // Tocchi sul widget della Home (KodiWidget): riprendere una serie, accendere la TV, la pagina iniziale
     private fun openFromWidget(intent: Intent?) {
         val action = intent?.action ?: return
-        if (action != ACTION_WIDGET_RESUME && action != ACTION_WIDGET_WAKE && action != ACTION_WIDGET_HOME && action != ACTION_OPEN_QUEUE) return
+        if (action !in listOf(ACTION_WIDGET_RESUME, ACTION_WIDGET_WAKE, ACTION_WIDGET_HOME, ACTION_OPEN_QUEUE, ACTION_WIDGET_NEXT)) return
         intent.action = null
         when (action) {
             ACTION_WIDGET_HOME -> showHome()
             ACTION_OPEN_QUEUE -> if (!prefs.getString("host", "").isNullOrBlank()) showPlayer(tab = 1)
             ACTION_WIDGET_WAKE -> if (prefs.getString("host", "").isNullOrBlank()) askKodiAddress() else wakeKodi()
+            // ⏭ del widget a coda finita: l'episodio dopo quello che Kodi riproduce adesso
+            ACTION_WIDGET_NEXT -> thread {
+                val file = runCatching { quietKodi()?.nowPlaying()?.file }.getOrNull()
+                runOnUiThread { nextEpisode(file) }
+            }
             ACTION_WIDGET_RESUME -> resumeFromWidget(intent.getStringExtra(EXTRA_SHOW), intent.getBooleanExtra(EXTRA_AFTER, false))
         }
     }

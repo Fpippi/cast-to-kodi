@@ -144,9 +144,12 @@ class KodiPlayer : Service() {
             return false
         }
         now = playing
-        KodiWidget.refresh(this, playing)
-        if (playing.playerId == null) return true
+        if (playing.playerId == null) {
+            KodiWidget.refresh(this, playing)
+            return true
+        }
         val state = runCatching { kodi.state() }.getOrNull()
+        KodiWidget.refresh(this, playing, state = state)
         val prefs = KodiAccess.prefs(this)
         var shows = KodiAccess.shows(prefs)
         KodiAccess.autoSubtitles(prefs, kodi, playing)

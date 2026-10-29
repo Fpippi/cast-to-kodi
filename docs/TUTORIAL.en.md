@@ -235,15 +235,18 @@ its own icon. They appear only once Kodi is chosen.
 ### The home screen widget
 
 Long-press an empty spot on the home screen → **Widgets** → **Couch Cast** and drag it where you want; it grows and shrinks
-like other widgets.
+like other widgets. It always has the same row of remote buttons: **⏮ −10 ⏯ +10 ⏭ ⏹**, with **Skip intro** below (or at
+the top right, if the widget is short).
 
+- **With a video playing** the top shows the picture, title, time and when it ends, the moving line and the button that
+  opens the full remote. ⏮ and ⏭ go to the previous or next video in the queue; at the end of the queue ⏭ sends the next
+  episode, like in the remote (only on anime sites with the VixCloud player, and there the app opens to get it ready).
+  ⏹ stops Kodi. **Skip intro** appears if the time is already chosen for the series or AniSkip knows it.
 - **With Kodi stopped** it shows the *Keep watching* series you got to, with its picture and spot ("Ep. 7 · stopped at
-  12:34"). **Resume on Kodi** sends it to Kodi from the right minute, the button next to it (e.g. **Ep. 8**) sends the next
-  episode, **Other series** opens the home page and **⏻** turns on the TV. It goes to Kodi by itself only on anime sites
-  with the VixCloud player, like in the series panel; on other sites the button says **Open the episode** and opens the
-  page in the app.
-- **With a video playing** it becomes a small remote: title, time and when it ends, **Skip intro** (if the time is already
-  chosen for the series or AniSkip knows it), **−10 s**, **pause**, **+10 s** and the button that opens the full remote.
+  12:34"), and **⏻** at the top right to turn on the TV. The big **▶** button resumes it on Kodi from the right minute and ⏭
+  sends the next episode; −10, +10, ⏹ and Skip intro are dimmed until the video starts. It goes to Kodi by itself only on
+  anime sites with the VixCloud player, like in the series panel; on other sites ▶ opens the page in the app.
+- **Shrunk to one row** (4×1) it keeps the name with the time and the row of buttons; narrow (2 columns) only ⏮ ⏯ ⏭.
 
 The widget doesn't ask Kodi anything by itself: the app and the shade player update it while you use them (and at most
 every 30 minutes), so with the screen off it doesn't drain the battery. That's why it can show an old time if you haven't
