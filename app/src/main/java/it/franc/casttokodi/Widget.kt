@@ -34,6 +34,7 @@ sealed class WidgetContent {
 fun widgetContent(
     kodiChosen: Boolean, playing: NowPlaying?, shows: List<Show>, titles: Map<String, String>, kodiName: String,
     generalIntro: Int?, hosts: Map<String, String>, nowSeconds: Long, zone: ZoneId = ZoneId.systemDefault(), hasNext: Boolean? = null,
+    autoDefault: Boolean = true,
 ): WidgetContent {
     if (!kodiChosen) return WidgetContent.NoKodi
     if (playing?.playerId != null) {
@@ -54,7 +55,8 @@ fun widgetContent(
             progress = if (playing.total > 0) (playing.time * 1000 / playing.total).toInt().coerceIn(0, 1000) else 0,
             paused = playing.paused,
             // Il nome del tasto Salta sigla (sigla, riassunto o titoli di coda), null se non sa dove andare
-            intro = skipPressOf(shows, playing.file, playing.time, playing.total, generalIntro).takeIf { it != SkipPress.Choose }?.let(::skipShortLabel),
+            intro = skipPressOf(shows, playing.file, playing.time, playing.total, generalIntro, autoDefault)
+                .takeIf { it is SkipPress.To || it is SkipPress.Forward }?.let(::skipShortLabel),
             picture = pictureOfFile(shows, playing.file),
             // Come ⏭ del telecomando: a coda finita l'episodio dopo, solo dove l'app lo manda senza aprire la pagina
             nextEpisode = hasNext == false && show != null && episodeAfter(show, playing.file)?.let { widgetSendsToKodi(show, it, hosts) } == true,

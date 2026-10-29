@@ -93,7 +93,8 @@ object KodiAccess {
 
     fun shows(prefs: SharedPreferences): List<Show> = showsFromJson(prefs.getString("shows", null))
 
-    // Tempi di sigla e titoli da AniSkip (#150), accesi di default; spenti, l'app non chiede niente ad AniSkip né ad AniList
+    // Salta sigla in automatico (tempi da AniSkip, #150) per le serie che non hanno scelto, di default sì. Una serie
+    // in manuale non chiede niente ad AniSkip né ad AniList
     fun aniSkipOn(prefs: SharedPreferences) = prefs.getBoolean("aniskip", true)
 
     // Video (queueKey) di cui si stanno chiedendo i tempi adesso: Activity e tendina leggono Kodi insieme
@@ -102,8 +103,8 @@ object KodiAccess {
     // Chiede ad AniSkip i tempi del video file, se è un episodio di una serie con l'id MyAnimeList e non sono già stati
     // chiesti da poco (aniSkipRequest). Aspetta la rete: da un thread
     fun fetchSkips(prefs: SharedPreferences, file: String?) {
-        if (file.isNullOrBlank() || !aniSkipOn(prefs)) return
-        val (mal, number) = aniSkipRequest(shows(prefs), file, System.currentTimeMillis()) ?: return
+        if (file.isNullOrBlank()) return
+        val (mal, number) = aniSkipRequest(shows(prefs), file, System.currentTimeMillis(), aniSkipOn(prefs)) ?: return
         val key = queueKey(file)
         if (!synchronized(askingSkips) { askingSkips.add(key) }) return
         try {

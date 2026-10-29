@@ -182,13 +182,19 @@ dragging down. At the top right there is Kodi's name with a lit dot if it answer
 - **⏭ when the queue is over**: if nothing is queued after the video playing, on anime sites with the VixCloud player
   ⏭ sends Kodi the next episode of the same series (the phone prepares it in a couple of seconds, like *Resume on
   Kodi*). On other sites the app tells you which episode to open. It does not turn on automatic queueing.
-- **Skip intro**: with the anime that [AniSkip](https://aniskip.com) knows (a free database of times marked by users)
-  it goes straight to the end of the intro, even if you tap it before the intro starts; if the episode opens with a
-  recap the button says **Skip recap**, and from 30 seconds before the credits it becomes **Skip credits**, which goes
-  to the end of the episode (and Kodi moves on to the next video in the queue). Without AniSkip times, tap it when the
-  opening starts and the video jumps forward from where it is: the first time for each series the app asks how much
-  (30 seconds to 2 minutes, or *Other time…* to type it, e.g. `1:12` or `72`) and then remembers it. Long-press it to
-  change it. Videos that are not from a series in *Keep watching* share a single time. It never skips on its own.
+- **Skip intro** has two modes, chosen in *⋮ → Settings → Skip intro* and for each series in its panel:
+  - **Automatic** (the default): with the anime that [AniSkip](https://aniskip.com) knows (a free database of times
+    marked by users) the recap, intro and credits are marked in colour on the time bar. The button lights up from 5
+    seconds before a part until its end and goes to the end of that part: **Skip recap**, **Skip intro** or **Skip
+    credits** (to the end of the episode, and Kodi moves on to the next video in the queue). Outside the parts it's off,
+    and below it says when the next one starts: so a tap before the intro doesn't make you miss anything. **Hold it** to
+    see where it works in that episode, skip by hand anyway or switch the series to manual. If AniSkip has no times for
+    the episode, the button works like manual.
+  - **Manual**: tap it when the opening starts and the video jumps forward from where it is. The first time for each
+    series the app asks how much (30 seconds to 2 minutes, or *Other time…* to type it, e.g. `1:12` or `72`) and then
+    remembers it. Long-press it to change it. Videos that are not from a series in *Keep watching* share a single time.
+
+  Neither mode skips on its own: it always takes a tap.
 - **The round D-pad with OK** and below it **Back**, **Home**, **volume down** and **volume up** (Kodi's volume, not
   the TV's): to move around Kodi's menus.
 - In a row that scrolls sideways: **Turn on the TV**, **−30 s**, **+30 s**, **Go to minute**,
@@ -339,10 +345,13 @@ a row that scrolls sideways, with a card for each series, the most recent on the
   - **Background**: the series **cover** or an **episode image**, taken at random between 25% and
     60% of the video (after the opening theme); with *Change range…* you choose where to take it
     from, in percent. The same image shows in the Kodi bar at the bottom.
-  - **Skip intro**: how far the remote's button jumps for this series when AniSkip has no times.
+  - **Skip intro**: *Automatic (AniSkip)*, *Manual* or *As in Settings*.
+  - **Manual skip**: how far the button jumps in manual (or when AniSkip has no times).
   - **Times from AniSkip**: which series it is on MyAnimeList. It usually finds it by itself; if it says *Series not
     found*, tap it, pick the right one from the list (cover, year and episodes help tell seasons and parts apart) or
-    *Search with another name…*; *None* leaves only the fixed jump. AniSkip can be turned off in *⋮ → Settings*.
+    *Search with another name…*; *None* leaves only the fixed jump.
+  - **Episodes on MyAnimeList**: if the site splits a season into *part 1* and *part 2* that is a single entry on
+    MyAnimeList, write here that "episode 1 on the site is 13". When the title says *part 2* the app suggests it.
   - **Resume**: from the exact point or a few seconds earlier (5, 10, 15, 30), to pick up the thread.
   - **Next episodes** (only on the anime site with the VixCloud player): how many to queue by
     themselves for this series, or the same as in Settings.
