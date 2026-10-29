@@ -7,6 +7,20 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.6.0
+
+- **Widget con i tasti del telecomando**: sempre la fila ⏮ −10 ⏯ +10 ⏭ ⏹ e Salta sigla. Con un video in corso
+  comandano Kodi (⏮ e ⏭ cambiano video nella coda, a coda finita ⏭ manda l'episodio dopo, ⏹ ferma Kodi); con Kodi
+  fermo il tasto grande riprende su Kodi la serie a cui sei arrivato e ⏭ manda l'episodio dopo. Si stringe fino a una
+  riga sola.
+- **Salta sigla automatico o manuale**: in *Automatico* (AniSkip) il tasto si accende solo da 5 secondi prima di
+  riassunto, sigla o titoli di coda e porta alla loro fine, così un tocco prima della sigla non fa perdere niente; i
+  tratti sono segnati sotto la barra del tempo e la pressione lunga mostra dove funziona. In *Manuale* fa il salto fisso.
+  Si sceglie in *⋮ → Impostazioni* e per ogni serie.
+- **Parte 1 e parte 2**: se il sito divide una stagione che su MyAnimeList è una sola, nel pannello della serie c'è
+  *Episodi su MyAnimeList* ("l'episodio 1 del sito è il 13"); quando il titolo dice *part 2* l'app lo propone da sola.
+- Sito: widget, scorciatoie e Salta sigla nell'elenco delle funzioni.
+
 ## 2.5.0
 
 - **Salta sigla al punto giusto**: con un anime che [AniSkip](https://aniskip.com) conosce, il tasto porta alla fine

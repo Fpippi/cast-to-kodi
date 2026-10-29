@@ -3,8 +3,9 @@ package it.franc.casttokodi
 import it.franc.casttokodi.sites.isAnimeUnityEpisode
 import java.time.ZoneId
 
-// Widget sulla schermata Home (2026-10-28, mockup approvato da Pippo): con Kodi fermo la serie da riprendere, con un
-// video in corso un piccolo telecomando. Cosa mostra lo decide widgetContent, senza android.*: lo prova WidgetTest.
+// Widget sulla schermata Home (2026-10-28, rifatto il 2026-10-29 con i tasti del telecomando, mockup approvato da Pippo):
+// sempre la stessa fila ⏮ −10 ⏯ +10 ⏭ ⏹; con un video in corso comandano Kodi, con Kodi fermo il tasto grande riprende
+// la serie e ⏭ manda l'episodio dopo. Cosa mostra lo decide widgetContent, senza android.*: lo prova WidgetTest.
 // Il widget lo disegna KodiWidget.
 
 // Con lo stesso video e lo stesso stato, il widget si ridisegna al massimo ogni 15 secondi (solo il tempo cambia)
@@ -21,20 +22,26 @@ sealed class WidgetContent {
     // la pagina, se no apre l'episodio nell'app); after: l'episodio dopo ("Ep. 8"), null se non si sa o non si manda
     class Resume(val key: String, val title: String, val note: String, val picture: String?, val action: String, val after: String?) : WidgetContent()
 
-    // Kodi riproduce: progress da 0 a 1000; intro = secondi di Salta sigla, null se per quel video non è ancora scelto
-    class Playing(val title: String, val status: String, val progress: Int, val paused: Boolean, val intro: String?, val picture: String?) : WidgetContent()
+    // Kodi riproduce: progress da 0 a 1000; clock = il tempo corto ("14:02", per il widget basso); intro = il nome del tasto
+    // Salta sigla, null se per quel video non è ancora scelto; nextEpisode = ⏭ manda l'episodio dopo (coda finita)
+    class Playing(
+        val title: String, val status: String, val clock: String, val progress: Int, val paused: Boolean, val intro: String?,
+        val picture: String?, val nextEpisode: Boolean = false,
+    ) : WidgetContent()
 }
 
-// playing: l'ultima lettura di Kodi, null se non risponde. hosts: sito -> ultimo dominio visto (prefs["siteHosts"])
+// playing: l'ultima lettura di Kodi, null se non risponde. hasNext: se c'è altro dopo nella coda, null se non si sa. hosts: sito -> ultimo dominio visto (prefs["siteHosts"])
 fun widgetContent(
     kodiChosen: Boolean, playing: NowPlaying?, shows: List<Show>, titles: Map<String, String>, kodiName: String,
-    generalIntro: Int?, hosts: Map<String, String>, nowSeconds: Long, zone: ZoneId = ZoneId.systemDefault(),
+    generalIntro: Int?, hosts: Map<String, String>, nowSeconds: Long, zone: ZoneId = ZoneId.systemDefault(), hasNext: Boolean? = null,
+    autoDefault: Boolean = true,
 ): WidgetContent {
     if (!kodiChosen) return WidgetContent.NoKodi
     if (playing?.playerId != null) {
         val text = mediaText(playing, shows, titles, kodiName)
         val key = queueKey(playing.file)
-        val episode = showOfFile(shows, playing.file)?.episodes?.firstOrNull { it.file != null && queueKey(it.file) == key }
+        val show = showOfFile(shows, playing.file)
+        val episode = show?.episodes?.firstOrNull { it.file != null && queueKey(it.file) == key }
         val time = "${clockLabel(playing.time)} / ${clockLabel(playing.total)}"
         val status = when {
             playing.total <= 0 -> miniPlayerStatus(playing.paused, playing.time, playing.total)
@@ -44,11 +51,15 @@ fun widgetContent(
         return WidgetContent.Playing(
             title = listOfNotNull(text.title, episode?.takeIf { it.number != null }?.let(::episodeLabel)).joinToString(" · "),
             status = status,
+            clock = clockLabel(playing.time),
             progress = if (playing.total > 0) (playing.time * 1000 / playing.total).toInt().coerceIn(0, 1000) else 0,
             paused = playing.paused,
             // Il nome del tasto Salta sigla (sigla, riassunto o titoli di coda), null se non sa dove andare
-            intro = skipPressOf(shows, playing.file, playing.time, playing.total, generalIntro).takeIf { it != SkipPress.Choose }?.let(::skipShortLabel),
+            intro = skipPressOf(shows, playing.file, playing.time, playing.total, generalIntro, autoDefault)
+                .takeIf { it is SkipPress.To || it is SkipPress.Forward }?.let(::skipShortLabel),
             picture = pictureOfFile(shows, playing.file),
+            // Come ⏭ del telecomando: a coda finita l'episodio dopo, solo dove l'app lo manda senza aprire la pagina
+            nextEpisode = hasNext == false && show != null && episodeAfter(show, playing.file)?.let { widgetSendsToKodi(show, it, hosts) } == true,
         )
     }
     // La più recente con un episodio da guardare (le serie finite restano nella pagina iniziale, qui no)
@@ -87,5 +98,5 @@ fun widgetKey(content: WidgetContent): String = when (content) {
     WidgetContent.NoKodi -> "nokodi"
     WidgetContent.Idle -> "idle"
     is WidgetContent.Resume -> listOf("resume", content.key, content.title, content.note, content.picture, content.action, content.after).joinToString("|")
-    is WidgetContent.Playing -> listOf("playing", content.title, content.paused, content.intro, content.picture).joinToString("|")
+    is WidgetContent.Playing -> listOf("playing", content.title, content.paused, content.intro, content.picture, content.nextEpisode).joinToString("|")
 }

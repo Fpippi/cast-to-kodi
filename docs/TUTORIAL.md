@@ -177,13 +177,19 @@ In alto a destra c'è il nome di Kodi con un pallino acceso se risponde. Nella s
 - **⏭ a coda finita**: se dopo il video in corso la coda è vuota, sui siti di anime con player VixCloud ⏭ manda a Kodi
   l'episodio dopo della stessa serie (lo prepara il telefono in un paio di secondi, come *Riprendi su Kodi*). Sugli
   altri siti l'app dice quale episodio aprire. Non accende l'accodamento automatico.
-- **Salta sigla**: con gli anime che [AniSkip](https://aniskip.com) conosce (un archivio gratuito di tempi segnati dagli
-  utenti) va dritto alla fine della sigla, anche se la tocchi prima che parta; se l'episodio ha un riassunto all'inizio
-  il tasto dice **Salta riassunto**, e da 30 secondi prima dei titoli di coda diventa **Salta titoli di coda**, che porta
-  alla fine dell'episodio (e Kodi passa al video dopo in coda). Senza tempi di AniSkip, quando parte la sigla toccalo e
-  il video va avanti da dov'è: la prima volta per ogni serie l'app chiede di quanto (da 30 secondi a 2 minuti, o
-  *Altro tempo…* per scriverlo, es. `1:12` o `72`) e poi se lo ricorda. Per cambiarlo tienilo premuto. I video che non
-  sono di una serie di *Continua a guardare* hanno un tempo unico per tutti. Non salta mai da solo.
+- **Salta sigla** ha due modalità, da scegliere in *⋮ → Impostazioni → Salta sigla* e per ogni serie nel suo pannello:
+  - **Automatico** (di default): con gli anime che [AniSkip](https://aniskip.com) conosce (un archivio gratuito di tempi
+    segnati dagli utenti) riassunto, sigla e titoli di coda sono segnati in colore sulla barra del tempo. Il tasto si
+    accende da 5 secondi prima di un tratto fino alla sua fine e porta alla fine di quel tratto: **Salta riassunto**,
+    **Salta sigla** o **Salta titoli di coda** (alla fine dell'episodio, e Kodi passa al video dopo in coda). Fuori dai
+    tratti è spento, e sotto dice quando parte il prossimo: così un tocco prima della sigla non fa perdere niente.
+    **Tienilo premuto** per vedere dove funziona in quell'episodio, saltare a mano lo stesso o passare la serie al
+    manuale. Se AniSkip non ha i tempi dell'episodio, il tasto fa come il manuale.
+  - **Manuale**: quando parte la sigla toccalo e il video va avanti da dov'è. La prima volta per ogni serie l'app chiede
+    di quanto (da 30 secondi a 2 minuti, o *Altro tempo…* per scriverlo, es. `1:12` o `72`) e poi se lo ricorda. Per
+    cambiarlo tienilo premuto. I video che non sono di una serie di *Continua a guardare* hanno un tempo unico per tutti.
+
+  In nessuna delle due salta da solo: serve sempre il tocco.
 - **La croce tonda con OK** e sotto **Indietro**, **Home**, **volume giù** e **volume su** (il volume di Kodi, non
   quello della TV): per muoverti nei menu di Kodi.
 - In una fila che scorre di lato: **Accendi la TV**, **−30 s**, **+30 s**, **Vai al minuto**, **Audio**,
@@ -227,14 +233,18 @@ Home come icona a sé. Ci sono solo dopo aver scelto Kodi.
 ### Il widget sulla schermata Home
 
 Tieni premuto uno spazio vuoto della schermata Home → **Widget** → **Couch Cast** e trascinalo dove vuoi; si allarga e si
-stringe come gli altri widget.
+stringe come gli altri widget. Ha sempre la stessa fila di tasti del telecomando: **⏮ −10 ⏯ +10 ⏭ ⏹**, e sotto (o in alto a
+destra, se il widget è basso) **Salta sigla**.
 
+- **Con un video in corso** in alto ci sono immagine, titolo, tempo e ora in cui finisce, la linea che avanza e il pulsante
+  che apre il telecomando intero. ⏮ e ⏭ passano al video prima o dopo della coda; a coda finita ⏭ manda l'episodio dopo,
+  come nel telecomando (solo sui siti di anime con player VixCloud, e lì si apre l'app per prepararlo). ⏹ ferma Kodi.
+  **Salta sigla** compare se per la serie il tempo è già scelto o AniSkip lo sa.
 - **Con Kodi fermo** mostra la serie di *Continua a guardare* a cui sei arrivato, con l'immagine e il punto ("Ep. 7 · fermo a
-  12:34"). **Riprendi su Kodi** la manda a Kodi dal minuto giusto, il pulsante accanto (es. **Ep. 8**) manda l'episodio dopo,
-  **Altre serie** apre la pagina iniziale e **⏻** accende la TV. Va su Kodi da solo soltanto sui siti di anime con player
-  VixCloud, come nel pannello della serie; sugli altri siti il pulsante dice **Apri l'episodio** e apre la pagina nell'app.
-- **Con un video in corso** diventa un piccolo telecomando: titolo, tempo e ora in cui finisce, **Salta sigla** (se per la
-  serie il tempo è già scelto o AniSkip lo sa), **−10 s**, **pausa**, **+10 s** e il pulsante che apre il telecomando intero.
+  12:34"), e in alto a destra **⏻** per accendere la TV. Il tasto grande **▶** la riprende su Kodi dal minuto giusto e ⏭ manda
+  l'episodio dopo; −10, +10, ⏹ e Salta sigla sono sbiaditi finché il video non parte. Va su Kodi da solo soltanto sui siti
+  di anime con player VixCloud, come nel pannello della serie; sugli altri siti ▶ apre la pagina nell'app.
+- **Ristretto a una riga** (4×1) restano il nome con il tempo e la fila di tasti; stretto (2 colonne) solo ⏮ ⏯ ⏭.
 
 Il widget non chiede niente a Kodi da solo: lo aggiornano l'app e il player della tendina mentre li usi (e al massimo ogni
 30 minuti), così con lo schermo spento non consuma. Per questo, se non apri l'app da un po', può mostrare un tempo vecchio.
@@ -323,10 +333,13 @@ una fila che scorre di lato, con una scheda per ogni serie, la più recente a si
   - **Sfondo**: la **copertina** della serie o un'**immagine dell'episodio**, presa a caso tra il 25% e il 60% del
     video (dopo la sigla); con *Cambia intervallo…* scegli tu da che punto a che punto, in percentuale. La stessa
     immagine compare nella barra di Kodi in fondo.
-  - **Salta sigla**: di quanto va avanti il tasto del telecomando con questa serie quando AniSkip non ha i tempi.
+  - **Salta sigla**: *Automatico (AniSkip)*, *Manuale* o *Come in Impostazioni*.
+  - **Salto manuale**: di quanto va avanti il tasto in manuale (o quando AniSkip non ha i tempi).
   - **Tempi da AniSkip**: quale serie è su MyAnimeList. Di solito la trova da sola; se dice *Serie non trovata*,
     toccala, scegli quella giusta dall'elenco (copertina, anno ed episodi aiutano a distinguere stagioni e parti) o
-    *Cerca con un altro nome…*; *Nessuna* lascia solo il salto fisso. AniSkip si spegne in *⋮ → Impostazioni*.
+    *Cerca con un altro nome…*; *Nessuna* lascia solo il salto fisso.
+  - **Episodi su MyAnimeList**: se il sito divide una stagione in *part 1* e *part 2* che su MyAnimeList è una sola,
+    qui scrivi che "l'episodio 1 del sito è il 13". Quando il titolo dice *part 2* l'app lo propone da sola.
   - **Riprendi**: dal punto esatto o qualche secondo prima (5, 10, 15, 30), per ritrovare il filo.
   - **Episodi successivi** (solo sul sito di anime con player VixCloud): quanti accodarne da soli per questa serie, o
     come nelle Impostazioni.
