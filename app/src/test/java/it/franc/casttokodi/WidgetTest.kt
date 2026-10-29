@@ -2,6 +2,7 @@ package it.franc.casttokodi
 
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -35,8 +36,8 @@ class WidgetTest {
 
     private val other = Show("serietv:serie", "serietv", "serietv.example", "Una serie", listOf(Episode(null, 3, "/serie/3", seen = 1)))
 
-    private fun content(playing: NowPlaying?, shows: List<Show>, kodi: Boolean = true) =
-        widgetContent(kodi, playing, shows, emptyMap(), "", null, hosts, nowSeconds = 21 * 3600L, zone = utc)
+    private fun content(playing: NowPlaying?, shows: List<Show>, kodi: Boolean = true, hasNext: Boolean? = null) =
+        widgetContent(kodi, playing, shows, emptyMap(), "", null, hosts, nowSeconds = 21 * 3600L, zone = utc, hasNext = hasNext)
 
     @Test
     fun serieDaRiprendere() {
@@ -90,6 +91,7 @@ class WidgetTest {
         val c = content(playing("https://cdn.example/7.m3u8|Referer=y", time = 754, total = 1420), listOf(fireForce)) as WidgetContent.Playing
         assertEquals("Fire Force · Ep. 7", c.title)
         assertEquals("12:34 / 23:40 · finisce alle 21:11", c.status)
+        assertEquals("12:34", c.clock)
         assertEquals(530, c.progress)
         assertEquals("Salta sigla", c.intro)
         assertEquals("ep7.jpg", c.picture)
@@ -98,6 +100,22 @@ class WidgetTest {
         Lang.english = true
         val english = content(playing("https://cdn.example/7.m3u8", time = 754, total = 1420), listOf(fireForce)) as WidgetContent.Playing
         assertEquals("12:34 / 23:40 · ends at 21:11", english.status)
+    }
+
+    // ⏭ come nel telecomando: a coda finita l'episodio dopo, solo dove l'app lo manda da sola e solo se la coda è letta
+    @Test
+    fun avantiACodaFinita() {
+        val file = "https://cdn.example/7.m3u8"
+        fun next(shows: List<Show>, hasNext: Boolean?) = (content(playing(file), shows, hasNext = hasNext) as WidgetContent.Playing).nextEpisode
+        assertTrue(next(listOf(fireForce), hasNext = false))
+        assertFalse(next(listOf(fireForce), hasNext = true))
+        assertFalse(next(listOf(fireForce), hasNext = null))
+        assertFalse(next(listOf(fireForce.copy(count = 7)), hasNext = false))
+        val elsewhere = fireForce.copy(site = "serietv", host = "serietv.example")
+        assertFalse(next(listOf(elsewhere), hasNext = false))
+        val a = content(playing(file), listOf(fireForce), hasNext = true)
+        val b = content(playing(file), listOf(fireForce), hasNext = false)
+        assertNotEquals(widgetKey(a), widgetKey(b))
     }
 
     @Test
