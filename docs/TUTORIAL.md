@@ -233,14 +233,18 @@ Home come icona a sé. Ci sono solo dopo aver scelto Kodi.
 ### Il widget sulla schermata Home
 
 Tieni premuto uno spazio vuoto della schermata Home → **Widget** → **Couch Cast** e trascinalo dove vuoi; si allarga e si
-stringe come gli altri widget.
+stringe come gli altri widget. Ha sempre la stessa fila di tasti del telecomando: **⏮ −10 ⏯ +10 ⏭ ⏹**, e sotto (o in alto a
+destra, se il widget è basso) **Salta sigla**.
 
+- **Con un video in corso** in alto ci sono immagine, titolo, tempo e ora in cui finisce, la linea che avanza e il pulsante
+  che apre il telecomando intero. ⏮ e ⏭ passano al video prima o dopo della coda; a coda finita ⏭ manda l'episodio dopo,
+  come nel telecomando (solo sui siti di anime con player VixCloud, e lì si apre l'app per prepararlo). ⏹ ferma Kodi.
+  **Salta sigla** compare se per la serie il tempo è già scelto o AniSkip lo sa.
 - **Con Kodi fermo** mostra la serie di *Continua a guardare* a cui sei arrivato, con l'immagine e il punto ("Ep. 7 · fermo a
-  12:34"). **Riprendi su Kodi** la manda a Kodi dal minuto giusto, il pulsante accanto (es. **Ep. 8**) manda l'episodio dopo,
-  **Altre serie** apre la pagina iniziale e **⏻** accende la TV. Va su Kodi da solo soltanto sui siti di anime con player
-  VixCloud, come nel pannello della serie; sugli altri siti il pulsante dice **Apri l'episodio** e apre la pagina nell'app.
-- **Con un video in corso** diventa un piccolo telecomando: titolo, tempo e ora in cui finisce, **Salta sigla** (se per la
-  serie il tempo è già scelto o AniSkip lo sa), **−10 s**, **pausa**, **+10 s** e il pulsante che apre il telecomando intero.
+  12:34"), e in alto a destra **⏻** per accendere la TV. Il tasto grande **▶** la riprende su Kodi dal minuto giusto e ⏭ manda
+  l'episodio dopo; −10, +10, ⏹ e Salta sigla sono sbiaditi finché il video non parte. Va su Kodi da solo soltanto sui siti
+  di anime con player VixCloud, come nel pannello della serie; sugli altri siti ▶ apre la pagina nell'app.
+- **Ristretto a una riga** (4×1) restano il nome con il tempo e la fila di tasti; stretto (2 colonne) solo ⏮ ⏯ ⏭.
 
 Il widget non chiede niente a Kodi da solo: lo aggiornano l'app e il player della tendina mentre li usi (e al massimo ogni
 30 minuti), così con lo schermo spento non consuma. Per questo, se non apri l'app da un po', può mostrare un tempo vecchio.
