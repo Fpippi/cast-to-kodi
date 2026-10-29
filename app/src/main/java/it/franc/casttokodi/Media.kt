@@ -28,8 +28,9 @@ fun mediaText(playing: NowPlaying, shows: List<Show>, titles: Map<String, String
 // già scelto (la prima scelta si fa dal telecomando); Prossimo solo se nella coda di Kodi c'è qualcosa dopo
 data class MediaButtons(val intro: SkipPress?, val next: Boolean)
 
-fun mediaButtons(playing: NowPlaying, state: KodiState?, shows: List<Show>, generalIntro: Int?) = MediaButtons(
-    intro = skipPressOf(shows, playing.file, playing.time, playing.total, generalIntro).takeIf { it != SkipPress.Choose },
+// In automatico il tasto c'è solo dentro un tratto (la tendina non ha tasti spenti)
+fun mediaButtons(playing: NowPlaying, state: KodiState?, shows: List<Show>, generalIntro: Int?, autoDefault: Boolean = true) = MediaButtons(
+    intro = skipPressOf(shows, playing.file, playing.time, playing.total, generalIntro, autoDefault).takeIf { it is SkipPress.To || it is SkipPress.Forward },
     next = state?.hasNext == true,
 )
 

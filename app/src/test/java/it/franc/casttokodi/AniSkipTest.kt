@@ -39,35 +39,64 @@ class AniSkipTest {
     }
 
     @Test
-    fun allaFineDellaSiglaOvunqueSiSia() {
-        // Prima che parta, durante, appena prima della fine: sempre alla fine della sigla (7:57)
-        for (time in listOf(0L, 120L, 400L, 470L)) assertEquals(SkipPress.To(PartType.INTRO, 477), skipPress(parts, time, 1437, 85))
-        // Sigla finita, titoli di coda lontani: il salto fisso di prima
-        assertEquals(SkipPress.Forward(85), skipPress(parts, 600, 1437, 85))
-        assertEquals(SkipPress.Choose, skipPress(parts, 600, 1437, null))
-        // Da 30 secondi prima dei titoli: alla fine dell'episodio (l'ultimo secondo, così Kodi passa al video dopo)
-        assertEquals(SkipPress.To(PartType.CREDITS, 1436), skipPress(parts, 1340, 1437, 85))
+    fun soloDentroISegmenti() {
+        // Dentro la sigla, da 5 secondi prima: alla sua fine (7:57)
+        for (time in listOf(382L, 386L, 400L, 470L)) assertEquals(SkipPress.To(PartType.INTRO, 477), skipPress(parts, time, 1437, 85))
+        // Prima della sigla il tasto è spento: un tocco a 2:00 non fa perdere i minuti prima della sigla (Pippo, 2026-10-29)
+        assertEquals(SkipPress.Off(parts[0]), skipPress(parts, 120, 1437, 85))
+        assertEquals(SkipPress.Off(parts[0]), skipPress(parts, 0, 1437, null))
+        // Tra sigla e titoli: spento, il prossimo sono i titoli
+        assertEquals(SkipPress.Off(parts[1]), skipPress(parts, 600, 1437, 85))
+        // Titoli di coda: alla fine dell'episodio (l'ultimo secondo, così Kodi passa al video dopo)
+        assertEquals(SkipPress.To(PartType.CREDITS, 1436), skipPress(parts, 1356, 1437, 85))
         assertEquals(SkipPress.To(PartType.CREDITS, 1436), skipPress(parts, 1400, 1437, 85))
-        assertEquals("Salta sigla", skipLabel(skipPress(parts, 0, 1437, 85)))
+        assertEquals(SkipPress.Off(parts[1]), skipPress(parts, 1340, 1437, 85))
+        assertEquals("Salta sigla", skipLabel(skipPress(parts, 400, 1437, 85)))
         assertEquals("Salta titoli di coda", skipLabel(skipPress(parts, 1400, 1437, 85)))
-        assertEquals("Salta sigla (+1:25)", skipLabel(skipPress(parts, 600, 1437, 85)))
-        assertEquals("Salta sigla", skipShortLabel(skipPress(parts, 600, 1437, 85)))
+        assertEquals("Salta sigla", skipLabel(skipPress(parts, 120, 1437, 85)))
+        assertEquals("Porta a 7:57", skipHint(skipPress(parts, 400, 1437, 85)))
+        assertEquals("La sigla parte alle 6:26 · tieni premuto", skipHint(skipPress(parts, 120, 1437, 85)))
+        assertEquals("I titoli di coda partono alle 22:39 · tieni premuto", skipHint(skipPress(parts, 600, 1437, 85)))
+    }
+
+    @Test
+    fun manuale() {
+        // In manuale i tempi di AniSkip non contano: il salto fisso, sempre acceso
+        assertEquals(SkipPress.Forward(85), skipPress(parts, 120, 1437, 85, auto = false))
+        assertEquals(SkipPress.Choose, skipPress(parts, 400, 1437, null, auto = false))
+        assertEquals("Salta sigla (+1:25)", skipLabel(skipPress(parts, 120, 1437, 85, auto = false)))
+        assertEquals("", skipHint(skipPress(parts, 120, 1437, 85, auto = false)))
+        assertEquals("Salta sigla", skipShortLabel(skipPress(parts, 120, 1437, 85, auto = false)))
+        // Automatico senza tempi: come il manuale
+        assertEquals(SkipPress.Forward(85), skipPress(emptyList(), 120, 1437, 85))
+    }
+
+    @Test
+    fun tratti() {
+        // La barra del telecomando: frazioni del video
+        val marks = partMarks(parts, 1437, auto = true)
+        assertEquals(2, marks.size)
+        assertEquals(386.418f / 1437, marks[0].first, 0.0001f)
+        assertEquals(1f, marks[1].second, 0.0001f)
+        assertEquals(emptyList<Pair<Float, Float>>(), partMarks(parts, 1437, auto = false))
+        assertEquals(emptyList<Pair<Float, Float>>(), partMarks(parts, 1500, auto = true))
     }
 
     @Test
     fun riassuntoPrimaDellaSigla() {
-        val withRecap = parts + SkipPart(PartType.RECAP, 0.0, 60.0, 1437.0)
-        assertEquals(SkipPress.To(PartType.RECAP, 60), skipPress(withRecap, 10, 1437, null))
+        val withRecap = parts + SkipPart(PartType.RECAP, 0.0, 30.0, 1437.0)
+        assertEquals(SkipPress.To(PartType.RECAP, 30), skipPress(withRecap, 10, 1437, null))
         assertEquals("Salta riassunto", skipLabel(skipPress(withRecap, 10, 1437, null)))
-        assertEquals(SkipPress.To(PartType.INTRO, 477), skipPress(withRecap, 60, 1437, null))
+        // Dopo il riassunto non porta alla fine della sigla
+        assertEquals(SkipPress.Off(parts[0]), skipPress(withRecap, 30, 1437, null))
     }
 
     @Test
     fun altraVersioneDelVideo() {
-        // Il sito ha un video più lungo di 30 secondi (un logo all'inizio): i tempi non valgono
-        assertEquals(SkipPress.Forward(85), skipPress(parts, 0, 1467, 85))
+        // Il sito ha un video più lungo di 30 secondi (un logo all'inizio): i tempi non valgono, salto fisso
+        assertEquals(SkipPress.Forward(85), skipPress(parts, 400, 1467, 85))
         // Qualche secondo di differenza va bene
-        assertEquals(SkipPress.To(PartType.INTRO, 477), skipPress(parts, 0, 1442, 85))
+        assertEquals(SkipPress.To(PartType.INTRO, 477), skipPress(parts, 400, 1442, 85))
         // In diretta (senza durata) nessun tempo
         assertEquals(SkipPress.Forward(85), skipPress(parts, 0, 0, 85))
     }
@@ -80,6 +109,31 @@ class AniSkipTest {
         assertEquals(0, aniSkipShift(first = 121, number = 130, count = 500))
         assertEquals(0, aniSkipShift(first = 1, number = 5, count = 12))
         assertEquals(0, aniSkipShift(first = null, number = 13, count = 12))
+    }
+
+    @Test
+    fun parteDue() {
+        // Sito: "Fire Force 3 part 2" con 12 episodi da 1; MyAnimeList: la stagione 3 intera, 24 episodi. L'1 è il 13
+        assertEquals(-12, suggestShift("Fire Force 3 Part 2", first = 1, count = 12, malEpisodes = 24))
+        assertEquals(-12, suggestShift("Fire Force Stagione 3 Parte 2", first = 1, count = 12, malEpisodes = 24))
+        // La parte 1 sulla stessa stagione: niente
+        assertEquals(0, suggestShift("Fire Force 3 Part 1", first = 1, count = 12, malEpisodes = 24))
+        // Il sito continua da 13 e la stagione su MyAnimeList è intera: i numeri vanno già bene
+        assertEquals(0, suggestShift("Fire Force 3 Part 2", first = 13, count = 12, malEpisodes = 24))
+        // Il sito continua da 13 e MyAnimeList ha la parte a sé (12 episodi): si conta dal primo
+        assertEquals(12, suggestShift("Fire Force 3 Part 2", first = 13, count = 12, malEpisodes = 12))
+        // Episodi su MyAnimeList non noti: come prima
+        assertEquals(0, suggestShift("Fire Force", first = 1, count = 12, malEpisodes = null))
+        assertTrue(isSecondPart("Fire Force 3 part 2"))
+        assertTrue(!isSecondPart("Fire Force 3"))
+        // Con lo spostamento -12 l'episodio 1 del sito si chiede ad AniSkip come 13
+        val part2 = withShift(listOf(show.copy(episodeShift = 0, episodes = listOf(Episode(null, 1, "/p2/1", file, seen = 1)))), show.key, -12)
+        assertEquals(38671 to 13, aniSkipRequest(part2, file, now = 1000))
+        assertEquals("L'episodio 1 del sito è il 13 su MyAnimeList", shiftLabel(1, -12))
+        // Spostamento cambiato: i tempi già presi si richiedono
+        val found = withSkips(part2, file, parts, now = 1000)
+        assertNull(withShift(found, show.key, 0).single().episodes.single().skips)
+        assertEquals(parts, withShift(found, show.key, -12).single().episodes.single().skips)
     }
 
     private val search = """{"data":{"Page":{"media":[
@@ -149,21 +203,47 @@ class AniSkipTest {
         assertEquals(parts, back.episodes.single().skips)
         assertEquals(1000, back.episodes.single().skipsAt)
         assertNull(showsFromJson(showsToJson(listOf(show.copy(malId = null)))).single().malId)
-        assertNull(withoutSkips(found).single().episodes.single().skips)
+        val manual = showsFromJson(showsToJson(withSiteFirst(withSkipAuto(found, show.key, false), show.key, 13))).single()
+        assertEquals(false, manual.skipAuto)
+        assertEquals(13, manual.siteFirst)
+        assertNull(back.skipAuto)
         // Un nuovo invio dello stesso episodio non perde serie e tempi
         val page = EpisodePage(show.key, "animeunity", "Fire Force", null, 13, "/anime/2-fire-force/13")
         val sent = withSent(found, page, "www.animeunity.to", file, now = 2000, playing = true).single()
         assertEquals(38671, sent.malId)
+        assertEquals(false, withSent(withSkipAuto(found, show.key, false), page, "www.animeunity.to", file, now = 2000, playing = true).single().skipAuto)
         assertEquals(parts, sent.episodes.single().skips)
     }
 
     @Test
     fun pressioneDelTastoConLaSerie() {
         val found = withSkips(listOf(show.copy(intro = 80)), file, parts, now = 1000)
-        assertEquals(SkipPress.To(PartType.INTRO, 477), skipPressOf(found, file, 100, 1437, null))
-        assertEquals(SkipPress.Forward(80), skipPressOf(found, file, 600, 1437, null))
+        assertEquals(SkipPress.To(PartType.INTRO, 477), skipPressOf(found, file, 400, 1437, null))
+        assertEquals(SkipPress.Off(parts[1]), skipPressOf(found, file, 600, 1437, null))
+        // Impostazioni in manuale, serie senza scelta: manuale; serie in automatico: automatico lo stesso
+        assertEquals(SkipPress.Forward(80), skipPressOf(found, file, 400, 1437, null, autoDefault = false))
+        val auto = withSkipAuto(found, show.key, true)
+        assertEquals(SkipPress.To(PartType.INTRO, 477), skipPressOf(auto, file, 400, 1437, null, autoDefault = false))
+        assertEquals(SkipPress.Forward(80), skipPressOf(withSkipAuto(found, show.key, false), file, 400, 1437, null))
+        // In manuale non si chiede niente ad AniSkip
+        assertNull(aniSkipRequest(listOf(show.copy(skipAuto = false)), file, now = 1000))
+        assertNull(aniSkipRequest(listOf(show), file, now = 1000, autoDefault = false))
+        assertNotNull(aniSkipRequest(listOf(show.copy(skipAuto = true)), file, now = 1000, autoDefault = false))
         // Video fuori dalle serie: il tempo generale
         assertEquals(SkipPress.Forward(90), skipPressOf(found, "https://altro.example/x.mp4", 100, 1437, 90))
+    }
+
+    @Test
+    fun tendinaEWidget() {
+        val found = withSkips(listOf(show.copy(intro = 80)), file, parts, now = 1000)
+        fun at(time: Long) = NowPlaying(1, "", file, time, 1437, false, emptyList(), -1, emptyList(), -1, false, 50, false)
+        // Fuori dai tratti la tendina non ha il tasto (non ce n'è uno spento) e il widget nemmeno
+        assertNull(mediaButtons(at(120), null, found, null).intro)
+        assertEquals(SkipPress.To(PartType.INTRO, 477), mediaButtons(at(400), null, found, null).intro)
+        assertEquals(SkipPress.Forward(80), mediaButtons(at(120), null, found, null, autoDefault = false).intro)
+        val widget = widgetContent(true, at(400), found, emptyMap(), "", null, emptyMap(), nowSeconds = 0) as WidgetContent.Playing
+        assertEquals("Salta sigla", widget.intro)
+        assertNull((widgetContent(true, at(120), found, emptyMap(), "", null, emptyMap(), nowSeconds = 0) as WidgetContent.Playing).intro)
     }
 
     @Test

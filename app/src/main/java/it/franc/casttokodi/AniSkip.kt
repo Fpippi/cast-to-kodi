@@ -20,9 +20,9 @@ const val ANILIST_API = "https://graphql.anilist.co"
 // oltre, il sito ha un'altra versione (un logo all'inizio, un taglio) e i tempi non valgono
 const val SKIP_LENGTH_SLACK = 10.0
 
-// "Salta titoli" compare solo da poco prima dei titoli di coda: prima il tasto resta "Salta sigla" con il salto fisso,
-// così un tocco a metà episodio non porta alla fine
-const val CREDITS_AHEAD = 30
+// In automatico il tasto si accende da 5 secondi prima di un tratto (riassunto, sigla, titoli di coda) fino alla sua
+// fine, e solo lì: un tocco prima non fa perdere il pezzo di episodio che c'è prima (Pippo, 2026-10-29)
+const val SKIP_LEAD = 5
 
 // Show.malId quando Pippo ha scelto "Nessuna" nel pannello della serie: AniSkip non si chiede più
 const val NO_MAL = 0
@@ -82,18 +82,44 @@ sealed class SkipPress {
 
     // Né tempi né salto scelto: il tasto chiede di quanto
     object Choose : SkipPress()
+
+    // Automatico, fuori dai tratti: il tasto è spento (la pressione lunga dice dove funziona). next: il prossimo tratto
+    data class Off(val next: SkipPart?) : SkipPress()
 }
 
-// Dove porta il tasto a time su total: alla fine della sigla o del riassunto se non sono ancora finiti, ovunque si sia
-// (anche prima che partano: richiesta di Pippo); alla fine dei titoli di coda da poco prima che partano, e se arrivano
-// alla fine dell'episodio all'ultimo secondo, così Kodi passa al video dopo in coda. Se no il salto fisso (forward)
-fun skipPress(parts: List<SkipPart>, time: Long, total: Long, forward: Int?): SkipPress {
-    val fit = partsFor(parts, total)
-    val part = fit.filter { it.type != PartType.CREDITS && it.to > time + 2 }.minByOrNull { it.from }
-        ?: fit.firstOrNull { it.type == PartType.CREDITS && time >= it.from - CREDITS_AHEAD && it.to > time + 2 }
+// Dove porta il tasto a time su total. Automatico (auto, coi tempi di AniSkip): dentro un tratto, da SKIP_LEAD secondi
+// prima, alla sua fine (i titoli di coda che arrivano alla fine: all'ultimo secondo, così Kodi passa al video dopo in
+// coda); fuori, spento. Manuale, o automatico senza tempi buoni per questo video: il salto fisso (forward)
+fun skipPress(parts: List<SkipPart>, time: Long, total: Long, forward: Int?, auto: Boolean = true): SkipPress {
+    val fit = if (auto) partsFor(parts, total) else emptyList()
+    if (fit.isEmpty()) return if (forward != null) SkipPress.Forward(forward) else SkipPress.Choose
+    val part = fit.filter { time >= it.from - SKIP_LEAD && time < it.to - 1 }.minByOrNull { it.from }
     if (part != null) return SkipPress.To(part.type, ceil(part.to).toLong().coerceAtMost(total - 1))
-    return if (forward != null) SkipPress.Forward(forward) else SkipPress.Choose
+    return SkipPress.Off(fit.filter { it.from > time }.minByOrNull { it.from })
 }
+
+fun partName(type: PartType): String = when (type) {
+    PartType.INTRO -> tr("Sigla", "Intro")
+    PartType.RECAP -> tr("Riassunto", "Recap")
+    PartType.CREDITS -> tr("Titoli di coda", "Credits")
+}
+
+// La riga sotto il tasto del telecomando
+fun skipHint(press: SkipPress): String = when (press) {
+    is SkipPress.To -> tr("Porta a ${clockLabel(press.seconds)}", "Jumps to ${clockLabel(press.seconds)}")
+    is SkipPress.Off -> when (press.next?.type) {
+        PartType.INTRO -> tr("La sigla parte alle ${clockLabel(press.next.from.toLong())} · tieni premuto", "The intro starts at ${clockLabel(press.next.from.toLong())} · hold")
+        PartType.RECAP -> tr("Il riassunto parte alle ${clockLabel(press.next.from.toLong())} · tieni premuto", "The recap starts at ${clockLabel(press.next.from.toLong())} · hold")
+        PartType.CREDITS -> tr("I titoli di coda partono alle ${clockLabel(press.next.from.toLong())} · tieni premuto", "The credits start at ${clockLabel(press.next.from.toLong())} · hold")
+        null -> tr("Niente da saltare fino alla fine · tieni premuto", "Nothing to skip until the end · hold")
+    }
+    else -> ""
+}
+
+// I tratti da segnare sulla barra del tempo, come frazioni del video (da, a)
+fun partMarks(parts: List<SkipPart>, total: Long, auto: Boolean): List<Pair<Float, Float>> =
+    if (!auto || total <= 0) emptyList()
+    else partsFor(parts, total).map { (it.from / total).toFloat().coerceIn(0f, 1f) to (it.to / total).toFloat().coerceIn(0f, 1f) }
 
 fun skipLabel(press: SkipPress): String = when (press) {
     is SkipPress.To -> when (press.type) {
@@ -102,17 +128,47 @@ fun skipLabel(press: SkipPress): String = when (press) {
         PartType.CREDITS -> tr("Salta titoli di coda", "Skip credits")
     }
     is SkipPress.Forward -> introLabel(press.seconds)
-    SkipPress.Choose -> introLabel(null)
+    SkipPress.Choose, is SkipPress.Off -> introLabel(null)
 }
 
 // Lo stesso nome senza il tempo, per la tendina e il widget, dove c'è poco posto
 fun skipShortLabel(press: SkipPress): String = if (press is SkipPress.To) skipLabel(press) else tr("Salta sigla", "Skip intro")
+
+// Modalità e salto manuale, per le righe del pannello della serie e di Impostazioni
+fun skipModeLabel(auto: Boolean, manual: Int?): String =
+    if (auto) tr("Automatico (AniSkip)", "Automatic (AniSkip)")
+    else manual?.let { tr("Manuale · avanti di ${introTime(it)}", "Manual · forward ${introTime(it)}") } ?: tr("Manuale", "Manual")
+
+// "L'episodio 13 del sito è il 1 su MyAnimeList"
+fun shiftLabel(number: Int, shift: Int): String =
+    tr("L'episodio $number del sito è il ${number - shift} su MyAnimeList", "Episode $number on the site is ${number - shift} on MyAnimeList")
 
 // Il numero dell'episodio per AniSkip, che conta come MyAnimeList: da 1 per ogni stagione e parte. Un sito può
 // continuare la numerazione (la parte 2 da 13): se il numero supera gli episodi della serie, si conta dal primo
 // dell'elenco della pagina. first: il numero del primo episodio elencato; count: gli episodi della serie
 fun aniSkipShift(first: Int?, number: Int?, count: Int?): Int =
     if (first != null && first > 1 && number != null && count != null && count > 0 && number > count) first - 1 else 0
+
+private val SECOND_PART = Regex("(?i)\\b(part|parte|cour)\\s*(2|ii)\\b")
+
+// Lo spostamento proposto quando si sa quanti episodi ha la serie su MyAnimeList (malEpisodes): i siti a volte
+// dividono una stagione in due ("part 1" e "part 2") che su MyAnimeList è una sola. first..first+count-1: gli
+// episodi della pagina. Numeri già dentro la serie di MyAnimeList: nessuno spostamento; parte 2 numerata da 1: va
+// in fondo alla stagione (24 episodi, 12 sulla pagina: l'1 è il 13, spostamento -12); numeri oltre la fine della
+// serie (il sito continua da 13 e MyAnimeList ha la parte a sé): si conta dal primo
+fun suggestShift(title: String, first: Int?, count: Int?, malEpisodes: Int?): Int {
+    if (malEpisodes == null || count == null || count <= 0) return aniSkipShift(first, first, count)
+    val start = first ?: 1
+    val last = start + count - 1
+    return when {
+        start == 1 && SECOND_PART.containsMatchIn(title) && count < malEpisodes -> count - malEpisodes
+        last <= malEpisodes -> 0
+        start > 1 -> start - 1
+        else -> 0
+    }
+}
+
+fun isSecondPart(title: String) = SECOND_PART.containsMatchIn(title)
 
 // Lo stesso titolo, scritto in modi diversi: "Fire Force: Season 3" e "fire force season 3"
 fun sameTitle(a: String, b: String): Boolean {
@@ -208,13 +264,29 @@ fun episodeOfFile(shows: List<Show>, file: String?): Episode? {
 }
 
 // Cosa fa il tasto per il video file a time su total, con la serie del video (o general se il video non è di una serie)
-fun skipPressOf(shows: List<Show>, file: String?, time: Long, total: Long, general: Int?): SkipPress =
-    skipPress(skipPartsOf(shows, file), time, total, introOf(shows, file, general))
+// autoDefault: la modalità di Impostazioni (prefs["aniskip"]), per le serie che non hanno scelto la loro
+fun skipPressOf(shows: List<Show>, file: String?, time: Long, total: Long, general: Int?, autoDefault: Boolean = true): SkipPress =
+    skipPress(skipPartsOf(shows, file), time, total, introOf(shows, file, general), skipAutoOf(shows, file, autoDefault))
+
+// Automatico (AniSkip) o manuale per il video file: quello della serie, se no quello di Impostazioni
+fun skipAutoOf(shows: List<Show>, file: String?, autoDefault: Boolean): Boolean = showOfFile(shows, file)?.skipAuto ?: autoDefault
+
+fun withSkipAuto(shows: List<Show>, key: String, auto: Boolean?): List<Show> = shows.map { if (it.key == key) it.copy(skipAuto = auto) else it }
+
+// Lo spostamento scelto (o confermato) a mano: i tempi già chiesti non valgono più
+fun withShift(shows: List<Show>, key: String, shift: Int): List<Show> = shows.map { show ->
+    if (show.key != key || show.episodeShift == shift) show
+    else show.copy(episodeShift = shift, episodes = show.episodes.map { it.copy(skips = null, skipsAt = 0) })
+}
+
+fun withSiteFirst(shows: List<Show>, key: String, first: Int?): List<Show> =
+    if (first == null) shows else shows.map { if (it.key == key) it.copy(siteFirst = first) else it }
 
 // Il numero dell'episodio da chiedere ad AniSkip per il video file, o null se non si può chiedere (serie senza id
 // MyAnimeList, episodio senza numero) o se i tempi sono già stati chiesti da poco
-fun aniSkipRequest(shows: List<Show>, file: String?, now: Long): Pair<Int, Int>? {
+fun aniSkipRequest(shows: List<Show>, file: String?, now: Long, autoDefault: Boolean = true): Pair<Int, Int>? {
     val show = showOfFile(shows, file) ?: return null
+    if (!(show.skipAuto ?: autoDefault)) return null
     val mal = show.malId?.takeIf { it != NO_MAL } ?: return null
     val episode = episodeOfFile(shows, file) ?: return null
     val number = episode.number?.minus(show.episodeShift)?.takeIf { it > 0 } ?: return null
@@ -249,11 +321,6 @@ fun withMal(shows: List<Show>, key: String, malId: Int, title: String?, shift: I
     )
 }
 
-// AniSkip spento dalle Impostazioni: via i tempi già presi, così il tasto torna subito al salto fisso (riaccendendolo
-// si richiedono)
-fun withoutSkips(shows: List<Show>): List<Show> =
-    shows.map { show -> show.copy(episodes = show.episodes.map { it.copy(skips = null, skipsAt = 0) }) }
-
 fun skipsToJson(parts: List<SkipPart>): JSONArray = JSONArray(parts.map {
     JSONObject().put("type", it.type.api).put("from", it.from).put("to", it.to).put("length", it.length)
 })
@@ -265,7 +332,7 @@ fun skipsFromJson(array: JSONArray): List<SkipPart> = List(array.length()) { arr
 
 // Riga del pannello della serie
 fun aniSkipLabel(show: Show, enabled: Boolean): String = when {
-    !enabled -> tr("Spento nelle Impostazioni", "Off in Settings")
+    !enabled -> tr("Serve la modalità Automatico", "Needs Automatic mode")
     show.malId == NO_MAL -> tr("Nessuna serie: solo il salto fisso", "No series: fixed skip only")
     show.malId == null -> tr("Serie non trovata: tocca per cercarla", "Series not found: tap to search")
     else -> (show.malTitle ?: "MyAnimeList ${show.malId}") +

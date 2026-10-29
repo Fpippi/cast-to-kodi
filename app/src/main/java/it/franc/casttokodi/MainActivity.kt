@@ -6,6 +6,7 @@ import android.app.AlertDialog
 import android.app.AlarmManager
 import android.app.Dialog
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.content.pm.ShortcutInfo
@@ -15,6 +16,7 @@ import android.content.res.Configuration
 import android.net.ConnectivityManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.graphics.Color
@@ -117,6 +119,7 @@ import it.franc.casttokodi.sites.isGoogleConsent
 import it.franc.casttokodi.sites.nextEpisodeTitle
 import it.franc.casttokodi.sites.linkExpiry
 import kotlin.concurrent.thread
+import kotlin.math.ceil
 
 private const val REPO = "Fpippi/cast-to-kodi"
 private val TUTORIAL get() = "https://github.com/$REPO/blob/main/docs/" + tr("TUTORIAL.md", "TUTORIAL.en.md")
@@ -2155,6 +2158,12 @@ class MainActivity : Activity() {
                 }
             })
         }
+        // Sotto la barra del tempo, i tratti di AniSkip (riassunto, sigla, titoli di coda), come nel mockup del 2026-10-29
+        val marks = PartMarks(this, dp(4), dp(8), sys(R.color.system_accent3_300, R.color.system_accent3_200))
+        val barBox = FrameLayout(this).apply {
+            addView(marks, FrameLayout.LayoutParams(-1, -1))
+            addView(bar, FrameLayout.LayoutParams(-1, -1))
+        }
         val playPause = ImageButton(this).apply {
             contentDescription = tr("Play o pausa", "Play or pause")
             tooltipText = contentDescription
@@ -2163,9 +2172,10 @@ class MainActivity : Activity() {
             setOnClickListener { video { kodi, id -> kodi.playPause(id) } }
         }
 
-        // "Salta sigla": alla fine della sigla, del riassunto o dei titoli di coda se AniSkip ne sa i tempi (skipPress,
-        // #150), se no avanti di quanto vale per la serie in corso (introOf), da dove si è. Al primo tocco su una serie
-        // senza tempo si sceglie quanto (scelta di Pippo); la pressione lunga lo cambia, anche con un tempo scritto a mano
+        // "Salta sigla" (mockup del 2026-10-29). Automatico: acceso solo dentro riassunto, sigla e titoli di coda di AniSkip,
+        // porta alla loro fine; fuori è spento e la pressione lunga dice dove funziona, con il salto manuale. Manuale (o
+        // senza tempi): avanti di quanto vale per la serie in corso (introOf), da dove si è; al primo tocco su una serie
+        // senza tempo si sceglie quanto (scelta di Pippo), la pressione lunga lo cambia
         val intro = TextView(this).apply {
             textSize = 15f
             typeface = Typeface.DEFAULT_BOLD
@@ -2184,7 +2194,8 @@ class MainActivity : Activity() {
             setOnClickListener {
                 if (now?.playerId == null) return@setOnClickListener toast(tr("Kodi non sta riproducendo niente", "Kodi isn't playing anything"))
                 val playing = now!!
-                when (val press = skipPressOf(loadShows(), playing.file, playing.time, playing.total, generalIntro())) {
+                when (val press = skipPressOf(loadShows(), playing.file, playing.time, playing.total, generalIntro(), KodiAccess.aniSkipOn(prefs))) {
+                    is SkipPress.Off -> toast(tr("Fuori da riassunto, sigla e titoli: tieni premuto per vedere dove funziona o saltare a mano", "Outside recap, intro and credits: hold to see where it works or to skip by hand"))
                     is SkipPress.To -> video { kodi, id -> kodi.seekTo(id, press.seconds) }
                     is SkipPress.Forward -> video { kodi, id -> kodi.skip(id, press.seconds) }
                     SkipPress.Choose -> chooseIntro(playing.file) { chosen ->
@@ -2194,9 +2205,20 @@ class MainActivity : Activity() {
                 }
             }
             setOnLongClickListener {
-                chooseIntro(now?.file) { seconds -> text = introLabel(seconds) }
+                val playing = now
+                val shows = loadShows()
+                if (playing?.playerId != null && skipAutoOf(shows, playing.file, KodiAccess.aniSkipOn(prefs)) &&
+                    partsFor(skipPartsOf(shows, playing.file), playing.total).isNotEmpty()) {
+                    showSkipParts(playing, skipBy = { seconds -> video { kodi, id -> kodi.skip(id, seconds) } }, changed = { refresh() })
+                } else chooseIntro(playing?.file) { seconds -> text = introLabel(seconds) }
                 true
             }
+        }
+        val introHint = TextView(this).apply {
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setTextColor(sys(R.color.system_neutral2_700, R.color.system_neutral2_300))
+            visibility = View.GONE
         }
 
         // Timer di spegnimento attivo: una striscia al posto della pillola, con +15 min e Annulla
@@ -2256,7 +2278,14 @@ class MainActivity : Activity() {
                 thumb.scaleType = ImageView.ScaleType.CENTER
                 thumb.setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_play, sys(R.color.system_accent1_50, R.color.system_accent1_100)))
             }
-            intro.text = skipLabel(skipPressOf(loadShows(), playing.file, playing.time, playing.total, generalIntro()))
+            val shows = loadShows()
+            val auto = skipAutoOf(shows, playing.file, KodiAccess.aniSkipOn(prefs))
+            val press = skipPressOf(shows, playing.file, playing.time, playing.total, generalIntro(), KodiAccess.aniSkipOn(prefs))
+            intro.text = skipLabel(press)
+            intro.alpha = if (press is SkipPress.Off) 0.38f else 1f
+            introHint.text = skipHint(press)
+            introHint.visibility = if (introHint.text.isBlank()) View.GONE else View.VISIBLE
+            marks.marks = partMarks(skipPartsOf(shows, playing.file), playing.total, auto)
             val end = if (playing.total > 0) tr("fino alle ${clockAt(System.currentTimeMillis() / 1000 + playing.total - playing.time)}", "until ${clockAt(System.currentTimeMillis() / 1000 + playing.total - playing.time)}") else tr("in diretta", "live")
             status.text = if (playing.paused) tr("In pausa · $end", "Paused · $end") else end
             playPause.setImageDrawable(icon(
@@ -2426,10 +2455,11 @@ class MainActivity : Activity() {
             setPadding(0, 0, 0, dp(16))
             listOf(
                 gap(nowRow, 0),
-                gap(bar, 16, height = 24),
+                gap(barBox, 16, height = 24),
                 gap(times, 2),
                 gap(transport, 16),
                 gap(intro, 16, width = -2, height = 44, gravity = Gravity.CENTER_HORIZONTAL),
+                gap(introHint, 6, width = -2, gravity = Gravity.CENTER_HORIZONTAL),
                 gap(dpad, 24, 216, 216, Gravity.CENTER_HORIZONTAL),
                 gap(keys, 24),
                 gap(volume, 4),
@@ -2481,8 +2511,8 @@ class MainActivity : Activity() {
             settingsHeading(tr("Siti", "Sites")),
             settingsRow(it.franc.casttokodi.R.drawable.ic_queue, tr("AnimeUnity: episodi successivi", "AnimeUnity: next episodes"), autoNextLabel(autoNext),
                 then { askAutoNext() }),
-            settingsRow(it.franc.casttokodi.R.drawable.ic_skip_next, tr("Salta sigla e titoli con AniSkip", "Skip intro and credits with AniSkip"),
-                if (KodiAccess.aniSkipOn(prefs)) tr("Acceso: tempi degli anime presi da AniSkip", "On: anime times from AniSkip") else tr("Spento: solo il salto fisso", "Off: fixed skip only"),
+            settingsRow(it.franc.casttokodi.R.drawable.ic_skip_next, tr("Salta sigla", "Skip intro"),
+                skipModeLabel(KodiAccess.aniSkipOn(prefs), generalIntro()) + tr(" · per le serie senza una scelta loro", " · for series without their own choice"),
                 then { toggleAniSkip() }),
             settingsHeading(tr("Cronologia", "History")),
             settingsRow(it.franc.casttokodi.R.drawable.ic_history, tr("Ricorda dove sono arrivato", "Remember where I got to"), historyLabel(),
@@ -3020,20 +3050,135 @@ class MainActivity : Activity() {
     private fun toggleAniSkip() {
         val on = !KodiAccess.aniSkipOn(prefs)
         prefs.edit().putBoolean("aniskip", on).apply()
-        if (!on) updateShows { withoutSkips(it) }
-        toast(if (on) tr("AniSkip acceso: Salta sigla va alla fine della sigla quando ne sa i tempi", "AniSkip on: Skip intro jumps to the end of the intro when it knows the times")
-            else tr("AniSkip spento: Salta sigla torna al salto fisso", "AniSkip off: Skip intro goes back to the fixed jump"))
+        toast(if (on) tr("Salta sigla automatico: si accende dentro sigla, riassunto e titoli di AniSkip", "Automatic Skip intro: it lights up inside AniSkip's intro, recap and credits")
+            else tr("Salta sigla manuale: va avanti del tempo scelto, senza AniSkip", "Manual Skip intro: it jumps the chosen time, without AniSkip"))
         showSettings()
+    }
+
+    // Automatico (AniSkip) o manuale per una serie, o come in Impostazioni. Manuale senza tempo scelto: lo si sceglie subito
+    private fun chooseSkipMode(show: Show) {
+        val general = KodiAccess.aniSkipOn(prefs)
+        val choices = listOf(
+            Choice(tr("Automatico (AniSkip)", "Automatic (AniSkip)"), tr("Il tasto si accende solo dentro riassunto, sigla e titoli di coda, e porta alla loro fine. Fuori è spento: tienilo premuto per vedere dove funziona o saltare a mano.", "The button lights up only inside recap, intro and credits, and goes to their end. Outside it's off: hold it to see where it works or to skip by hand.")),
+            Choice(skipModeLabel(false, show.intro), tr("Sempre acceso, va avanti di quanto scegli, da dove sei. Non chiede niente ad AniSkip.", "Always on, it jumps as far as you choose, from where you are. It asks AniSkip nothing.")),
+            Choice(tr("Come in Impostazioni", "As in Settings"), skipModeLabel(general, show.intro)),
+        )
+        val checked = when (show.skipAuto) { true -> 0; false -> 1; null -> 2 }
+        choiceSheet(tr("Salta sigla: ${show.title}", "Skip intro: ${show.title}"), choices, checked) { i ->
+            val auto = when (i) { 0 -> true; 1 -> false; else -> null }
+            updateShows { withSkipAuto(it, show.key, auto) }
+            if ((auto ?: general).not() && show.intro == null) chooseIntroOf(show) { showPanel(show.key) } else showPanel(show.key)
+        }
+    }
+
+    // Da che episodio parte la serie su MyAnimeList: i siti a volte dividono una stagione in "part 1" e "part 2" che
+    // su MyAnimeList è una sola, e la parte 2 comincia dal 13. Si scrive il numero su MyAnimeList di un episodio del sito
+    private fun askShift(show: Show) {
+        val number = show.current.number ?: show.siteFirst ?: 1
+        val field = EditText(this).apply {
+            setText((number - show.episodeShift).toString())
+            selectAll()
+            isSingleLine = true
+            inputType = InputType.TYPE_CLASS_NUMBER
+            imeOptions = EditorInfo.IME_ACTION_DONE
+        }
+        lateinit var dialog: AlertDialog
+        val go = {
+            val mal = field.text.toString().trim().toIntOrNull()
+            if (mal == null || mal < 1) toast(tr("Scrivi un numero da 1 in su", "Type a number from 1 up"))
+            else {
+                updateShows { withShift(it, show.key, number - mal) }
+                dialog.dismiss()
+                showPanel(show.key)
+            }
+        }
+        dialog = AlertDialog.Builder(this)
+            .setTitle(tr("Episodi su MyAnimeList", "Episodes on MyAnimeList"))
+            .setMessage(tr("L'episodio $number del sito, su MyAnimeList (${show.malTitle ?: show.title}), è il numero…\n\nUna parte 2 di solito continua dalla fine della parte 1: con 12 episodi per parte, l'1 della parte 2 è il 13.",
+                "Episode $number on the site, on MyAnimeList (${show.malTitle ?: show.title}), is number…\n\nA part 2 usually carries on from the end of part 1: with 12 episodes per part, episode 1 of part 2 is 13."))
+            .setView(section(field).apply { setPadding(dp(24), dp(8), dp(24), 0) })
+            .setPositiveButton(tr("Salva", "Save"), null)
+            .setNegativeButton(tr("Annulla", "Cancel"), null)
+            .create()
+        field.setOnEditorActionListener { _, _, _ -> go(); true }
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { go() }
+        field.requestFocus()
+    }
+
+    // Pressione lunga su Salta sigla in automatico: dove funziona in questo episodio, e il salto a mano (mockup del 2026-10-29)
+    private fun showSkipParts(playing: NowPlaying, skipBy: (Int) -> Unit, changed: () -> Unit) {
+        val shows = loadShows()
+        val show = showOfFile(shows, playing.file)
+        val parts = partsFor(skipPartsOf(shows, playing.file), playing.total).sortedBy { it.from }
+        val manual = introOf(shows, playing.file, generalIntro())
+        lateinit var dialog: Dialog
+        val onSurface = sys(R.color.system_neutral1_900, R.color.system_neutral1_100)
+        val muted = sys(R.color.system_neutral2_700, R.color.system_neutral2_300)
+        val content = section().apply { setPadding(dp(24), 0, dp(24), dp(16)) }
+        content.addView(TextView(this).apply {
+            text = listOfNotNull(show?.title, episodeOfFile(shows, playing.file)?.number?.let { tr("Episodio $it", "Episode $it") }, tr("tempi da AniSkip", "times from AniSkip")).joinToString(" · ")
+            textSize = 14f
+            setTextColor(muted)
+            setPadding(0, 0, 0, dp(8))
+        })
+        parts.forEach { part ->
+            val end = ceil(part.to).toLong()
+            content.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(10), 0, dp(10))
+                addView(LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(TextView(context).apply { text = partName(part.type); textSize = 16f; typeface = Typeface.DEFAULT_BOLD; setTextColor(onSurface) })
+                    addView(TextView(context).apply {
+                        text = if (end >= playing.total - 2) tr("Il tasto passa al video dopo in coda", "The button moves on to the next video in the queue") else tr("Il tasto porta a ${clockLabel(end)}", "The button goes to ${clockLabel(end)}")
+                        textSize = 13f
+                        setTextColor(muted)
+                    })
+                }, LinearLayout.LayoutParams(0, -2, 1f))
+                addView(TextView(context).apply { text = "${clockLabel(part.from.toLong())} – ${clockLabel(end)}"; textSize = 15f; setTextColor(onSurface) })
+            })
+        }
+        if (skipPressOf(shows, playing.file, playing.time, playing.total, generalIntro(), KodiAccess.aniSkipOn(prefs)) is SkipPress.Off) {
+            content.addView(TextView(this).apply {
+                text = tr("Adesso sei a ${clockLabel(playing.time)}, fuori da questi tratti: il tasto è spento.", "You're at ${clockLabel(playing.time)} now, outside these parts: the button is off.")
+                textSize = 13f
+                setTextColor(muted)
+                setPadding(0, dp(8), 0, dp(8))
+            })
+        }
+        content.addView(settingsRow(it.franc.casttokodi.R.drawable.ic_skip_next,
+            manual?.let { tr("Salta lo stesso di ${introTime(it)} (manuale)", "Skip ${introTime(it)} anyway (manual)") } ?: tr("Salta a mano…", "Skip by hand…"),
+            tr("Avanti da dove sei, solo questa volta", "Forward from where you are, just this once")) {
+            dialog.dismiss()
+            if (manual != null) skipBy(manual) else chooseIntro(playing.file) { skipBy(it) }
+        })
+        if (show != null) content.addView(settingsRow(it.franc.casttokodi.R.drawable.ic_skip_next, tr("Usa sempre il manuale per questa serie", "Always use manual for this series"), show.title) {
+            dialog.dismiss()
+            updateShows { withSkipAuto(it, show.key, false) }
+            toast(tr("${show.title}: Salta sigla manuale. Si cambia nel pannello della serie", "${show.title}: manual Skip intro. Change it in the series panel"))
+            changed()
+        })
+        content.addView(settingsRow(it.franc.casttokodi.R.drawable.ic_skip_intro, tr("Cambia di quanto salta il manuale…", "Change how far manual skips…"),
+            manual?.let { tr("Adesso: ${introTime(it)}", "Now: ${introTime(it)}") } ?: tr("Non ancora scelto", "Not chosen yet")) {
+            dialog.dismiss()
+            chooseIntro(playing.file) { changed() }
+        })
+        dialog = sheet(tr("Dove funziona Salta sigla", "Where Skip intro works"), content)
     }
 
     // L'id MyAnimeList della serie, per AniSkip, dai dati della pagina (info di EPISODE_INFO_JS): quello scritto lì,
     // se no da AniList con l'id AniList della pagina o, solo se è certa, con il titolo. Una volta per serie: se non la
     // trova si sceglie dal pannello della serie
     private fun findMal(key: String, info: JSONObject) {
+        val first = info.optString("first").toIntOrNull()
+        if (first != null && loadShows().firstOrNull { it.key == key }?.siteFirst != first) updateShows { withSiteFirst(it, key, first) }
         val show = loadShows().firstOrNull { it.key == key } ?: return
-        if (show.malId != null || !KodiAccess.aniSkipOn(prefs)) return
+        if (show.malId != null || !(show.skipAuto ?: KodiAccess.aniSkipOn(prefs))) return
         val count = info.optInt("count").takeIf { it > 0 }
-        val shift = aniSkipShift(info.optString("first").toIntOrNull(), info.optString("number").toIntOrNull(), count)
+        val shift = aniSkipShift(first, info.optString("number").toIntOrNull(), count)
         val title = info.optString("title")
         val mal = info.optString("mal").toIntOrNull()?.takeIf { it > 0 }
         if (mal != null) return updateShows { withMal(it, key, mal, title.ifBlank { null }, shift) }
@@ -3041,7 +3186,7 @@ class MainActivity : Activity() {
         thread {
             val match = aniList?.let { AniSkipClient.byAniList(it) }
                 ?: title.takeIf { it.isNotBlank() }?.let { t -> AniSkipClient.search(t)?.let { sureMatch(it, t, count) } }
-            if (match != null) runOnUiThread { updateShows { withMal(it, key, match.malId, match.title, shift) } }
+            if (match != null) runOnUiThread { updateShows { withMal(it, key, match.malId, match.title, suggestShift(title, first, count, match.episodes)) } }
         }
     }
 
@@ -3070,7 +3215,13 @@ class MainActivity : Activity() {
                 val checked = if (show.malId == NO_MAL) found.size else found.indexOfFirst { it.malId == show.malId }
                 choiceSheet(if (found.isEmpty()) tr("Niente per \"$query\"", "Nothing for \"$query\"") else tr("Quale serie è?", "Which series is it?"), choices, checked) { i ->
                     when {
-                        i < found.size -> updateShows { withMal(it, show.key, found[i].malId, found[i].title) }
+                        i < found.size -> {
+                            // Parte 2 su un sito, stagione intera su MyAnimeList: da che episodio si parte (lo propone l'app)
+                            val shift = suggestShift(show.title, show.siteFirst, show.count, found[i].episodes)
+                            updateShows { withShift(withMal(it, show.key, found[i].malId, found[i].title), show.key, shift) }
+                            val chosen = loadShows().firstOrNull { it.key == show.key }
+                            if (chosen != null && (shift != 0 || isSecondPart(show.title))) return@choiceSheet askShift(chosen)
+                        }
                         i == found.size -> updateShows { withMal(it, show.key, NO_MAL, null) }
                         else -> return@choiceSheet askMalQuery(show, query)
                     }
@@ -4395,11 +4546,18 @@ class MainActivity : Activity() {
             content.addView(settingsRow(iconId, title, value) { dialog.dismiss(); open() })
         setting(it.franc.casttokodi.R.drawable.ic_article, tr("Nome", "Name"), show.title) { renameShow(show) }
         setting(it.franc.casttokodi.R.drawable.ic_home, tr("Sfondo", "Background"), backgroundLabel(show)) { chooseBackground(key) }
-        setting(it.franc.casttokodi.R.drawable.ic_skip_next, tr("Salta sigla", "Skip intro"), show.intro?.let { tr("Avanti di ${introTime(it)}", "Forward ${introTime(it)}") } ?: tr("Non ancora scelto", "Not chosen yet")) {
+        val autoSkip = show.skipAuto ?: KodiAccess.aniSkipOn(prefs)
+        setting(it.franc.casttokodi.R.drawable.ic_skip_next, tr("Salta sigla", "Skip intro"),
+            skipModeLabel(autoSkip, show.intro) + (if (show.skipAuto == null) tr(" · come in Impostazioni", " · as in Settings") else "")) { chooseSkipMode(show) }
+        setting(it.franc.casttokodi.R.drawable.ic_skip_next, tr("Salto manuale", "Manual skip"), show.intro?.let { tr("Avanti di ${introTime(it)}", "Forward ${introTime(it)}") } ?: tr("Non ancora scelto", "Not chosen yet")) {
             chooseIntroOf(show) { showPanel(key) }
         }
-        setting(it.franc.casttokodi.R.drawable.ic_skip_intro, tr("Tempi da AniSkip", "Times from AniSkip"), aniSkipLabel(show, KodiAccess.aniSkipOn(prefs))) {
-            if (KodiAccess.aniSkipOn(prefs)) chooseMal(show, show.title) else showSettings()
+        setting(it.franc.casttokodi.R.drawable.ic_skip_intro, tr("Tempi da AniSkip", "Times from AniSkip"), aniSkipLabel(show, autoSkip)) {
+            if (autoSkip) chooseMal(show, show.title) else chooseSkipMode(show)
+        }
+        val shiftNumber = show.current.number ?: show.siteFirst
+        if (autoSkip && show.malId != null && show.malId != NO_MAL && shiftNumber != null) {
+            setting(it.franc.casttokodi.R.drawable.ic_skip_intro, tr("Episodi su MyAnimeList", "Episodes on MyAnimeList"), shiftLabel(shiftNumber, show.episodeShift)) { askShift(show) }
         }
         setting(it.franc.casttokodi.R.drawable.ic_history, tr("Riprendi", "Resume"), rewindLabel(show.rewind)) { chooseRewind(show) }
         if (isAnimeUnityEpisode(host, show.current.path)) {
@@ -4969,6 +5127,30 @@ class MainActivity : Activity() {
             home.visibility == View.VISIBLE -> super.onBackPressed()
             web.canGoBack() -> web.goBack()
             else -> showHome()
+        }
+    }
+}
+
+// I tratti di AniSkip (riassunto, sigla, titoli di coda) sotto la barra del tempo del telecomando: marks in frazioni
+// del video; inset come il padding della SeekBar, così combaciano con la sua traccia
+private class PartMarks(context: Context, private val inset: Int, private val size: Int, color: Int) : View(context) {
+    var marks: List<Pair<Float, Float>> = emptyList()
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
+
+    override fun onDraw(canvas: Canvas) {
+        val track = width - 2 * inset
+        if (track <= 0) return
+        val top = (height - size) / 2f
+        val radius = size / 2f
+        for ((from, to) in marks) {
+            val left = inset + from * track
+            canvas.drawRoundRect(left, top, maxOf(inset + to * track, left + size), top + size, radius, radius, paint)
         }
     }
 }

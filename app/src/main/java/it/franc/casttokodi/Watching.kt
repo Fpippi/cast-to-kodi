@@ -96,6 +96,10 @@ data class Show(
     val malId: Int? = null,
     val malTitle: String? = null,
     val episodeShift: Int = 0,
+    // Salta sigla con questa serie (2026-10-29): true = automatico coi tempi di AniSkip, false = manuale (il salto
+    // fisso di intro), null = come in Impostazioni. siteFirst: il numero del primo episodio elencato dalla pagina
+    val skipAuto: Boolean? = null,
+    val siteFirst: Int? = null,
 ) {
     // L'ultimo mandato o visto su Kodi
     val current: Episode get() = episodes.filter { it.seen > 0 }.maxByOrNull { it.seen } ?: episodes.last()
@@ -214,6 +218,8 @@ fun withSent(
         malId = old?.malId,
         malTitle = old?.malTitle,
         episodeShift = old?.episodeShift ?: 0,
+        skipAuto = old?.skipAuto,
+        siteFirst = old?.siteFirst,
     )
     return (listOf(show) + shows.filter { it.key != page.key }).take(MAX_SHOWS)
 }
@@ -447,7 +453,7 @@ fun showsToJson(shows: List<Show>): String = JSONArray(shows.map { s ->
         .put("cover", s.cover).putOpt("frameFrom", s.frameFrom).putOpt("frameTo", s.frameTo)
         .put("renamed", s.renamed).put("rewind", s.rewind).putOpt("autoNext", s.autoNext)
         .putOpt("subtitles", s.subtitles).putOpt("malId", s.malId).putOpt("malTitle", s.malTitle)
-        .put("episodeShift", s.episodeShift)
+        .put("episodeShift", s.episodeShift).putOpt("skipAuto", s.skipAuto).putOpt("siteFirst", s.siteFirst)
 }).toString()
 
 private fun episodeJson(e: Episode) = JSONObject().putOpt("season", e.season).putOpt("number", e.number).put("path", e.path)
@@ -477,6 +483,8 @@ fun showsFromJson(text: String?): List<Show> = try {
             malId = if (o.has("malId")) o.getInt("malId") else null,
             malTitle = o.optString("malTitle").ifEmpty { null },
             episodeShift = o.optInt("episodeShift"),
+            skipAuto = if (o.has("skipAuto")) o.getBoolean("skipAuto") else null,
+            siteFirst = if (o.has("siteFirst")) o.getInt("siteFirst") else null,
         )
     }
 } catch (e: Exception) {

@@ -78,6 +78,7 @@ class KodiWidget : AppWidgetProvider() {
                 generalIntro = if (prefs.contains("intro")) prefs.getInt("intro", DEFAULT_INTRO) else null,
                 hosts = hosts,
                 nowSeconds = System.currentTimeMillis() / 1000,
+                autoDefault = KodiAccess.aniSkipOn(prefs),
             )
         }
 
@@ -268,10 +269,10 @@ class KodiWidget : AppWidgetProvider() {
                                 val prefs = KodiAccess.prefs(context)
                                 val general = if (prefs.contains("intro")) prefs.getInt("intro", DEFAULT_INTRO) else null
                                 KodiAccess.fetchSkips(prefs, playing.file)
-                                when (val press = skipPressOf(KodiAccess.shows(prefs), playing.file, playing.time, playing.total, general)) {
+                                when (val press = skipPressOf(KodiAccess.shows(prefs), playing.file, playing.time, playing.total, general, KodiAccess.aniSkipOn(prefs))) {
                                     is SkipPress.To -> kodi.seekTo(id, press.seconds)
                                     is SkipPress.Forward -> kodi.skip(id, press.seconds)
-                                    SkipPress.Choose -> Unit
+                                    else -> Unit
                                 }
                             }
                         }
