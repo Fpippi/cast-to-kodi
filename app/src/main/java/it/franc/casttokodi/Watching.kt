@@ -158,14 +158,16 @@ fun episodeFromPage(host: String?, path: String?, query: String?, title: String?
     val match = season ?: EPISODE_WORD.find(text)
     val seasonNumber = season?.groupValues?.get(1)?.toIntOrNull()
     val number = match?.groupValues?.last()?.toIntOrNull()
+    // "Chainsaw Man (ITA) Episodio 1": la parentesi chiusa resta
     val before = match?.let { text.substring(0, it.range.first).trim { c -> c in SEPARATORS } }.orEmpty()
+        .let { if (it.count { c -> c == '(' } > it.count { c -> c == ')' }) "$it)" else it }
 
     val series = animeUnitySeries(host, path)
     if (series != null) {
         val name = before.ifBlank { suggestedName(text.takeIf { match == null }, null).takeIf { it.isNotBlank() } ?: animeUnitySlugTitle(series) }
         return EpisodePage("$site:$series", site, name, seasonNumber, number, fullPath)
     }
-    // AnimeSaturn: la serie e il numero dall'indirizzo dell'episodio (/ep/One-Piece-ep-12), come su AnimeUnity
+    // AnimeSaturn: la serie e il numero dall'indirizzo dell'episodio (/chainsaw-man-ita-ep-12/), come su AnimeUnity
     val saturn = if (isAnimeSaturnEpisode(host, path)) animeSaturnSeries(host, path) else null
     if (saturn != null) {
         val name = before.ifBlank { animeSaturnSlugTitle(saturn) }

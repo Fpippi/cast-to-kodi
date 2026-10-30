@@ -1442,6 +1442,8 @@ class MainActivity : Activity() {
         val hidden = WebView(this)
         hidden.settings.javaScriptEnabled = true
         hidden.settings.userAgentString = userAgent
+        // AnimeSaturn: il player dentro l'iframe chiede il video da solo, anche senza un tocco
+        hidden.settings.mediaPlaybackRequiresUserGesture = false
         var done = false
         val finish = { stream: String? ->
             if (!done) {
@@ -4691,6 +4693,8 @@ class MainActivity : Activity() {
         hidden.settings.javaScriptEnabled = true
         hidden.settings.domStorageEnabled = true
         hidden.settings.userAgentString = userAgent
+        // AnimeSaturn: il player dentro l'iframe chiede il video da solo, anche senza un tocco
+        hidden.settings.mediaPlaybackRequiresUserGesture = false
         var done = false
         fun giveUp() {
             if (done) return
@@ -4701,9 +4705,17 @@ class MainActivity : Activity() {
         }
         // AnimeSaturn: dalla pagina dell'episodio il link del video con SATURN_STREAM_JS, che legge la pagina del player.
         // Se la può leggere solo aprendola, la si apre in questo WebView (al massimo due volte: anche il player di
-        // riserva, &s=alt). Senza risultato si aspetta (Cloudflare, episodio che non c'è) fino al tempo massimo
+        // riserva, &s=alt). Senza risultato si aspetta (Cloudflare, episodio che non c'è) fino al tempo massimo.
+        // Con il player in un iframe su un altro dominio il link si prende quando il player lo chiede (caught)
         var episodePage = url
         var hops = 0
+        fun caught(stream: String, referer: String) {
+            if (done) return
+            done = true
+            web.post { hidden.destroy() }
+            rememberSite(Uri.parse(episodePage).host)
+            sendToKodi(Video(stream, referer, name, true), queued = false, page = episodePage, name = name)
+        }
         fun saturn(view: WebView, loaded: String) {
             if (!Uri.parse(loaded).path.orEmpty().startsWith("/watch")) episodePage = loaded
             view.evaluateJavascript(SATURN_STREAM_JS) { result ->
@@ -4729,6 +4741,17 @@ class MainActivity : Activity() {
         hidden.webViewClient = object : WebViewClient() {
             // Solo i redirect HTTP (il sito che cambia dominio): i salti fatti da JS (pubblicità) no
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = !request.isRedirect
+
+            // Su un thread di background, anche per gli iframe: il primo video che non è pubblicità
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                if (!isAnimeSaturn(Uri.parse(episodePage).host) || !isVideoPath(request.url.path)) return null
+                val video = request.url.toString()
+                val referer = request.requestHeaders["Referer"] ?: episodePage
+                if (videoFor(video, referer, request.url.host, request.url.path, request.url.encodedQuery) != null) {
+                    runOnUiThread { caught(video, referer) }
+                }
+                return if (request.method == "GET" && isHlsPath(request.url.path)) capturePlaylist(request) else null
+            }
 
             override fun onPageFinished(view: WebView, loaded: String) {
                 if (done) return

@@ -129,10 +129,10 @@ Funzioni in più che valgono solo per alcuni siti o player. Il resto dell'app fu
 - Legge l'elenco degli episodi dalla pagina e il link di ognuno dal player VixCloud: se il sito cambia struttura l'app avvisa e resta **+ Coda** a mano.
 - In **Continua a guardare** la serie si riconosce dall'indirizzo (`/anime/1234-jojo`, uguale su ogni dominio) e **Riprendi su Kodi** manda l'episodio senza aprire la pagina, dal minuto in cui eri.
 
-### ⏭️ Siti di anime con player JW e pagine `/ep/<serie>-ep-<numero>`
+### ⏭️ Siti di anime con pagine `/<serie>-ep-<numero>/`
 
-- In **Continua a guardare** la serie e il numero dell'episodio si riconoscono dall'indirizzo, anche quando il video si guarda nella pagina del player (`/watch?file=…`), perché l'app ricorda la pagina dell'episodio da cui ci sei arrivato.
-- ⏭ a coda finita, **Riprendi su Kodi** e il widget mandano l'episodio senza aprire la pagina: l'app apre l'episodio dopo (`-ep-<numero+1>`) in un WebView invisibile e prende il link del video dal player. Se l'episodio dopo non è ancora uscito lo dice.
+- In **Continua a guardare** la serie e il numero dell'episodio si riconoscono dall'indirizzo (`/<serie>-ep-<numero>/`, oppure `/ep/<serie>-ep-<numero>` con il player in una pagina a parte `/watch?file=…`, che l'app lega alla pagina dell'episodio da cui ci sei arrivato).
+- ⏭ a coda finita, **Riprendi su Kodi** e il widget mandano l'episodio senza aprire la pagina: l'app apre l'episodio dopo (`-ep-<numero+1>`) in un WebView invisibile e prende il link del video dal player, anche quando il player sta in un riquadro di un altro sito. Se l'episodio dopo non è ancora uscito lo dice.
 
 ### 🎞️ Player VixCloud (su qualunque sito lo usi)
 
