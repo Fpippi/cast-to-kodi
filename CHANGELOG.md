@@ -7,6 +7,14 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.6.1
+
+- **Episodio dopo anche su altri siti di anime**: sui siti con pagine `/<serie>-ep-<numero>/` ⏭ a coda finita, il
+  widget e **Riprendi su Kodi** mandano l'episodio dopo senza aprire la pagina: l'app la apre di nascosto e prende il
+  link del video dal player, anche quando il player sta in un riquadro di un altro sito. Se l'episodio dopo non è
+  ancora uscito lo dice.
+- In **Continua a guardare** la serie e il numero dell'episodio si riconoscono dall'indirizzo anche su questi siti.
+
 ## 2.6.0
 
 - **Widget con i tasti del telecomando**: sempre la fila ⏮ −10 ⏯ +10 ⏭ ⏹ e Salta sigla. Con un video in corso

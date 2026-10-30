@@ -1,6 +1,5 @@
 package it.franc.casttokodi
 
-import it.franc.casttokodi.sites.isAnimeUnityEpisode
 import java.time.ZoneId
 
 // Widget sulla schermata Home (2026-10-28, rifatto il 2026-10-29 con i tasti del telecomando, mockup approvato da Pippo):
@@ -91,7 +90,7 @@ fun widgetAfter(show: Show): Episode? {
 
 // Come "Riprendi su Kodi" del pannello della serie: solo dove l'app legge il player senza aprire la pagina
 fun widgetSendsToKodi(show: Show, episode: Episode, hosts: Map<String, String>): Boolean =
-    isAnimeUnityEpisode(hosts[show.site] ?: show.host, episode.path)
+    sendsWithoutPage(hosts[show.site] ?: show.host, episode.path)
 
 // Cosa conta per ridisegnare subito: tutto tranne il tempo che passa
 fun widgetKey(content: WidgetContent): String = when (content) {
