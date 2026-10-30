@@ -1,6 +1,11 @@
 package it.franc.casttokodi
 
+import it.franc.casttokodi.sites.animeSaturnNumber
+import it.franc.casttokodi.sites.animeSaturnSeries
+import it.franc.casttokodi.sites.animeSaturnSlugTitle
 import it.franc.casttokodi.sites.animeUnitySeries
+import it.franc.casttokodi.sites.isAnimeSaturnEpisode
+import it.franc.casttokodi.sites.isAnimeUnityEpisode
 import it.franc.casttokodi.sites.animeUnitySlugTitle
 import org.json.JSONArray
 import org.json.JSONObject
@@ -146,8 +151,8 @@ private const val SEPARATORS = " -|–—:·,()[]"
 // (/anime/1234-jojo), che ha già il player: il numero lo dice poi il player (EPISODE_INFO_JS)
 fun episodeFromPage(host: String?, path: String?, query: String?, title: String?): EpisodePage? {
     val site = siteOf(host).ifBlank { return null }
-    // AnimeUnity mette il suo nome davanti: "AnimeUnity ~ Le Bizzarre Avventure di JoJo"
-    val text = title.orEmpty().replace(Regex("\\s+"), " ").trim().replace(Regex("(?i)^animeunity\\s*~\\s*"), "")
+    // AnimeUnity e AnimeSaturn mettono il loro nome davanti: "AnimeUnity ~ Le Bizzarre Avventure di JoJo"
+    val text = title.orEmpty().replace(Regex("\\s+"), " ").trim().replace(Regex("(?i)^(?:animeunity\\s*~|ani(?:me)?saturn\\s*[-–|~:])\\s*"), "")
     val fullPath = path.orEmpty().ifEmpty { "/" } + (query?.takeIf { it.isNotBlank() }?.let { "?$it" } ?: "")
     val season = SEASON_WORD.find(text) ?: SEASON_EPISODE.find(text)
     val match = season ?: EPISODE_WORD.find(text)
@@ -160,6 +165,12 @@ fun episodeFromPage(host: String?, path: String?, query: String?, title: String?
         val name = before.ifBlank { suggestedName(text.takeIf { match == null }, null).takeIf { it.isNotBlank() } ?: animeUnitySlugTitle(series) }
         return EpisodePage("$site:$series", site, name, seasonNumber, number, fullPath)
     }
+    // AnimeSaturn: la serie e il numero dall'indirizzo dell'episodio (/ep/One-Piece-ep-12), come su AnimeUnity
+    val saturn = if (isAnimeSaturnEpisode(host, path)) animeSaturnSeries(host, path) else null
+    if (saturn != null) {
+        val name = before.ifBlank { animeSaturnSlugTitle(saturn) }
+        return EpisodePage("$site:$saturn", site, name, seasonNumber, number ?: animeSaturnNumber(path), fullPath)
+    }
     if (match == null || before.isBlank()) return null
     return EpisodePage("$site:${seriesKey(before)}", site, before, seasonNumber, number, fullPath)
 }
@@ -170,7 +181,7 @@ private fun seriesKey(name: String) = name.lowercase().replace(Regex("[^\\p{L}\\
 // La serie di una pagina già nota, anche se non è un episodio (la scheda della serie su AnimeUnity): per l'avviso
 // "Eri all'episodio 12" quando ci si arriva dal sito o da Google
 fun showOfPage(shows: List<Show>, host: String?, path: String?, query: String?, title: String?): Show? {
-    val key = animeUnitySeries(host, path)?.let { "${siteOf(host)}:$it" } ?: episodeFromPage(host, path, query, title)?.key ?: return null
+    val key = (animeUnitySeries(host, path) ?: animeSaturnSeries(host, path))?.let { "${siteOf(host)}:$it" } ?: episodeFromPage(host, path, query, title)?.key ?: return null
     return shows.firstOrNull { it.key == key }
 }
 
@@ -360,6 +371,9 @@ fun subtitlesOf(shows: List<Show>, file: String?): String? = showOfFile(shows, f
 
 fun withShowSubtitles(shows: List<Show>, key: String, language: String?): List<Show> =
     shows.map { if (it.key == key) it.copy(subtitles = language) else it }
+
+// true se l'app sa mandare a Kodi questo episodio senza aprirne la pagina (resumeOnKodi): AnimeUnity e AnimeSaturn
+fun sendsWithoutPage(host: String?, path: String?): Boolean = isAnimeUnityEpisode(host, path) || isAnimeSaturnEpisode(host, path)
 
 // ⏭ del telecomando con la coda finita: l'episodio dopo quello che Kodi sta riproducendo (file), se l'app lo conosce
 fun episodeAfter(show: Show, file: String?): Episode? {

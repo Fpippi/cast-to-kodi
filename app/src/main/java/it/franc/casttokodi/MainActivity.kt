@@ -114,6 +114,11 @@ import it.franc.casttokodi.sites.autoNextLabel
 import it.franc.casttokodi.sites.NEXT_EPISODES_JS
 import it.franc.casttokodi.sites.EPISODE_INFO_JS
 import it.franc.casttokodi.sites.isAnimeUnityEpisode
+import it.franc.casttokodi.sites.SATURN_STREAM_JS
+import it.franc.casttokodi.sites.animeSaturnEpisodePath
+import it.franc.casttokodi.sites.animeSaturnNext
+import it.franc.casttokodi.sites.isAnimeSaturn
+import it.franc.casttokodi.sites.isAnimeSaturnEpisode
 import it.franc.casttokodi.sites.animeUnitySeries
 import it.franc.casttokodi.sites.isGoogleConsent
 import it.franc.casttokodi.sites.nextEpisodeTitle
@@ -1223,7 +1228,11 @@ class MainActivity : Activity() {
         val title = suggestedName(pageTitle, Uri.parse(page).host)
         // Continua a guardare: l'episodio di questa pagina e, se era a metà, da dove riprenderlo
         val pageUri = Uri.parse(page)
-        val episode = if (historyOn()) episodeFromPage(pageUri.host, pageUri.path, pageUri.encodedQuery, pageTitle) else null
+        // AnimeSaturn: dalla pagina del player (/watch?file=…) l'episodio è l'ultima pagina /ep/ aperta prima
+        val saturnPath = animeSaturnEpisodePath(pageUri.host, pageUri.path, if (page == pageUrl) historyPaths() else emptyList())
+        val episode = if (!historyOn()) null
+            else if (saturnPath != null) episodeFromPage(pageUri.host, saturnPath, null, pageTitle)
+            else episodeFromPage(pageUri.host, pageUri.path, pageUri.encodedQuery, pageTitle)
         val resume = if (!queued && episode != null) resumePoint(loadShows(), episode.site, episode.path) else null
         var sentFile: String? = null
         // Sottotitoli della pagina (solo se il video è di questa pagina) e quelli passati davvero a Kodi
@@ -4101,6 +4110,14 @@ class MainActivity : Activity() {
 
     // Ultimo dominio visto di ogni sito che ha una serie: i siti pirata cambiano dominio spesso, e una serie si riapre
     // dove il sito si è visto l'ultima volta (anche se ci si è arrivati da Google o da un preferito aggiornato)
+    // Gli indirizzi (senza dominio) delle pagine aperte prima di questa nel WebView, dalla più recente
+    private fun historyPaths(): List<String> {
+        val list = web.copyBackForwardList()
+        return (list.currentIndex - 1 downTo 0).mapNotNull { i ->
+            Uri.parse(list.getItemAtIndex(i).url).let { uri -> uri.path?.takeIf { isAnimeSaturn(uri.host) } }
+        }
+    }
+
     private fun siteHosts(): Map<String, String> {
         val json = JSONObject(prefs.getString("siteHosts", "{}")!!)
         return json.keys().asSequence().associateWith { json.getString(it) }
@@ -4120,6 +4137,10 @@ class MainActivity : Activity() {
         val known = loadShows().firstOrNull { it.key == episode.key }
         val hasCover = known?.image?.startsWith(COVER_PREFIX) == true
         updateShows { withSent(it, episode, host, file, System.currentTimeMillis(), playing) }
+        // AnimeSaturn: l'episodio dopo si sa dall'indirizzo (/ep/<serie>-ep-<N+1>); se non c'è, lo dice resumeOnKodi
+        if (isAnimeSaturnEpisode(host, episode.path)) animeSaturnNext(episode.path)?.let { (number, path) ->
+            updateShows { withDetails(it, episode.key, next = Episode(episode.season, number, path)) }
+        }
         if (!playing) return
         val uri = page?.let { Uri.parse(it) }
         val series = uri?.let { animeUnitySeries(it.host, it.path) }
@@ -4503,7 +4524,7 @@ class MainActivity : Activity() {
         show.nearby.forEach { episode ->
             content.addView(episodeRow(show, episode) { dialog.dismiss(); open(episodeUrl(show, episode, hosts)) })
         }
-        val canSend = target != null && isAnimeUnityEpisode(host, target.path) && !prefs.getString("host", "").isNullOrBlank()
+        val canSend = target != null && sendsWithoutPage(host, target.path) && !prefs.getString("host", "").isNullOrBlank()
         val resumeAt = target?.takeIf { !it.watched && it.time >= RESUME_MIN }?.time
         fun action(text: String, iconId: Int, primary: Boolean, onClick: () -> Unit) = Button(this).apply {
             val (bg, fg) = if (primary) sys(R.color.system_accent1_600, R.color.system_accent1_200) to sys(R.color.system_accent1_0, R.color.system_accent1_800)
@@ -4643,19 +4664,19 @@ class MainActivity : Activity() {
         }
     }
 
-    // "Riprendi su Kodi" (AnimeUnity): l'episodio parte su Kodi senza aprirlo qui. La pagina si carica in un WebView
+    // "Riprendi su Kodi" (AnimeUnity, AnimeSaturn): l'episodio parte su Kodi senza aprirlo qui. La pagina si carica in un WebView
     // invisibile (stessi cookie del sito, quindi anche Cloudflare già passato), il player si legge con EPISODE_INFO_JS e
     // il link con resolveVixCloud, come per gli episodi successivi; sendToKodi riprende dal punto salvato. Se qualcosa
     // non va si apre la pagina qui, dove basta avviare il player e premere Manda a Kodi.
     // ⏭ con la coda finita: l'episodio dopo, mandato come "Riprendi su Kodi". Solo se l'app sa leggere il player senza
-    // aprire la pagina (AnimeUnity); non accende l'accodamento automatico
+    // aprire la pagina (sendsWithoutPage); non accende l'accodamento automatico
     private fun nextEpisode(file: String?) {
         val show = showOfFile(loadShows(), file)
         val target = show?.let { episodeAfter(it, file) }
         when {
             show == null -> toast(tr("Niente dopo nella coda", "Nothing next in the queue"))
             target == null -> toast(tr("Niente dopo nella coda, e non so qual è l'episodio dopo", "Nothing next in the queue, and I don't know the next episode"))
-            !isAnimeUnityEpisode(siteHosts()[show.site] ?: show.host, target.path) ->
+            !sendsWithoutPage(siteHosts()[show.site] ?: show.host, target.path) ->
                 toast(tr("Niente dopo nella coda: apri l'episodio ${target.number} sul sito e premi Manda a Kodi", "Nothing next in the queue: open episode ${target.number} on the site and tap Send to Kodi"))
             else -> resumeOnKodi(show, target)
         }
@@ -4678,12 +4699,40 @@ class MainActivity : Activity() {
             toast(tr("Non riesco a mandarlo da qui: avvia il player e premi Manda a Kodi", "Can't send it from here: start the player and tap Send to Kodi"))
             open(url)
         }
+        // AnimeSaturn: dalla pagina dell'episodio il link del video con SATURN_STREAM_JS, che legge la pagina del player.
+        // Se la può leggere solo aprendola, la si apre in questo WebView (al massimo due volte: anche il player di
+        // riserva, &s=alt). Senza risultato si aspetta (Cloudflare, episodio che non c'è) fino al tempo massimo
+        var episodePage = url
+        var hops = 0
+        fun saturn(view: WebView, loaded: String) {
+            if (!Uri.parse(loaded).path.orEmpty().startsWith("/watch")) episodePage = loaded
+            view.evaluateJavascript(SATURN_STREAM_JS) { result ->
+                if (done) return@evaluateJavascript
+                val info = runCatching { JSONObject(JSONTokener(result).nextValue() as String) }.getOrNull() ?: return@evaluateJavascript
+                if (info.optBoolean("missing")) {
+                    done = true
+                    web.post { hidden.destroy() }
+                    return@evaluateJavascript toast(tr("L'episodio ${target.number} non c'è ancora sul sito", "Episode ${target.number} isn't on the site yet"))
+                }
+                val stream = info.optString("stream").takeIf { it.startsWith("http") }
+                val watch = info.optString("watch").takeIf { it.startsWith("http") }
+                if (stream == null) {
+                    if (watch != null && hops < 2) { hops++; view.loadUrl(watch) }
+                    return@evaluateJavascript
+                }
+                done = true
+                web.post { hidden.destroy() }
+                rememberSite(Uri.parse(episodePage).host)
+                sendToKodi(Video(stream, watch ?: loaded, name, true), queued = false, page = episodePage, name = name)
+            }
+        }
         hidden.webViewClient = object : WebViewClient() {
             // Solo i redirect HTTP (il sito che cambia dominio): i salti fatti da JS (pubblicità) no
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = !request.isRedirect
 
             override fun onPageFinished(view: WebView, loaded: String) {
                 if (done) return
+                if (isAnimeSaturn(Uri.parse(loaded).host)) return saturn(view, loaded)
                 view.evaluateJavascript(EPISODE_INFO_JS) { result ->
                     val info = runCatching { JSONObject(JSONTokener(result).nextValue() as String) }.getOrNull()
                     // Senza player (la pagina di controllo di Cloudflare) si aspetta la pagina vera o il tempo massimo

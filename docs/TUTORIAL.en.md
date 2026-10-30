@@ -179,7 +179,7 @@ dragging down. At the top right there is Kodi's name with a lit dot if it answer
 - **⏮ −10 ⏯ +10 ⏭**: previous video in the queue, back 10 seconds, play/pause (the big button), forward 10 seconds,
   next video. Skips are always what they say: the TV remote uses Kodi's steps instead, and with the up and down arrows
   it jumps 10 minutes.
-- **⏭ when the queue is over**: if nothing is queued after the video playing, on anime sites with the VixCloud player
+- **⏭ when the queue is over**: if nothing is queued after the video playing, on the anime sites the app knows (see the [site add-ons](../README.md#-site-add-ons))
   ⏭ sends Kodi the next episode of the same series (the phone prepares it in a couple of seconds, like *Resume on
   Kodi*). On other sites the app tells you which episode to open. It does not turn on automatic queueing.
 - **Skip intro** has two modes, chosen in *⋮ → Settings → Skip intro* and for each series in its panel:
@@ -246,12 +246,12 @@ the top right, if the widget is short).
 
 - **With a video playing** the top shows the picture, title, time and when it ends, the moving line and the button that
   opens the full remote. ⏮ and ⏭ go to the previous or next video in the queue; at the end of the queue ⏭ sends the next
-  episode, like in the remote (only on anime sites with the VixCloud player, and there the app opens to get it ready).
+  episode, like in the remote (only on the anime sites the app knows, and there the app opens to get it ready).
   ⏹ stops Kodi. **Skip intro** appears if the time is already chosen for the series or AniSkip knows it.
 - **With Kodi stopped** it shows the *Keep watching* series you got to, with its picture and spot ("Ep. 7 · stopped at
   12:34"), and **⏻** at the top right to turn on the TV. The big **▶** button resumes it on Kodi from the right minute and ⏭
   sends the next episode; −10, +10, ⏹ and Skip intro are dimmed until the video starts. It goes to Kodi by itself only on
-  anime sites with the VixCloud player, like in the series panel; on other sites ▶ opens the page in the app.
+  the anime sites the app knows, like in the series panel; on other sites ▶ opens the page in the app.
 - **Shrunk to one row** (4×1) it keeps the name with the time and the row of buttons; narrow (2 columns) only ⏮ ⏯ ⏭.
 
 The widget doesn't ask Kodi anything by itself: the app and the shade player update it while you use them (and at most
@@ -338,7 +338,7 @@ a row that scrolls sideways, with a card for each series, the most recent on the
   (*Watched ep. 12 · next up: ep. 13*).
 - **Tap it**: a panel slides up with the previous episode, the current one and the next one. **Resume on Kodi**
   sends the episode without opening the page and Kodi resumes from the minute you stopped at
-  (only on the anime site with the VixCloud player). **Open here** opens the episode page: on other sites start the player, press
+  (only on the anime sites the app knows). **Open here** opens the episode page: on other sites start the player, press
   *Send to Kodi* and Kodi still resumes from where you were. From the panel you can also mark the episode as watched.
 - **Series settings**, at the bottom of the panel:
   - **Name**: you write it and the site no longer changes it.

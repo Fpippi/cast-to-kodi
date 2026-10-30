@@ -64,4 +64,31 @@ class SitesTest {
         assertEquals("JoJo · Episodio 4", nextEpisodeTitle("JoJo", "4"))
         assertEquals("Episodio 4", nextEpisodeTitle("", "4"))
     }
+
+    @Test
+    fun animeSaturn() {
+        assertTrue(isAnimeSaturnEpisode("www.animesaturn.cx", "/ep/One-Piece-ep-1000"))
+        assertTrue(isAnimeSaturnEpisode("anisaturn.com", "/ep/Shingeki-no-Kyojin-ITA-ep-3/"))
+        assertFalse(isAnimeSaturnEpisode("www.animesaturn.cx", "/anime/One-Piece"))
+        assertFalse(isAnimeSaturnEpisode("www.animeunity.so", "/ep/One-Piece-ep-1000"))
+        assertTrue(isAnimeSaturnWatch("www.animesaturn.cx", "/watch"))
+        assertEquals("/anime/One-Piece", animeSaturnSeries("www.animesaturn.cx", "/ep/One-Piece-ep-1000"))
+        assertEquals("/anime/One-Piece", animeSaturnSeries("www.animesaturn.tv", "/anime/One-Piece"))
+        assertNull(animeSaturnSeries("www.animesaturn.cx", "/watch"))
+        assertEquals(1000, animeSaturnNumber("/ep/One-Piece-ep-1000"))
+        // il nome della serie può contenere "ep": conta l'ultimo "-ep-"
+        assertEquals(13 to "/ep/Step-by-Step-ep-13", animeSaturnNext("/ep/Step-by-Step-ep-12"))
+        assertNull(animeSaturnNext("/anime/One-Piece"))
+        assertEquals("Shingeki no Kyojin ITA", animeSaturnSlugTitle("/anime/Shingeki-no-Kyojin-ITA"))
+    }
+
+    @Test
+    fun animeSaturnEpisodioDallaPaginaDelPlayer() {
+        val history = listOf("/ep/One-Piece-ep-1000", "/anime/One-Piece", "/ep/One-Piece-ep-999")
+        assertEquals("/ep/One-Piece-ep-1000", animeSaturnEpisodePath("www.animesaturn.cx", "/watch", history))
+        assertEquals("/ep/One-Piece-ep-7", animeSaturnEpisodePath("www.animesaturn.cx", "/ep/One-Piece-ep-7", history))
+        assertNull(animeSaturnEpisodePath("www.animesaturn.cx", "/watch", listOf("/anime/One-Piece")))
+        assertNull(animeSaturnEpisodePath("www.animesaturn.cx", "/anime/One-Piece", history))
+        assertNull(animeSaturnEpisodePath("www.animeunity.so", "/watch", history))
+    }
 }
