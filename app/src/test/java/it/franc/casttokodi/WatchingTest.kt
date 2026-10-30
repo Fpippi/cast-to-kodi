@@ -29,6 +29,16 @@ class WatchingTest {
     }
 
     @Test
+    fun animeSaturnSitoVero() {
+        val page = episodeFromPage("animesaturn.ro", "/chainsaw-man-ita-ep-1/", null, "Chainsaw Man (ITA) Episodio 1 Streaming ITA | AnimeSaturn")!!
+        assertEquals("animesaturn:/anime/chainsaw-man-ita", page.key)
+        assertEquals("Chainsaw Man (ITA)", page.series)
+        assertEquals(1, page.number)
+        assertEquals("/chainsaw-man-ita-ep-1/", page.path)
+        assertTrue(sendsWithoutPage("animesaturn.ro", "/chainsaw-man-ita-ep-2/"))
+    }
+
+    @Test
     fun animeSaturnDallIndirizzo() {
         val page = episodeFromPage("www.animesaturn.cx", "/ep/One-Piece-ep-12", null, "AnimeSaturn - One Piece Episodio 12 Streaming SUB ITA")!!
         assertEquals("animesaturn:/anime/One-Piece", page.key)

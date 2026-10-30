@@ -82,6 +82,23 @@ class SitesTest {
         assertEquals("Shingeki no Kyojin ITA", animeSaturnSlugTitle("/anime/Shingeki-no-Kyojin-ITA"))
     }
 
+    // Gli indirizzi del sito vero (2026-10-30): /<slug>-ep-<N>/ senza /ep/, la scheda in /anime/<slug>/
+    @Test
+    fun animeSaturnIndirizziVeri() {
+        assertTrue(isAnimeSaturnEpisode("animesaturn.ro", "/chainsaw-man-ita-ep-1/"))
+        assertTrue(isAnimeSaturnEpisode("animesaturn.ro", "/chainsaw-man-ita-ep-12"))
+        assertFalse(isAnimeSaturnEpisode("animesaturn.ro", "/anime/chainsaw-man-ita/"))
+        assertFalse(isAnimeSaturnEpisode("animesaturn.ro", "/anime/chainsaw-man-ita-ep-1/"))
+        assertFalse(isAnimeSaturnEpisode("animesaturn.ro", "/"))
+        assertEquals("/anime/chainsaw-man-ita", animeSaturnSeries("animesaturn.ro", "/chainsaw-man-ita-ep-1/"))
+        assertEquals("/anime/chainsaw-man-ita", animeSaturnSeries("animesaturn.ro", "/anime/chainsaw-man-ita/"))
+        assertEquals(12, animeSaturnNumber("/chainsaw-man-ita-ep-12/"))
+        assertEquals(2 to "/chainsaw-man-ita-ep-2/", animeSaturnNext("/chainsaw-man-ita-ep-1/"))
+        assertEquals(10 to "/chainsaw-man-ita-ep-10", animeSaturnNext("/chainsaw-man-ita-ep-9"))
+        assertEquals(1001 to "/ep/One-Piece-ep-1001", animeSaturnNext("/ep/One-Piece-ep-1000"))
+        assertEquals("/chainsaw-man-ita-ep-3/", animeSaturnEpisodePath("animesaturn.ro", "/chainsaw-man-ita-ep-3/", emptyList()))
+    }
+
     @Test
     fun animeSaturnEpisodioDallaPaginaDelPlayer() {
         val history = listOf("/ep/One-Piece-ep-1000", "/anime/One-Piece", "/ep/One-Piece-ep-999")

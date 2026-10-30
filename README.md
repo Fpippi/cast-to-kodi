@@ -129,10 +129,10 @@ Extra features that only apply to some sites or players. The rest of the app wor
 - It reads the episode list from the page and the link of each one from the VixCloud player: if the site changes its structure the app warns you and you're left with the manual **+** (queue).
 - In **Keep watching** the series is recognised from the address (`/anime/1234-jojo`, the same on every domain) and **Resume on Kodi** sends the episode without opening the page, from the minute you stopped at.
 
-### ⏭️ Anime sites with the JW player and `/ep/<series>-ep-<number>` pages
+### ⏭️ Anime sites with `/<series>-ep-<number>/` pages
 
-- In **Keep watching** the series and the episode number are recognised from the address, even when you watch the video on the player page (`/watch?file=…`), because the app remembers the episode page you came from.
-- ⏭ when the queue is over, **Resume on Kodi** and the widget send the episode without opening the page: the app opens the next episode (`-ep-<number+1>`) in a hidden WebView and takes the video link from the player. If the next episode isn't out yet it says so.
+- In **Keep watching** the series and the episode number are recognised from the address (`/<series>-ep-<number>/`, or `/ep/<series>-ep-<number>` with the player on a separate `/watch?file=…` page, which the app ties to the episode page you came from).
+- ⏭ when the queue is over, **Resume on Kodi** and the widget send the episode without opening the page: the app opens the next episode (`-ep-<number+1>`) in a hidden WebView and takes the video link from the player, even when the player sits in a frame from another site. If the next episode isn't out yet it says so.
 
 ### 🎞️ VixCloud player (on any site that uses it)
 
