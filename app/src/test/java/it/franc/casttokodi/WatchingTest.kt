@@ -29,6 +29,28 @@ class WatchingTest {
     }
 
     @Test
+    fun animeSaturnDallIndirizzo() {
+        val page = episodeFromPage("www.animesaturn.cx", "/ep/One-Piece-ep-12", null, "AnimeSaturn - One Piece Episodio 12 Streaming SUB ITA")!!
+        assertEquals("animesaturn:/anime/One-Piece", page.key)
+        assertEquals("One Piece", page.series)
+        assertEquals(12, page.number)
+        // Titolo senza numero: serie e numero dall'indirizzo
+        val bare = episodeFromPage("www.animesaturn.cx", "/ep/One-Piece-ep-13", null, null)!!
+        assertEquals(page.key, bare.key)
+        assertEquals(13, bare.number)
+        // La scheda della serie riconosce la serie ma non è un episodio
+        var shows = withSent(emptyList(), page, "www.animesaturn.cx", "f12", 1000, playing = true)
+        assertNull(episodeFromPage("www.animesaturn.cx", "/anime/One-Piece", null, "One Piece"))
+        assertEquals(page.key, showOfPage(shows, "www.animesaturn.cx", "/anime/One-Piece", null, "One Piece")!!.key)
+        // ⏭ a coda finita: l'episodio dopo dall'indirizzo, e l'app lo sa mandare senza aprire la pagina
+        shows = withDetails(shows, page.key, next = Episode(null, 13, "/ep/One-Piece-ep-13"))
+        val after = episodeAfter(shows[0], "f12")!!
+        assertEquals("/ep/One-Piece-ep-13", after.path)
+        assertTrue(sendsWithoutPage("www.animesaturn.cx", after.path))
+        assertFalse(sendsWithoutPage("www.example.com", after.path))
+    }
+
+    @Test
     fun animeUnityDallIndirizzo() {
         val page = jojo(12)
         assertEquals("animeunity:/anime/1234-jojo", page.key)
