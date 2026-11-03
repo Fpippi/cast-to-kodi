@@ -343,8 +343,8 @@ a row that scrolls sideways, with a card for each series, the most recent on the
 - **Series settings**, at the bottom of the panel:
   - **Name**: you write it and the site no longer changes it.
   - **Background**: the series **cover** or an **episode image**, taken at random between 25% and
-    60% of the video (after the opening theme); with *Change range…* you choose where to take it
-    from, in percent. The same image shows in the Kodi bar at the bottom.
+    60% of the video (after the opening theme); with the two sliders below it (*From %* and *To %*)
+    you choose where to take it from. The same image shows in the Kodi bar at the bottom.
   - **Skip intro**: *Automatic (AniSkip)*, *Manual* or *As in Settings*.
   - **Manual skip**: how far the button jumps in manual (or when AniSkip has no times).
   - **Times from AniSkip**: which series it is on MyAnimeList. It usually finds it by itself; if it says *Series not
