@@ -396,13 +396,17 @@ class WatchingTest {
     }
 
     @Test
-    fun intervalloScrittoAMano() {
-        assertEquals(20 to 50, parseFrameRange("20", "50"))
-        assertEquals(20 to 50, parseFrameRange(" 20% ", "50%"))
-        assertNull(parseFrameRange("50", "20"))
-        assertNull(parseFrameRange("30", "33"))
-        assertNull(parseFrameRange("10", "100"))
-        assertNull(parseFrameRange("", "50"))
+    fun intervalloDaiCursori() {
+        assertEquals(25 to 60, frameRangeFromSliders(25, 60, movedFrom = true))
+        // Passi di 5
+        assertEquals(25 to 60, frameRangeFromSliders(23, 61, movedFrom = true))
+        // "Da" che supera "a": "a" va avanti, e viceversa
+        assertEquals(60 to 65, frameRangeFromSliders(60, 60, movedFrom = true))
+        assertEquals(55 to 60, frameRangeFromSliders(60, 60, movedFrom = false))
+        assertEquals(30 to 35, frameRangeFromSliders(50, 35, movedFrom = false))
+        // Ai bordi resta dentro 0–95
+        assertEquals(90 to 95, frameRangeFromSliders(95, 95, movedFrom = true))
+        assertEquals(0 to 5, frameRangeFromSliders(0, 0, movedFrom = false))
     }
 
     @Test

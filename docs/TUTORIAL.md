@@ -331,7 +331,7 @@ una fila che scorre di lato, con una scheda per ogni serie, la più recente a si
 - **Impostazioni della serie**, in fondo al pannello:
   - **Nome**: lo scrivi tu e il sito non lo cambia più.
   - **Sfondo**: la **copertina** della serie o un'**immagine dell'episodio**, presa a caso tra il 25% e il 60% del
-    video (dopo la sigla); con *Cambia intervallo…* scegli tu da che punto a che punto, in percentuale. La stessa
+    video (dopo la sigla); con i due cursori sotto (*Da %* e *A %*) scegli tu da che punto a che punto. La stessa
     immagine compare nella barra di Kodi in fondo.
   - **Salta sigla**: *Automatico (AniSkip)*, *Manuale* o *Come in Impostazioni*.
   - **Salto manuale**: di quanto va avanti il tasto in manuale (o quando AniSkip non ha i tempi).

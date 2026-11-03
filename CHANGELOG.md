@@ -7,6 +7,12 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.6.2
+
+- **Sfondo della serie più comodo**: nel pannello della serie, sotto *Copertina* e *Immagine dell'episodio*, ci sono
+  sempre due cursori *Da %* e *A %* (a passi di 5) al posto della riga *Cambia intervallo…*. L'immagine si aggiorna
+  mentre li muovi e la scelta si salva anche chiudendo il pannello con indietro.
+
 ## 2.6.1
 
 - **Episodio dopo anche su altri siti di anime**: sui siti con pagine `/<serie>-ep-<numero>/` ⏭ a coda finita, il
