@@ -2968,31 +2968,106 @@ class MainActivity : Activity() {
     private fun generalIntro(): Int? = if (prefs.contains("intro")) prefs.getInt("intro", DEFAULT_INTRO) else null
 
     // Di quanto salta "Salta sigla": per la serie del video in corso, o per tutti se il video non è di una serie nota
-    // Sfondo della scheda di una serie: la copertina, l'immagine dell'episodio o l'intervallo da cui prenderla
+    // Sfondo della scheda di una serie: la copertina o l'immagine dell'episodio, con sotto i due cursori dell'intervallo
+    // (da %, a %) da cui prenderla, sempre in vista (scelta di Pippo, 2026-11-03)
     private fun chooseBackground(key: String) {
         val show = loadShows().firstOrNull { it.key == key } ?: return
-        val (from, to) = show.frameRange
+        var range = show.frameRange
+        var picked = false
         val episodeImage = show.episodes.lastOrNull { it.image != null }?.image
-        choiceSheet(tr("Sfondo", "Background"), listOf(
+        val episodeDetail = { (from, to): Pair<Int, Int> -> tr("Presa a caso tra $from% e $to% del video, dopo la sigla", "Picked at random between $from% and $to% of the video, after the intro") }
+        val episodeChoice = Choice(tr("Immagine dell'episodio", "Episode picture"), episodeDetail(range), episodeImage?.let { loadFrame(it) })
+        val sliders = frameRangeSliders(range) { chosen ->
+            range = chosen
+            episodeChoice.detailView?.text = episodeDetail(chosen)
+        }
+        val dialog = choiceSheet(tr("Sfondo", "Background"), listOf(
             Choice(tr("Copertina", "Cover"), tr("L'immagine della serie presa dal sito", "The series picture from the site"), show.image?.let { loadFrame(it) }),
-            Choice(tr("Immagine dell'episodio", "Episode picture"), tr("Presa a caso tra $from% e $to% del video, dopo la sigla", "Picked at random between $from% and $to% of the video, after the intro"), episodeImage?.let { loadFrame(it) }),
-            Choice(tr("Cambia intervallo…", "Change range…"), tr("Da che punto a che punto dell'episodio prenderla", "From which point to which point of the episode to take it")),
-        ), if (show.cover) 0 else 1) { i ->
-            when (i) {
-                0 -> updateShows { withBackground(it, key, cover = true) }
-                1 -> updateShows { withBackground(it, key, cover = false) }
-                else -> askFrameRange(show) { range -> updateShows { withBackground(it, key, cover = false, range = range) } }
-            }
+            episodeChoice,
+        ), if (show.cover) 0 else 1, footer = sliders) { i ->
+            picked = true
+            // L'intervallo vale anche se si sceglie la copertina: torna buono quando si ripassa all'episodio
+            updateShows { withBackground(it, key, cover = i == 0, range = range) }
             showPanel(key)
+        }
+        // Chiuso con indietro o trascinando: l'intervallo mosso si salva lo stesso, senza cambiare copertina/episodio
+        dialog.setOnDismissListener {
+            if (!picked && range != show.frameRange) {
+                updateShows { withBackground(it, key, cover = show.cover, range = range) }
+                showPanel(key)
+            }
         }
     }
 
+    // "Intervallo dell'immagine" con due cursori, da % e a %, a passi di 5 (frameRangeFromSliders); changed a ogni passo
+    private fun frameRangeSliders(start: Pair<Int, Int>, changed: (Pair<Int, Int>) -> Unit): View {
+        var range = start
+        val accent = sys(R.color.system_accent1_600, R.color.system_accent1_200)
+        val box = section().apply { setPadding(dp(12), dp(12), dp(12), 0) }
+        box.addView(homeText(tr("Intervallo dell'immagine", "Picture range"), 14f, bold = true).apply {
+            setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50))
+        })
+        box.addView(homeText(tr("Da che punto a che punto dell'episodio prenderla. Vale dal prossimo invio.", "From which point to which point of the episode to take it. Applies from the next send."), 13f, bold = false).apply {
+            setPadding(0, dp(2), 0, dp(4))
+        })
+        lateinit var fromBar: SeekBar
+        lateinit var toBar: SeekBar
+        lateinit var fromLabel: TextView
+        lateinit var toLabel: TextView
+        fun show() {
+            fromLabel.text = tr("Da ${range.first}%", "From ${range.first}%")
+            toLabel.text = tr("A ${range.second}%", "To ${range.second}%")
+            fromBar.progress = range.first / 5
+            toBar.progress = range.second / 5
+        }
+        fun row(isFrom: Boolean): Pair<View, Pair<SeekBar, TextView>> {
+            val label = homeText("", 14f, bold = false).apply {
+                setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50))
+            }
+            val bar = SeekBar(this).apply {
+                max = 19
+                progressTintList = ColorStateList.valueOf(accent)
+                thumbTintList = ColorStateList.valueOf(accent)
+                progressBackgroundTintList = ColorStateList.valueOf(sys(R.color.system_neutral2_300, R.color.system_neutral2_600))
+                contentDescription = if (isFrom) tr("Inizio dell'intervallo", "Range start") else tr("Fine dell'intervallo", "Range end")
+                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
+                        if (!fromUser) return
+                        val next = if (isFrom) frameRangeFromSliders(progress * 5, range.second, movedFrom = true)
+                            else frameRangeFromSliders(range.first, progress * 5, movedFrom = false)
+                        if (next != range) {
+                            range = next
+                            changed(next)
+                        }
+                        show()
+                    }
+                    override fun onStartTrackingTouch(bar: SeekBar) = Unit
+                    override fun onStopTrackingTouch(bar: SeekBar) = Unit
+                })
+            }
+            val line = LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(48)
+                addView(label, LinearLayout.LayoutParams(dp(64), -2))
+                addView(bar, LinearLayout.LayoutParams(0, -2, 1f))
+            }
+            return line to (bar to label)
+        }
+        row(true).let { (line, parts) -> fromBar = parts.first; fromLabel = parts.second; box.addView(line) }
+        row(false).let { (line, parts) -> toBar = parts.first; toLabel = parts.second; box.addView(line) }
+        show()
+        return box
+    }
+
     // Una scelta di choiceSheet: titolo, riga sotto e, se c'è, un'immagine 16:9 a sinistra
-    private class Choice(val title: String, val detail: String? = null, val image: Bitmap? = null)
+    private class Choice(val title: String, val detail: String? = null, val image: Bitmap? = null) {
+        // La riga sotto il titolo una volta disegnata, per cambiarla mentre il pannello è aperto
+        var detailView: TextView? = null
+    }
 
     // Pannello dal basso con un elenco di scelte, la spunta su quella attuale (checked, -1 nessuna); al tocco si chiude
-    // e chiama pick con la posizione
-    private fun choiceSheet(title: String, choices: List<Choice>, checked: Int, pick: (Int) -> Unit) {
+    // e chiama pick con la posizione; footer, se c'è, va sotto le scelte
+    private fun choiceSheet(title: String, choices: List<Choice>, checked: Int, footer: View? = null, pick: (Int) -> Unit): Dialog {
         lateinit var dialog: Dialog
         val list = section().apply { setPadding(dp(16), 0, dp(16), dp(16)) }
         choices.forEachIndexed { i, choice ->
@@ -3017,7 +3092,7 @@ class MainActivity : Activity() {
                 setTextColor(sys(R.color.system_neutral1_900, R.color.system_neutral1_50))
                 if (selected) typeface = Typeface.DEFAULT_BOLD
             }
-            val texts = choice.detail?.let { section(name, homeText(it, 13f, bold = false).apply { maxLines = 2 }) } ?: section(name)
+            val texts = choice.detail?.let { detail -> section(name, homeText(detail, 13f, bold = false).apply { maxLines = 2 }.also { choice.detailView = it }) } ?: section(name)
             row.addView(texts, LinearLayout.LayoutParams(0, -2, 1f))
             if (selected) row.addView(ImageView(this).apply {
                 setImageDrawable(icon(it.franc.casttokodi.R.drawable.ic_check, sys(R.color.system_accent1_600, R.color.system_accent1_200)))
@@ -3025,7 +3100,9 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(dp(32), dp(32)).apply { marginStart = dp(8) })
             list.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(4) })
         }
+        footer?.let { list.addView(it) }
         dialog = sheet(title, list)
+        return dialog
     }
 
     // Impostazioni della serie dal suo pannello: tornano al pannello dopo la scelta, così si vede com'è adesso
@@ -3295,43 +3372,6 @@ class MainActivity : Activity() {
             updateShows { withAutoNext(it, show.key, counts[i]) }
             showPanel(show.key)
         }
-    }
-
-    private fun askFrameRange(show: Show, done: (Pair<Int, Int>) -> Unit) {
-        fun field(value: Int, label: String) = EditText(this).apply {
-            hint = label
-            setText(value.toString())
-            isSingleLine = true
-            inputType = InputType.TYPE_CLASS_NUMBER
-        }
-        val (from, to) = show.frameRange
-        val start = field(from, tr("da %", "from %"))
-        val end = field(to, "a %")
-        val row = LinearLayout(this).apply {
-            addView(start, LinearLayout.LayoutParams(0, -2, 1f))
-            addView(TextView(this@MainActivity).apply { text = "–"; setPadding(dp(12), 0, dp(12), 0) })
-            addView(end, LinearLayout.LayoutParams(0, -2, 1f))
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        lateinit var dialog: AlertDialog
-        val go = {
-            val range = parseFrameRange(start.text.toString(), end.text.toString())
-            if (range == null) toast(tr("Scrivi due percentuali, la seconda almeno 5 più della prima, fino a 95", "Type two percentages, the second at least 5 more than the first, up to 95"))
-            else {
-                done(range)
-                dialog.dismiss()
-            }
-        }
-        dialog = AlertDialog.Builder(this)
-            .setTitle(tr("Intervallo dell'immagine", "Picture range"))
-            .setMessage(tr("Da che punto a che punto dell'episodio prendere l'immagine, in percentuale. Vale dal prossimo invio.", "From which point to which point of the episode to take the picture, in percent. Applies from the next send."))
-            .setView(section(row).apply { setPadding(dp(24), dp(8), dp(24), 0) })
-            .setPositiveButton(tr("Salva", "Save"), null)
-            .setNegativeButton(tr("Annulla", "Cancel"), null)
-            .create()
-        dialog.show()
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { go() }
-        start.requestFocus()
     }
 
     private fun chooseIntro(file: String?, done: (Int) -> Unit) = chooseIntroOf(showOfFile(loadShows(), file), done)

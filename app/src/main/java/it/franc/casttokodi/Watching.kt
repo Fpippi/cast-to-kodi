@@ -333,11 +333,14 @@ fun withBackground(shows: List<Show>, key: String, cover: Boolean, range: Pair<I
     if (it.key != key) it else it.copy(cover = cover, frameFrom = range?.first ?: it.frameFrom, frameTo = range?.second ?: it.frameTo)
 }
 
-// L'intervallo scritto a mano, in percentuale: almeno 5 punti di distanza, dentro il video; null se non va
-fun parseFrameRange(from: String, to: String): Pair<Int, Int>? {
-    val a = from.trim().removeSuffix("%").trim().toIntOrNull() ?: return null
-    val b = to.trim().removeSuffix("%").trim().toIntOrNull() ?: return null
-    return (a to b).takeIf { a >= 0 && b <= 95 && b - a >= 5 }
+// I due cursori del pannello Sfondo (da %, a %): passi di 5, dentro 0–95 e almeno 5 punti di distanza; se si
+// incrociano si sposta quello che non si sta muovendo (movedFrom = si muove "da")
+fun frameRangeFromSliders(from: Int, to: Int, movedFrom: Boolean): Pair<Int, Int> {
+    fun step(value: Int) = (value + 2) / 5 * 5
+    var a = step(from).coerceIn(0, 90)
+    var b = step(to).coerceIn(5, 95)
+    if (b - a < 5) if (movedFrom) b = a + 5 else a = b - 5
+    return a to b
 }
 
 fun withTitle(shows: List<Show>, key: String, title: String): List<Show> = shows.map {
