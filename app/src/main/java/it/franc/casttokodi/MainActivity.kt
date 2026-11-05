@@ -2759,7 +2759,7 @@ class MainActivity : Activity() {
             setPadding(dp(4), dp(8), dp(4), dp(8))
             setBackgroundResource(attr(R.attr.selectableItemBackground))
             contentDescription = favorite.title
-            setOnClickListener { open(favorite.url) }
+            setOnClickListener { open(onLatestHost(favorite.url, siteHosts())) }
             setOnLongClickListener { tile ->
                 favoriteMenu(tile, favorite) { changed ->
                     val list = loadFavorites()
@@ -4167,7 +4167,9 @@ class MainActivity : Activity() {
 
     private fun rememberSite(host: String?) {
         val site = siteOf(host)
-        if (host.isNullOrBlank() || site.isBlank() || loadShows().none { it.site == site }) return
+        if (host.isNullOrBlank() || site.isBlank()) return
+        // Solo i siti che servono: quelli di Continua a guardare e dei preferiti (che si riaprono sul dominio nuovo)
+        if (loadShows().none { it.site == site } && loadFavorites().none { siteOf(Uri.parse(it.url).host) == site }) return
         val json = JSONObject(prefs.getString("siteHosts", "{}")!!)
         if (json.optString(site) != host) prefs.edit().putString("siteHosts", json.put(site, host).toString()).apply()
     }
@@ -4543,7 +4545,7 @@ class MainActivity : Activity() {
         return homeCard().apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(16), dp(10), dp(4), dp(10))
-            setOnClickListener { open(url) }
+            setOnClickListener { open(onLatestHost(url, siteHosts())) }
             addView(icon, LinearLayout.LayoutParams(dp(40), dp(40)))
             addView(section(homeText(title, 15f, bold = true), homeText(detail, 13f, bold = false)),
                 LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(16) })
@@ -4965,7 +4967,7 @@ class MainActivity : Activity() {
         }
         if (list.isEmpty()) content.addView(label(tr("Nessun preferito: aggiungi la pagina che hai aperto.", "No favourites: add the page you have open.")))
         list.forEachIndexed { i, favorite ->
-            content.addView(favoriteRow(favorite, onOpen = { dialog.dismiss(); open(favorite.url) }) { anchor ->
+            content.addView(favoriteRow(favorite, onOpen = { dialog.dismiss(); open(onLatestHost(favorite.url, siteHosts())) }) { anchor ->
                 favoriteMenu(anchor, favorite) { changed ->
                     if (changed == null) list.removeAt(i) else list[i] = changed
                     saveFavorites(list)
