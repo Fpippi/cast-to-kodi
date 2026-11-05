@@ -7,6 +7,11 @@ elenco diventa la descrizione della release. Prima della PR `develop` → `main`
 - **Y** (1.0.0 → 1.1.0) per le funzioni nuove;
 - **Z** (1.0.0 → 1.0.1) per le correzioni.
 
+## 2.6.3
+
+- **Preferiti e ultima pagina sul dominio giusto**: quando un sito cambia dominio, i preferiti e l'ultima pagina si
+  riaprono sull'ultimo dominio visto di quel sito invece che su quello salvato, così non si finisce su pagine vecchie.
+
 ## 2.6.2
 
 - **Sfondo della serie più comodo**: nel pannello della serie, sotto *Copertina* e *Immagine dell'episodio*, ci sono
