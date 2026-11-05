@@ -437,4 +437,16 @@ class WatchingTest {
         assertEquals(3, autoNextOf(withAutoNext(shows, key, null), key, 3))
         assertEquals(shows, showsFromJson(showsToJson(shows)))
     }
+
+    @Test
+    fun preferitiEUltimaPaginaSulDominioNuovo() {
+        val hosts = mapOf("animeunity" to "www.animeunity.so", "google" to "www.google.com")
+        assertEquals("https://www.animeunity.so/anime/1234-jojo?ep=2", onLatestHost("https://www.animeunity.to/anime/1234-jojo?ep=2", hosts))
+        assertEquals("https://www.animeunity.so", onLatestHost("http://animeunity.to", hosts))
+        // Già sul dominio giusto, sito sconosciuto o Google: resta com'è
+        assertEquals("https://www.animeunity.so/x", onLatestHost("https://www.animeunity.so/x", hosts))
+        assertEquals("https://example.com/x", onLatestHost("https://example.com/x", hosts))
+        assertEquals("https://www.google.it/search?q=jojo", onLatestHost("https://www.google.it/search?q=jojo", hosts))
+        assertEquals("non un link", onLatestHost("non un link", hosts))
+    }
 }

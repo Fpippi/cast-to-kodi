@@ -141,6 +141,18 @@ data class Show(
 // "animeunity.so" e "www.animeunity.to" -> "animeunity"
 fun siteOf(host: String?): String = domainOf(host?.lowercase()).substringBefore('.')
 
+// Un indirizzo salvato (preferito, ultima pagina) portato sull'ultimo dominio visto del suo sito: i siti di anime
+// cambiano dominio spesso, e quello vecchio può restare in piedi con pagine ferme. Solo lo schema e l'host cambiano,
+// percorso e query restano. Google no: google.it e google.com sono lo stesso "sito" ma non un trasloco.
+fun onLatestHost(url: String, hosts: Map<String, String>): String {
+    val match = Regex("^(https?://)([^/?#:]+)(.*)$", RegexOption.IGNORE_CASE).find(url) ?: return url
+    val (_, host, rest) = match.destructured
+    val site = siteOf(host)
+    if (site.isEmpty() || site == "google") return url
+    val latest = hosts[site]?.takeIf { it.isNotBlank() && !it.equals(host, ignoreCase = true) } ?: return url
+    return "https://$latest$rest"
+}
+
 private val SEASON_WORD = Regex("(?i)\\bstagione\\s*(\\d{1,2})\\D{0,12}?\\b(?:episodio|ep\\.?)\\s*(\\d{1,4})\\b")
 private val SEASON_EPISODE = Regex("(?i)\\bS(\\d{1,2})\\s*[ ·.:x-]?\\s*E(?:p\\.?\\s*)?(\\d{1,4})\\b")
 private val EPISODE_WORD = Regex("(?i)\\b(?:episodio|episode|ep\\.?)\\s*(\\d{1,4})\\b")
