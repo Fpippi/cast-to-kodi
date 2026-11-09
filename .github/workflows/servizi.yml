@@ -1,0 +1,38 @@
+# Una volta a settimana l'app legge le risposte vere di AniSkip, AniList, Jikan e GitHub (ServiziVeriTest), con le
+# stesse funzioni dell'app. Se un servizio cambia formato o smette di rispondere la run fallisce e GitHub lo avvisa per
+# email. Non è un controllo delle PR: un servizio giù per un'ora non deve bloccare il lavoro.
+name: Servizi esterni
+
+on:
+  schedule:
+    - cron: "17 6 * * 1" # lunedì mattina
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/servizi.yml
+      - app/src/test/java/it/franc/casttokodi/ServiziVeriTest.kt
+      - app/src/main/java/it/franc/casttokodi/AniSkip.kt
+      - app/src/main/java/it/franc/casttokodi/Update.kt
+
+jobs:
+  servizi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: ./gradlew testDebugUnitTest --tests 'it.franc.casttokodi.ServiziVeriTest' --stacktrace
+        env:
+          SERVIZI_VERI: "1"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: risultati-servizi
+          path: app/build/reports/tests/
