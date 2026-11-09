@@ -15,6 +15,8 @@ import kotlin.math.ceil
 
 const val ANISKIP_API = "https://api.aniskip.com/v2"
 const val ANILIST_API = "https://graphql.anilist.co"
+// Jikan: la copia pubblica e senza chiave dei dati di MyAnimeList, da cui si prende la copertina della serie
+const val JIKAN_API = "https://api.jikan.moe/v4"
 
 // Di quanto può differire la durata del video su Kodi da quella dell'episodio su cui sono stati segnati i tempi:
 // oltre, il sito ha un'altra versione (un logo all'inizio, un taglio) e i tempi non valgono
@@ -219,8 +221,39 @@ fun parseAniList(text: String): List<AnimeMatch> = try {
     emptyList()
 }
 
+// Copertina della serie da MyAnimeList (2026-11-09, richiesta di Pippo): quando il sito non la dà o non si scarica,
+// con l'id MyAnimeList già trovato per AniSkip. Prima Jikan (MyAnimeList), se non risponde AniList con lo stesso id
+fun jikanAnimeUrl(malId: Int, base: String = JIKAN_API): String = "$base/anime/$malId"
+
+// L'immagine più grande della risposta di Jikan (images.jpg: il JPEG lo legge ogni telefono)
+fun parseJikanCover(text: String): String? = try {
+    val images = JSONObject(text).getJSONObject("data").getJSONObject("images")
+    val jpg = images.optJSONObject("jpg")
+    val webp = images.optJSONObject("webp")
+    listOfNotNull(jpg?.optString("large_image_url"), jpg?.optString("image_url"), webp?.optString("large_image_url"))
+        .firstOrNull { it.startsWith("http") }
+} catch (e: Exception) {
+    null
+}
+
+private const val ANILIST_COVER = "query(\$id:Int){Media(idMal:\$id,type:ANIME){coverImage{extraLarge large}}}"
+
+fun aniListCoverBody(malId: Int): String =
+    JSONObject().put("query", ANILIST_COVER).put("variables", JSONObject().put("id", malId)).toString()
+
+fun parseAniListCover(text: String): String? = try {
+    val cover = JSONObject(text).getJSONObject("data").getJSONObject("Media").getJSONObject("coverImage")
+    listOf(cover.optString("extraLarge"), cover.optString("large")).firstOrNull { it.startsWith("http") }
+} catch (e: Exception) {
+    null
+}
+
 // Le chiamate in rete (in un thread). null se il servizio non risponde
 object AniSkipClient {
+    fun malCover(malId: Int, jikan: String = JIKAN_API, aniList: String = ANILIST_API): String? =
+        request(jikanAnimeUrl(malId, jikan))?.let { parseJikanCover(it) }
+            ?: request(aniList, aniListCoverBody(malId))?.let { parseAniListCover(it) }
+
     fun skips(malId: Int, episode: Int, base: String = ANISKIP_API): List<SkipPart>? =
         request(aniSkipUrl(malId, episode, base))?.let { parseAniSkip(it) }
 

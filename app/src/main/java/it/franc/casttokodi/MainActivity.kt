@@ -152,6 +152,8 @@ private const val POPUP_SINK_MS = 10_000L
 // Inizio del nome dei file delle copertine prese dal sito, che valgono più dei fotogrammi del video
 // "copertina-" dalla 2.2.4: le copertine "cover-" della 2.2.3 erano salvate troppo piccole e così si riscaricano
 private const val COVER_PREFIX = "copertina-"
+// Copertina presa da MyAnimeList (2026-11-09) quando il sito non la dà: quella del sito, se poi arriva, la sostituisce
+private const val MAL_COVER_PREFIX = "mal-"
 
 // Scelta del file per Salva un backup e Ripristina (onActivityResult)
 private const val REQUEST_BACKUP = 41
@@ -2982,7 +2984,7 @@ class MainActivity : Activity() {
             episodeChoice.detailView?.text = episodeDetail(chosen)
         }
         val dialog = choiceSheet(tr("Sfondo", "Background"), listOf(
-            Choice(tr("Copertina", "Cover"), tr("L'immagine della serie presa dal sito", "The series picture from the site"), show.image?.let { loadFrame(it) }),
+            Choice(tr("Copertina", "Cover"), tr("L'immagine della serie presa dal sito o da MyAnimeList", "The series picture from the site or MyAnimeList"), show.image?.let { loadFrame(it) }),
             episodeChoice,
         ), if (show.cover) 0 else 1, footer = sliders) { i ->
             picked = true
@@ -3274,12 +3276,18 @@ class MainActivity : Activity() {
         val shift = aniSkipShift(first, info.optString("number").toIntOrNull(), count)
         val title = info.optString("title")
         val mal = info.optString("mal").toIntOrNull()?.takeIf { it > 0 }
-        if (mal != null) return updateShows { withMal(it, key, mal, title.ifBlank { null }, shift) }
+        if (mal != null) {
+            updateShows { withMal(it, key, mal, title.ifBlank { null }, shift) }
+            return coverFromMal(key)
+        }
         val aniList = info.optString("anilist").toIntOrNull()?.takeIf { it > 0 }
         thread {
             val match = aniList?.let { AniSkipClient.byAniList(it) }
                 ?: title.takeIf { it.isNotBlank() }?.let { t -> AniSkipClient.search(t)?.let { sureMatch(it, t, count) } }
-            if (match != null) runOnUiThread { updateShows { withMal(it, key, match.malId, match.title, suggestShift(title, first, count, match.episodes)) } }
+            if (match != null) runOnUiThread {
+                updateShows { withMal(it, key, match.malId, match.title, suggestShift(title, first, count, match.episodes)) }
+                coverFromMal(key)
+            }
         }
     }
 
@@ -3312,6 +3320,7 @@ class MainActivity : Activity() {
                             // Parte 2 su un sito, stagione intera su MyAnimeList: da che episodio si parte (lo propone l'app)
                             val shift = suggestShift(show.title, show.siteFirst, show.count, found[i].episodes)
                             updateShows { withShift(withMal(it, show.key, found[i].malId, found[i].title), show.key, shift) }
+                            coverFromMal(show.key, replace = found[i].malId != show.malId, asked = true)
                             val chosen = loadShows().firstOrNull { it.key == show.key }
                             if (chosen != null && (shift != 0 || isSecondPart(show.title))) return@choiceSheet askShift(chosen)
                         }
@@ -4192,7 +4201,7 @@ class MainActivity : Activity() {
             web.evaluateJavascript(EPISODE_INFO_JS) { result ->
                 val info = runCatching { JSONObject(JSONTokener(result).nextValue() as String) }.getOrNull()
                 if (info == null || info.has("error")) {
-                    if (!hasCover) toast(tr("Copertina: pagina non letta (${info?.optString("error") ?: result.take(40)})", "Cover: page not read (${info?.optString("error") ?: result.take(40)})"))
+                    if (!hasCover) coverFromMal(episode.key, tr("Copertina: pagina non letta (${info?.optString("error") ?: result.take(40)})", "Cover: page not read (${info?.optString("error") ?: result.take(40)})"))
                     return@evaluateJavascript
                 }
                 val next = info.optJSONObject("next")?.let { Episode(null, it.optString("number").toIntOrNull(), "$series/${it.optString("id")}") }
@@ -4206,15 +4215,15 @@ class MainActivity : Activity() {
                 if (!hasCover) {
                     val image = info.optString("image")
                     // 2.2.3: sul sito vero la copertina non arrivava. Finché non è chiaro perché, l'app lo dice
-                    if (image.isBlank()) toast(tr("Copertina: la pagina non la indica", "Cover: the page doesn't name one")) else fetchCover(episode.key, image, page!!)
+                    if (image.isBlank()) coverFromMal(episode.key, tr("Copertina: la pagina non la indica", "Cover: the page doesn't name one")) else fetchCover(episode.key, image, page!!)
                 }
             }
         } else if (page != null && page == web.url && !hasCover) {
             web.evaluateJavascript(PAGE_IMAGE_JS) { result ->
                 val image = runCatching { JSONTokener(result).nextValue() as String }.getOrNull()
-                if (!image.isNullOrBlank()) fetchCover(episode.key, image, page)
+                if (!image.isNullOrBlank()) fetchCover(episode.key, image, page) else coverFromMal(episode.key)
             }
-        }
+        } else if (!hasCover) coverFromMal(episode.key)
         // Un fotogramma per ogni episodio, grande quanto la scheda; se non arriva resta l'anteprima piccola dell'elenco
         // dei video, se c'è, o la copertina della serie (con VixCloud non sempre si riesce: il video è protetto)
         if (video == null) return
@@ -4248,7 +4257,7 @@ class MainActivity : Activity() {
     // Il fotogramma va all'episodio e, se la serie non ha una copertina del sito, anche alla serie
     private fun setFrame(key: String, file: String, name: String) = updateShows { shows ->
         val withEpisode = withEpisodeImage(shows, file, name) ?: shows
-        if (withEpisode.firstOrNull { it.key == key }?.image?.startsWith(COVER_PREFIX) == true) withEpisode
+        if (withEpisode.firstOrNull { it.key == key }?.image.let { isCover(it) }) withEpisode
         else withDetails(withEpisode, key, image = name)
     }
 
@@ -4268,11 +4277,47 @@ class MainActivity : Activity() {
                 if (conn.responseCode != 200) throw IOException("HTTP ${conn.responseCode}")
                 conn.inputStream.use { BitmapFactory.decodeStream(it) } ?: throw IOException(tr("formato non letto (${conn.contentType})", "format not readable (${conn.contentType})"))
             } catch (e: Exception) {
-                runOnUiThread { toast(tr("Copertina non scaricata: ${e.message ?: e.javaClass.simpleName} · ${Uri.parse(url).host}", "Cover not downloaded: ${e.message ?: e.javaClass.simpleName} · ${Uri.parse(url).host}")) }
+                runOnUiThread { coverFromMal(key, tr("Copertina non scaricata: ${e.message ?: e.javaClass.simpleName} · ${Uri.parse(url).host}", "Cover not downloaded: ${e.message ?: e.javaClass.simpleName} · ${Uri.parse(url).host}")) }
                 return@thread
             }
             val name = saveFrame(key, picture, COVER_PREFIX)
             runOnUiThread { updateShows { withDetails(it, key, image = name) } }
+        }
+    }
+
+    private fun isCover(image: String?) = image != null && (image.startsWith(COVER_PREFIX) || image.startsWith(MAL_COVER_PREFIX))
+
+    // Copertina da MyAnimeList (richiesta di Pippo, 2026-11-09), con l'id già trovato per AniSkip: quando il sito non la
+    // indica o non si scarica, e per i siti che non ne hanno. Quella del sito resta la prima scelta (è larga come la
+    // scheda; quella di MyAnimeList è un poster in verticale) e la sostituisce se arriva dopo. siteError: l'avviso del
+    // sito, mostrato solo se neanche MyAnimeList la dà. replace: serie cambiata nel pannello, via la copertina vecchia.
+    // Con Salta sigla in manuale l'app non chiede niente in rete da sola (come per AniSkip), solo se la serie si sceglie
+    // a mano (asked)
+    private fun coverFromMal(key: String, siteError: String? = null, replace: Boolean = false, asked: Boolean = false) {
+        val show = loadShows().firstOrNull { it.key == key } ?: return
+        val image = show.image
+        if (image?.startsWith(COVER_PREFIX) == true || (image?.startsWith(MAL_COVER_PREFIX) == true && !replace)) return
+        val mal = show.malId?.takeIf { it != NO_MAL && (asked || (show.skipAuto ?: KodiAccess.aniSkipOn(prefs))) }
+            ?: return run { siteError?.let { toast(it) } }
+        thread {
+            val picture = AniSkipClient.malCover(mal)?.let { url ->
+                runCatching {
+                    val conn = URL(url).openConnection() as HttpURLConnection
+                    conn.connectTimeout = 10_000
+                    conn.readTimeout = 10_000
+                    try { if (conn.responseCode == 200) conn.inputStream.use { BitmapFactory.decodeStream(it) } else null } finally { conn.disconnect() }
+                }.getOrNull()
+            }
+            if (picture == null) return@thread run { siteError?.let { runOnUiThread { toast(it) } } }
+            val name = saveFrame(key, picture, MAL_COVER_PREFIX)
+            runOnUiThread {
+                updateShows { shows ->
+                    val now = shows.firstOrNull { it.key == key }
+                    // Intanto è arrivata quella del sito, o la serie è cambiata di nuovo
+                    if (now == null || now.malId != mal || now.image?.startsWith(COVER_PREFIX) == true) null
+                    else withDetails(shows, key, image = name)
+                }
+            }
         }
     }
 
