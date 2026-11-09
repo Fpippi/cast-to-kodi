@@ -1,5 +1,6 @@
 package it.franc.casttokodi
 
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import org.junit.Assert.assertEquals
@@ -59,10 +60,27 @@ class ServiziVeriTest {
         assertTrue("Mancano episodi o anno: $match", (match.episodes ?: 0) > 0 && (match.year ?: 0) > 2000)
     }
 
+    // Jikan da GitHub spesso non risponde (2026-11-09: due run su due in timeout, gli altri servizi sì). L'app in quel
+    // caso usa la copertina di AniList, quindi qui un timeout salta la prova (si vede nel resoconto) invece di farla
+    // fallire; fallisce invece se Jikan risponde con un formato che l'app non legge più. Che la copertina arrivi
+    // comunque lo dice copertinaDaMyAnimeList
     @Test
     fun jikanDaLaCopertina() {
-        val cover = parseJikanCover(get(jikanAnimeUrl(fireForce)))
+        val text = try {
+            get(jikanAnimeUrl(fireForce))
+        } catch (e: IOException) {
+            assumeTrue("Jikan non risponde da GitHub ($e): l'app usa AniList", false)
+            return
+        }
+        val cover = parseJikanCover(text)
         assertTrue("Jikan non dà più la copertina: $cover", cover?.startsWith("https://") == true)
+    }
+
+    // Il giro intero dell'app (Jikan, se no AniList), come lo fa coverFromMal
+    @Test
+    fun copertinaDaMyAnimeList() {
+        val cover = AniSkipClient.malCover(fireForce)
+        assertTrue("Né Jikan né AniList danno la copertina: $cover", cover?.startsWith("https://") == true)
     }
 
     @Test
