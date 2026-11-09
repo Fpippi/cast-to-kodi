@@ -28,6 +28,17 @@ jobs:
       # Verso develop solo i test, che girano sulla JVM e compilano già il codice: veloci
       - run: ./gradlew testDebugUnitTest --stacktrace
 
+      # Gli script che l'app esegue dentro le pagine dei siti, in un Chromium vero (lo stesso motore del WebView) su
+      # pagine finte: app/src/test/js. Usa il Google Chrome già installato su GitHub, quindi niente browser da scaricare
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Test degli script nelle pagine
+        run: |
+          npm install --no-save --no-package-lock --prefix "$RUNNER_TEMP/pw" playwright-core@1.55.0
+          NODE_PATH="$RUNNER_TEMP/pw/node_modules" node --test app/src/test/js/*.test.js
+
       # Verso main (rilascio) anche l'APK completo, che verifica manifest e risorse. Firma con la chiave debug.
       # Qui vanno i controlli più pesanti, quando ce ne saranno. Stesso job "test", così basta un solo check nei ruleset.
       # Verso main anche la versione: una sezione nuova in cima a CHANGELOG.md, con le novità
