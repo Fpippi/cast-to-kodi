@@ -143,6 +143,24 @@ class AniSkipTest {
     ]}}}"""
 
     @Test
+    fun copertinaDaMyAnimeList() {
+        assertEquals("https://api.jikan.moe/v4/anime/38671", jikanAnimeUrl(38671))
+        val jikan = """{"data":{"mal_id":38671,"images":{
+            "jpg":{"image_url":"https://cdn.example/38671.jpg","small_image_url":"https://cdn.example/38671t.jpg","large_image_url":"https://cdn.example/38671l.jpg"},
+            "webp":{"image_url":"https://cdn.example/38671.webp","large_image_url":"https://cdn.example/38671l.webp"}}}}"""
+        assertEquals("https://cdn.example/38671l.jpg", parseJikanCover(jikan))
+        assertEquals("https://cdn.example/a.jpg", parseJikanCover("""{"data":{"images":{"jpg":{"image_url":"https://cdn.example/a.jpg","large_image_url":null}}}}"""))
+        // 404 di Jikan, risposta rotta: niente copertina (si prova AniList)
+        assertNull(parseJikanCover("""{"status":404,"type":"BadResponseException","message":"Resource does not exist"}"""))
+        assertNull(parseJikanCover("<html>"))
+        val body = JSONObject(aniListCoverBody(38671))
+        assertEquals(38671, body.getJSONObject("variables").getInt("id"))
+        assertTrue(body.getString("query").contains("idMal"))
+        assertEquals("https://img.example/xl.jpg", parseAniListCover("""{"data":{"Media":{"coverImage":{"extraLarge":"https://img.example/xl.jpg","large":"https://img.example/l.jpg"}}}}"""))
+        assertNull(parseAniListCover("""{"errors":[{"message":"Not Found."}],"data":{"Media":null}}"""))
+    }
+
+    @Test
     fun ricercaSuAniList() {
         val found = parseAniList(search)
         assertEquals(listOf(38671, 40956), found.map { it.malId })
@@ -269,5 +287,28 @@ class AniSkipTest {
         }
         // Nessuno in ascolto: null, non un errore
         assertNull(AniSkipClient.skips(38671, 1, "http://127.0.0.1:1"))
+    }
+
+    @Test
+    fun copertinaDaJikanOAniList() {
+        TinyHttp { request ->
+            when (request.path) {
+                "/v4/anime/38671" -> TinyHttp.Response(200, """{"data":{"images":{"jpg":{"large_image_url":"https://cdn.example/ff.jpg"}}}}""".toByteArray(), "application/json")
+                "/v4/anime/40956" -> TinyHttp.Response(404, """{"status":404,"message":"Resource does not exist"}""".toByteArray(), "application/json")
+                "/graphql" -> {
+                    val id = JSONObject(String(request.body)).getJSONObject("variables").optInt("id")
+                    if (id == 40956) TinyHttp.Response(200, """{"data":{"Media":{"coverImage":{"extraLarge":"https://img.example/ff2.jpg"}}}}""".toByteArray(), "application/json")
+                    else TinyHttp.Response(404, """{"errors":[{"message":"Not Found."}],"data":{"Media":null}}""".toByteArray(), "application/json")
+                }
+                else -> TinyHttp.Response(500)
+            }
+        }.use { server ->
+            val base = "http://127.0.0.1:${server.port}"
+            assertEquals("https://cdn.example/ff.jpg", AniSkipClient.malCover(38671, "$base/v4", "$base/graphql"))
+            // Jikan non ce l'ha: AniList con lo stesso id MyAnimeList
+            assertEquals("https://img.example/ff2.jpg", AniSkipClient.malCover(40956, "$base/v4", "$base/graphql"))
+            assertNull(AniSkipClient.malCover(1, "$base/v4", "$base/graphql"))
+        }
+        assertNull(AniSkipClient.malCover(38671, "http://127.0.0.1:1", "http://127.0.0.1:1"))
     }
 }
