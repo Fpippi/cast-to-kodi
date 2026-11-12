@@ -6,8 +6,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Couch Cast – Cast videos from Android to Kodi on Fire TV</title>
-<meta name="description" content="Couch Cast is a free Android app without ads: open a streaming site on your phone and the video plays on Kodi on your Fire TV. Queue, remote, keep watching. Couch Cast: dal telefono Android a Kodi sulla Fire TV, gratis e senza pubblicità.">
+<title>Couch Cast – Cast to Kodi: send videos from your Android phone to Kodi on Fire TV</title>
+<meta name="description" content="Cast to Kodi from your phone: Couch Cast is a free Android app without ads that sends the video of any website to Kodi on your Fire TV, at full quality and without screen mirroring. Queue, Kodi remote, skip intro. Invia i video dal telefono a Kodi sulla Fire TV, gratis.">
 <meta name="google-site-verification" content="FSI9tL13pQVKQFNnl1-pm378ctnNNXe3DfqyXvfxVZw">
 <link rel="canonical" href="https://fpippi.github.io/cast-to-kodi/">
 <!-- Icone: Google vuole un'icona quadrata da almeno 48 px (multipli di 48) per il risultato di ricerca. -->
@@ -20,8 +20,10 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Couch Cast">
 <meta name="application-name" content="Couch Cast">
-<meta property="og:title" content="Couch Cast – Cast videos from Android to Kodi on Fire TV">
-<meta property="og:description" content="Free Android app without ads: open the site on your phone, the video plays on Kodi.">
+<meta property="og:title" content="Couch Cast – Cast to Kodi from your Android phone">
+<meta property="og:description" content="Free Android app without ads: open the site on your phone, the video plays on Kodi on your Fire TV.">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="it_IT">
 <meta property="og:url" content="https://fpippi.github.io/cast-to-kodi/">
 <meta property="og:image" content="https://fpippi.github.io/cast-to-kodi/img/manda-a-kodi.gif">
 <script type="application/ld+json">
@@ -29,10 +31,12 @@
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "Couch Cast",
-  "alternateName": "cast-to-kodi",
+  "alternateName": ["Cast to Kodi", "cast-to-kodi"],
   "operatingSystem": "Android 13+",
   "applicationCategory": "MultimediaApplication",
-  "description": "Send videos from streaming sites on your Android phone to Kodi on Fire TV.",
+  "description": "Cast to Kodi from Android: send videos from websites on your phone to Kodi on Fire TV, Android TV or any Kodi box, with queue and remote. Free, no ads.",
+  "keywords": "cast to Kodi, send video to Kodi, Kodi Fire TV, phone to Kodi, Android to Fire TV, Kodi remote, Web Video Caster alternative, inviare video a Kodi, dal telefono alla Fire TV",
+  "inLanguage": ["en", "it"],
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
   "downloadUrl": "https://github.com/Fpippi/cast-to-kodi/releases/latest/download/CastToKodi.apk",
   "url": "https://fpippi.github.io/cast-to-kodi/",
@@ -119,6 +123,7 @@
   .hero h1 { font-size: clamp(2.3rem, 5.4vw, 3.9rem); font-weight: 800; line-height: 1.02; }
   .hero h1 em { font-style: normal; color: var(--play); }
   .hero .lead { color: var(--room-muted); font-size: 1.15rem; max-width: 34ch; margin: 18px 0 28px; }
+  .hero .eyebrow { color: var(--room-muted); margin-bottom: 14px; }
   .dl { display: inline-flex; align-items: center; gap: 14px; background: var(--play); color: var(--on-play); text-decoration: none; padding: 14px 26px 14px 18px; border-radius: 20px; box-shadow: 0 10px 30px -10px rgba(255,200,87,.55); transition: transform .15s ease; }
   .dl:hover { transform: translateY(-2px); }
   .dl svg { width: 34px; height: 34px; flex: none; }
@@ -296,10 +301,11 @@
 
     <div class="hero">
       <div>
+        <p class="eyebrow" lang="en">Cast to Kodi · Android → Fire TV</p><p class="eyebrow" lang="it">Invia video a Kodi · da Android alla Fire TV</p>
         <h1 lang="en">Phone in your hand.<br><em>Video on the TV.</em></h1>
         <h1 lang="it">Il telefono in mano.<br><em>Il video sulla TV.</em></h1>
-        <p class="lead" lang="en">Open the streaming site on your Android phone, start the player, and Couch Cast sends the video to Kodi on your Fire TV. Free, no ads, no account.</p>
-        <p class="lead" lang="it">Apri il sito di streaming sul telefono Android, avvia il player e Couch Cast manda il video a Kodi sulla Fire TV. Gratis, senza pubblicità, senza account.</p>
+        <p class="lead" lang="en">Cast to Kodi from your phone: open the streaming site on your Android phone, start the player, and Couch Cast sends the video to Kodi on your Fire TV. No screen mirroring, full quality. Free, no ads, no account.</p>
+        <p class="lead" lang="it">Invia i video dal telefono a Kodi: apri il sito di streaming sul telefono Android, avvia il player e Couch Cast manda il video a Kodi sulla Fire TV. Niente duplicazione dello schermo, qualità piena. Gratis, senza pubblicità, senza account.</p>
 
         <a class="dl" href="https://github.com/Fpippi/cast-to-kodi/releases/latest/download/CastToKodi.apk">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="M7 10.5l5 5 5-5"/><path d="M5 20h14"/></svg>
@@ -317,7 +323,7 @@
         </ul>
       </div>
       <div class="screen">
-        <img lang="en" src="img/en/manda-a-kodi.gif" width="760" height="480" alt="Animation: opening an episode on the phone, tapping Send to Kodi, and the video playing on the TV"><img lang="it" src="img/manda-a-kodi.gif" width="760" height="480" alt="Animazione: opening an episode on the phone, tapping Manda a Kodi, and the video playing on the TV">
+        <img lang="en" src="img/en/manda-a-kodi.gif" width="760" height="480" alt="Animation: opening an episode on the phone, tapping Send to Kodi, and the video playing on the TV"><img lang="it" src="img/manda-a-kodi.gif" width="760" height="480" alt="Animazione: apertura di un episodio sul telefono, Manda a Kodi e il video che parte sulla TV">
         <p lang="en">A drawing of the app, not a recording.</p>
         <p lang="it">Un disegno dell'app, non una registrazione.</p>
       </div>
@@ -371,7 +377,7 @@
           </div>
         </div>
         <div class="g-panel" data-panel="1" hidden>
-          <img lang="en" src="img/en/configura.gif" width="760" height="480" loading="lazy" alt="Animation: the app finds Kodi on the network"><img lang="it" src="img/configura.gif" width="760" height="480" loading="lazy" alt="Animazione: the app finds Kodi on the network">
+          <img lang="en" src="img/en/configura.gif" width="760" height="480" loading="lazy" alt="Animation: the app finds Kodi on the network"><img lang="it" src="img/configura.gif" width="760" height="480" loading="lazy" alt="Animazione: l'app trova Kodi in rete">
           <div class="g-text">
             <h3 lang="en">Find Kodi on the network</h3><h3 lang="it">Trova Kodi in rete</h3>
             <p lang="en">On first launch, <i>Where is Kodi?</i> searches your Wi-Fi (Kodi must be open, with <i>Announce services to other systems</i> on). Tap the Kodi it finds, add username and password if you set them.</p>
@@ -381,7 +387,7 @@
           </div>
         </div>
         <div class="g-panel" data-panel="2" hidden>
-          <img lang="en" src="img/en/accendi.gif" width="760" height="480" loading="lazy" alt="Animation: the power button wakes the Fire TV and opens Kodi"><img lang="it" src="img/accendi.gif" width="760" height="480" loading="lazy" alt="Animazione: the power button wakes the Fire TV and opens Kodi">
+          <img lang="en" src="img/en/accendi.gif" width="760" height="480" loading="lazy" alt="Animation: the power button wakes the Fire TV and opens Kodi"><img lang="it" src="img/accendi.gif" width="760" height="480" loading="lazy" alt="Animazione: il pulsante di accensione sveglia la Fire TV e apre Kodi">
           <div class="g-text">
             <h3 lang="en">One button to wake the TV</h3><h3 lang="it">Un pulsante per svegliare la TV</h3>
             <p lang="en">Tap ⏻ in the Kodi bar at the bottom. The app wakes the Fire TV over ADB, asks the TV (via HDMI-CEC) to switch to its input and opens Kodi, then tells you when it's ready. Some TVs stay on the last input: then pick it with the TV remote.</p>
@@ -391,7 +397,7 @@
           </div>
         </div>
         <div class="g-panel" data-panel="3" hidden>
-          <img lang="en" src="img/en/manda-a-kodi.gif" width="760" height="480" loading="lazy" alt="Animation: opening an episode, starting the player and tapping Send to Kodi"><img lang="it" src="img/manda-a-kodi.gif" width="760" height="480" loading="lazy" alt="Animazione: opening an episode, starting the player and tapping Manda a Kodi">
+          <img lang="en" src="img/en/manda-a-kodi.gif" width="760" height="480" loading="lazy" alt="Animation: opening an episode, starting the player and tapping Send to Kodi"><img lang="it" src="img/manda-a-kodi.gif" width="760" height="480" loading="lazy" alt="Animazione: apertura di un episodio, avvio del player e Manda a Kodi">
           <div class="g-text">
             <h3 lang="en">Start the player, then send</h3><h3 lang="it">Avvia il player, poi manda</h3>
             <p lang="en">Search or type the site in the top bar, open the episode and start the player. <i>Send to Kodi</i> appears: tap it and the video starts on the TV.</p>
@@ -401,7 +407,7 @@
           </div>
         </div>
         <div class="g-panel" data-panel="4" hidden>
-          <img lang="en" src="img/en/coda.gif" width="760" height="480" loading="lazy" alt="Animation: adding the next episode to Kodi's queue"><img lang="it" src="img/coda.gif" width="760" height="480" loading="lazy" alt="Animazione: adding the next episode to Kodi's queue">
+          <img lang="en" src="img/en/coda.gif" width="760" height="480" loading="lazy" alt="Animation: adding the next episode to Kodi's queue"><img lang="it" src="img/coda.gif" width="760" height="480" loading="lazy" alt="Animazione: l'episodio dopo aggiunto alla coda di Kodi">
           <div class="g-text">
             <h3 lang="en">Line up the evening</h3><h3 lang="it">Prepara la serata</h3>
             <p lang="en">While an episode plays, open the next one and tap <i>+</i> (queue). The remote's <i>Queue</i> tab shows what's next and the time each one starts.</p>
@@ -571,6 +577,16 @@
   <div class="wrap faq">
     <p class="eyebrow" lang="en">Questions</p><p class="eyebrow" lang="it">Domande</p>
     <h2 lang="en">Before you install</h2><h2 lang="it">Prima di installare</h2>
+    <details>
+      <summary><span lang="en">How do I cast a video from my phone to Kodi?</span><span lang="it">Come si manda un video dal telefono a Kodi?</span></summary>
+      <p lang="en">Install Couch Cast on your Android phone and turn on <i>Allow remote control via HTTP</i> in Kodi. Open the website in the app, start the player and tap <i>Send to Kodi</i>: the app catches the video stream (<code>.m3u8</code> or <code>.mp4</code>) and Kodi plays it on the TV. It works with Kodi on Fire TV and, untested, on Android TV, Nvidia Shield, Google TV, PC and Raspberry Pi.</p>
+      <p lang="it">Installa Couch Cast sul telefono Android e attiva in Kodi <i>Consenti il controllo remoto via HTTP</i>. Apri il sito nell'app, avvia il player e tocca <i>Manda a Kodi</i>: l'app prende il flusso del video (<code>.m3u8</code> o <code>.mp4</code>) e Kodi lo riproduce sulla TV. Funziona con Kodi sulla Fire TV e, non ancora provato, su Android TV, Nvidia Shield, Google TV, PC e Raspberry Pi.</p>
+    </details>
+    <details>
+      <summary><span lang="en">Is it a free alternative to Web Video Caster?</span><span lang="it">È un'alternativa gratuita a Web Video Caster?</span></summary>
+      <p lang="en">Yes, for Kodi: instead of a receiver app with ads or a paid Premium, Couch Cast sends the video to Kodi, which is free and already plays HLS. No ads, no account, no subscription, and a Kodi remote, a queue and <i>Keep watching</i> are included.</p>
+      <p lang="it">Sì, per Kodi: invece di un'app ricevitore con pubblicità o un Premium a pagamento, Couch Cast manda il video a Kodi, che è gratuito e riproduce già l'HLS. Niente pubblicità, account o abbonamenti, e ci sono il telecomando di Kodi, la coda e <i>Continua a guardare</i>.</p>
+    </details>
     <details>
       <summary><span lang="en">Why not just mirror the phone screen?</span><span lang="it">Perché non duplicare lo schermo del telefono?</span></summary>
       <p lang="en">Many phones (Samsung, Xiaomi and others) can mirror to the Fire TV with Miracast, but mirroring copies the screen: lower quality, and the phone has to stay on and busy for the whole episode. Some phones, like the Pixels, only cast with Google Cast, which the Fire TV doesn't support. Couch Cast sends the video to Kodi instead: Kodi plays it on its own at full quality, and the phone is free or can be locked.</p>
