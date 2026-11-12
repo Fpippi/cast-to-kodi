@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Da inviare in Search Console (Sitemap). I tutorial sono pagine di Jekyll (TUTORIAL.md → TUTORIAL.html). -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://fpippi.github.io/cast-to-kodi/</loc></url>
+  <url><loc>https://fpippi.github.io/cast-to-kodi/TUTORIAL.en.html</loc></url>
+  <url><loc>https://fpippi.github.io/cast-to-kodi/TUTORIAL.html</loc></url>
+</urlset>
